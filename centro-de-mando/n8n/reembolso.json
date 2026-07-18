@@ -1,0 +1,56 @@
+{
+  "name": "Reembolso - Ciclo de Riqueza",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reembolso-cicloderiqueza",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook reembolso",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "reembolso-cicloderiqueza"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body || $input.first().json;\nconst email = b?.data?.buyer?.email || b?.customer?.email || b?.email || '';\nconst transaccion = b?.data?.purchase?.transaction || b?.receipt || b?.order_id || b?.transaction_id || '';\nreturn [{ json: { email, transaccion } }];"
+      },
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/compra/reembolso",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REEMPLAZAR_CRON_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Motor: revocar acceso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook reembolso": { "main": [[{ "node": "Normalizar", "type": "main", "index": 0 }]] },
+    "Normalizar": { "main": [[{ "node": "Motor: revocar acceso", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

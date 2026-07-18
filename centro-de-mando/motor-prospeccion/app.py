@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import re
+import secrets as stdlib_secrets
 import time
 import uuid
 
@@ -243,6 +244,164 @@ def crm_lead(body: dict = Body(...)):
         creado = True
     guardar_seguro(data)
     return {"ok": True, "id": lead_id, "creado": creado}
+
+
+# ------------------------------------------- compras / app usuarios (F3)
+
+def _hash_credencial(email, password):
+    secreto = os.environ.get("TOKEN_SECRET", "")
+    return hmac.new(
+        secreto.encode(), f"{email}:{password}".encode(), "sha256"
+    ).hexdigest()
+
+
+@app.post("/compra/registrar")
+def compra_registrar(body: dict = Body(...), authorization: str = Header(None)):
+    """Alta de compra (la llama n8n con CRON_KEY al recibir el webhook de
+    Hotmart/ClickBank/ThriveCart). Idempotente por transaccion.
+
+    Efectos: upsert comprador, credencial de la Calculadora Pro (gating
+    'gratis de por vida para los primeros N', N de config), lead a etapa
+    Comprador. Devuelve la password SOLO si el app_usuario es nuevo, para que
+    n8n arme el correo de bienvenida; el motor guarda unicamente el hash.
+    """
+    _auth(authorization)
+    email = str(body.get("email", "")).strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(400, "email requerido")
+    transaccion = str(body.get("transaccion", "")).strip()
+    ws = "cicloderiqueza"
+
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    slice_ws = data.setdefault(ws, {})
+    compradores = slice_ws.setdefault("compradores", [])
+    usuarios = slice_ws.setdefault("app_usuarios", [])
+    config = slice_ws.get("config") or {}
+
+    if transaccion and any(c.get("transaccion") == transaccion for c in compradores):
+        return {"ok": True, "duplicada": True}
+
+    comprador = next(
+        (c for c in compradores if str(c.get("email", "")).lower() == email), None
+    )
+    if not comprador:
+        comprador = {"id": f"compra-{uuid.uuid4().hex[:10]}", "email": email}
+        compradores.append(comprador)
+    comprador.update({
+        "plataforma": body.get("plataforma") or comprador.get("plataforma") or "",
+        "idioma": body.get("idioma") or comprador.get("idioma") or "es",
+        "transaccion": transaccion or comprador.get("transaccion") or "",
+        "nombre": body.get("nombre") or comprador.get("nombre") or "",
+        "fecha": comprador.get("fecha") or time.strftime("%Y-%m-%d"),
+        "accesoApp": True,
+        "bonos": True,
+        "reembolsado": False,
+    })
+
+    password = None
+    usuario = next(
+        (u for u in usuarios if str(u.get("email", "")).lower() == email), None
+    )
+    if not usuario:
+        limite = int(config.get("appGratisPrimerosN") or 0)
+        otorgados = sum(1 for u in usuarios if u.get("vitalicio") and not u.get("revocado"))
+        password = stdlib_secrets.token_urlsafe(9)
+        usuarios.append({
+            "email": email,
+            "hash": _hash_credencial(email, password),
+            "vitalicio": otorgados < limite if limite else True,
+            "revocado": False,
+            "creado": time.strftime("%Y-%m-%d"),
+        })
+    elif usuario.get("revocado"):
+        # recompra tras reembolso: reactivar con credencial nueva
+        password = stdlib_secrets.token_urlsafe(9)
+        usuario.update({
+            "hash": _hash_credencial(email, password),
+            "revocado": False,
+        })
+    usuario = next(u for u in usuarios if str(u.get("email", "")).lower() == email)
+
+    # lead a etapa Comprador (upsert)
+    leads = slice_ws.setdefault("leads", [])
+    lead = next((l for l in leads if str(l.get("email", "")).lower() == email), None)
+    if not lead:
+        lead = {"id": f"lead-{uuid.uuid4().hex[:10]}", "email": email,
+                "creado": int(time.time()), "fuente": body.get("fuente") or "directo"}
+        leads.append(lead)
+    lead["etapa"] = "Comprador"
+    lead["nombre"] = lead.get("nombre") or body.get("nombre") or ""
+
+    guardar_seguro(data)
+    respuesta = {"ok": True, "vitalicio": bool(usuario.get("vitalicio"))}
+    if password:
+        respuesta["password"] = password
+    return respuesta
+
+
+@app.post("/compra/reembolso")
+def compra_reembolso(body: dict = Body(...), authorization: str = Header(None)):
+    """Reembolso dentro de la garantia de 7 dias: revoca app y bonos (regla
+    dura del producto). La llama n8n con CRON_KEY."""
+    _auth(authorization)
+    email = str(body.get("email", "")).strip().lower()
+    transaccion = str(body.get("transaccion", "")).strip()
+    if not email and not transaccion:
+        raise HTTPException(400, "email o transaccion requeridos")
+
+    data = crm_store.leer() or {}
+    slice_ws = data.get("cicloderiqueza") or {}
+    comprador = next(
+        (c for c in slice_ws.get("compradores", [])
+         if (email and str(c.get("email", "")).lower() == email)
+         or (transaccion and c.get("transaccion") == transaccion)),
+        None,
+    )
+    if not comprador:
+        raise HTTPException(404, "compra no encontrada")
+    comprador.update({"reembolsado": True, "accesoApp": False, "bonos": False})
+    usuario = next(
+        (u for u in slice_ws.get("app_usuarios", [])
+         if str(u.get("email", "")).lower() == str(comprador["email"]).lower()),
+        None,
+    )
+    if usuario:
+        usuario["revocado"] = True
+    lead = next(
+        (l for l in slice_ws.get("leads", [])
+         if str(l.get("email", "")).lower() == str(comprador["email"]).lower()),
+        None,
+    )
+    if lead:
+        lead["etapa"] = "Reembolsado"
+    guardar_seguro(data)
+    return {"ok": True}
+
+
+@app.post("/app/validar")
+def app_validar(body: dict = Body(...)):
+    """Login de la Calculadora Pro (publico). La app valida contra el motor
+    para que la revocacion por reembolso sea inmediata."""
+    email = str(body.get("email", "")).strip().lower()
+    password = str(body.get("password", ""))
+    if not email or not password:
+        raise HTTPException(401, "credenciales invalidas")
+    data = crm_store.leer() or {}
+    usuario = next(
+        (u for u in (data.get("cicloderiqueza") or {}).get("app_usuarios", [])
+         if str(u.get("email", "")).lower() == email),
+        None,
+    )
+    valido = (
+        usuario is not None
+        and not usuario.get("revocado")
+        and hmac.compare_digest(
+            usuario.get("hash", ""), _hash_credencial(email, password)
+        )
+    )
+    if not valido:
+        raise HTTPException(401, "credenciales invalidas")
+    return {"ok": True, "vitalicio": bool(usuario.get("vitalicio"))}
 
 
 @app.post("/admin/cambiar_clave")
