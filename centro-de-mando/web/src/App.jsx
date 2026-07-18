@@ -1,0 +1,1064 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  cambiarClave,
+  clearToken,
+  estadoSecretos,
+  guardarSecreto,
+  loadData,
+  saveData,
+  seed,
+} from "./db.js";
+
+// ---------------------------------------------------------------- utilidades
+
+const hoyISO = () => new Date().toISOString().slice(0, 10);
+const mesActual = () => new Date().toISOString().slice(0, 7);
+const sumarDias = (dias) => {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+};
+const uid = (pref) => `${pref}-${Math.random().toString(36).slice(2, 10)}`;
+
+// Config SIEMPRE desde data.<ws>.config (autocorreccion #10: nada hardcodeado)
+const cfg = (data, ws) => data?.[ws]?.config || {};
+
+// ---------------------------------------------------------------- navegacion
+
+const NAV = {
+  atlantis: [
+    { sec: "Panel", items: [["panel", "Panel"]] },
+    {
+      sec: "Comercial",
+      items: [
+        ["leads", "Leads"],
+        ["pipeline", "Pipeline"],
+        ["seguimiento", "Seguimiento"],
+        ["consultas", "Consultas"],
+        ["fuentes", "Fuentes / UTM"],
+      ],
+    },
+    { sec: "Configuración", items: [["accesos", "Accesos"]] },
+  ],
+  cicloderiqueza: [
+    { sec: "Panel", items: [["panel", "Panel"]] },
+    {
+      sec: "Producto 44 USD",
+      items: [
+        ["leads", "Leads"],
+        ["pipeline", "Pipeline"],
+        ["seguimiento", "Seguimiento"],
+        ["compradores", "Compradores"],
+        ["afiliados", "Afiliados"],
+        ["appusuarios", "App · Calculadora Pro"],
+        ["fuentes", "Fuentes / UTM"],
+      ],
+    },
+    { sec: "Configuración", items: [["accesos", "Accesos"]] },
+  ],
+};
+
+// ---------------------------------------------------------------- shell
+
+export default function App() {
+  const [data, setData] = useState(null);
+  const [vista, setVista] = useState("panel");
+  const [navAbierto, setNavAbierto] = useState(false);
+  const [errorCarga, setErrorCarga] = useState("");
+  const guardandoRef = useRef(0);
+  const ultimaEdicionRef = useRef(0);
+
+  const ws = data?.workspace === "cicloderiqueza" ? "cicloderiqueza" : "atlantis";
+
+  useEffect(() => {
+    loadData()
+      .then((d) => setData(d || seed()))
+      .catch((e) => setErrorCarga(String(e)));
+  }, []);
+
+  // commit optimista: pinta ya, guarda el documento COMPLETO detras
+  const commit = (siguiente) => {
+    setData(siguiente);
+    ultimaEdicionRef.current = Date.now();
+    guardandoRef.current += 1;
+    saveData(siguiente)
+      .catch(() => {})
+      .finally(() => {
+        guardandoRef.current -= 1;
+      });
+  };
+
+  // reload al reenfocar: trae escrituras server-side sin pisar lo no guardado
+  useEffect(() => {
+    const alEnfocar = () => {
+      if (guardandoRef.current > 0) return;
+      if (Date.now() - ultimaEdicionRef.current < 4000) return;
+      loadData().then(setData).catch(() => {});
+    };
+    window.addEventListener("focus", alEnfocar);
+    return () => window.removeEventListener("focus", alEnfocar);
+  }, []);
+
+  if (errorCarga)
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6 text-center">
+        <div>
+          <p className="text-red-400">No se pudo cargar el CRM: {errorCarga}</p>
+          <button className="boton mt-4" onClick={() => window.location.reload()}>
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  if (!data)
+    return (
+      <div className="flex min-h-screen items-center justify-center text-gris">
+        Cargando el Centro de Mando...
+      </div>
+    );
+
+  const cambiarWorkspace = (nuevo) => {
+    commit({ ...data, workspace: nuevo });
+    setVista("panel");
+  };
+
+  const props = { data, commit, ws };
+  const VISTAS = {
+    panel: <Panel {...props} />,
+    leads: <Leads {...props} />,
+    pipeline: <Pipeline {...props} />,
+    seguimiento: <Seguimiento {...props} />,
+    consultas: <Consultas {...props} />,
+    fuentes: <Fuentes {...props} />,
+    compradores: <Compradores {...props} />,
+    afiliados: <Afiliados {...props} />,
+    appusuarios: <AppUsuarios {...props} />,
+    accesos: <Accesos {...props} />,
+  };
+
+  const titulo =
+    NAV[ws].flatMap((s) => s.items).find(([v]) => v === vista)?.[1] || "Panel";
+
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      {/* barra superior movil */}
+      <div className="flex items-center gap-3 border-b border-gris/10 p-4 md:hidden">
+        <button
+          aria-label="Abrir menú"
+          className="text-oro"
+          onClick={() => setNavAbierto(true)}
+        >
+          ☰
+        </button>
+        <span className="font-display text-lg text-oro">Atlantis</span>
+        <span className="text-sm text-gris">· {titulo}</span>
+      </div>
+
+      {navAbierto && (
+        <div
+          className="fixed inset-0 z-20 bg-negro/70 md:hidden"
+          onClick={() => setNavAbierto(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed z-30 h-full w-64 shrink-0 overflow-y-auto border-r border-gris/10 bg-negro p-5 transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 ${
+          navAbierto ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="mb-6">
+          <div className="font-display text-2xl text-oro">Atlantis</div>
+          <div className="text-xs uppercase tracking-widest text-gris">
+            Centro de Mando
+          </div>
+        </div>
+
+        <select
+          aria-label="Línea de negocio"
+          className="campo mb-6"
+          value={ws}
+          onChange={(e) => cambiarWorkspace(e.target.value)}
+        >
+          <option value="atlantis">Atlantis · Inmobiliaria</option>
+          <option value="cicloderiqueza">Ciclo de Riqueza · 44 USD</option>
+        </select>
+
+        {NAV[ws].map(({ sec, items }) => (
+          <div key={sec} className="mb-5">
+            <div className="mb-2 text-xs uppercase tracking-wider text-gris/60">
+              {sec}
+            </div>
+            {items.map(([v, etiqueta]) => (
+              <button
+                key={v}
+                onClick={() => {
+                  setVista(v);
+                  setNavAbierto(false);
+                }}
+                className={`mb-1 block w-full rounded-md px-3 py-2 text-left text-sm transition ${
+                  vista === v
+                    ? "bg-oro/15 text-oro"
+                    : "text-crema/80 hover:bg-navy/60"
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+        ))}
+
+        <button
+          className="mt-4 text-xs text-gris/60 hover:text-gris"
+          onClick={() => {
+            clearToken();
+            window.location.reload();
+          }}
+        >
+          Salir
+        </button>
+      </aside>
+
+      <main className="min-w-0 flex-1 p-5 md:p-8">{VISTAS[vista] || VISTAS.panel}</main>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Panel
+
+function Panel({ data, commit, ws }) {
+  const config = cfg(data, ws);
+  const slice = data[ws] || {};
+  const leads = slice.leads || [];
+  const mes = mesActual();
+  const meta = (slice.metas || {})[mes] || 0;
+
+  const inicioMes = `${mes}-01`;
+  const leadsMes = leads.filter((l) => {
+    const f = l.creado ? new Date(l.creado * 1000).toISOString().slice(0, 10) : "";
+    return f >= inicioMes;
+  });
+  const etapaFinal = config.stages?.includes("Cliente") ? "Cliente" : "Comprador";
+  const cerrados = leads.filter((l) => l.etapa === etapaFinal);
+  const vencidos = leads.filter(
+    (l) => l.followUpDate && l.followUpDate < hoyISO() && !["Descartado", "Baja"].includes(l.etapa)
+  );
+  const valorCerrado = cerrados.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+  const avance = meta > 0 ? Math.min(100, Math.round((valorCerrado / meta) * 100)) : 0;
+
+  const ponerMeta = () => {
+    const v = window.prompt(`Meta de ${mes} (${config.moneda || "USD"})`, meta || "");
+    if (v === null) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].metas = { ...(siguiente[ws].metas || {}), [mes]: Number(v) || 0 };
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado titulo={config.nombre || "Panel"} sub={`Panel · ${mes}`} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi etiqueta="Leads del mes" valor={leadsMes.length} />
+        <Kpi
+          etiqueta={etapaFinal === "Comprador" ? "Compradores" : "Clientes"}
+          valor={cerrados.length}
+        />
+        <Kpi etiqueta="Seguimientos vencidos" valor={vencidos.length} alerta={vencidos.length > 0} />
+        <Kpi etiqueta="Leads totales" valor={leads.length} />
+      </div>
+
+      <div className="tarjeta mt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gris">Meta del mes</div>
+            <div className="font-display text-3xl text-oro">
+              {valorCerrado.toLocaleString()} / {meta.toLocaleString()}{" "}
+              <span className="text-base">{config.moneda || "USD"}</span>
+            </div>
+          </div>
+          <button className="boton-secundario" onClick={ponerMeta}>
+            {meta ? "Cambiar meta" : "Definir meta"}
+          </button>
+        </div>
+        <div className="mt-4 h-2 rounded-full bg-navy">
+          <div
+            className="h-2 rounded-full bg-oro transition-all"
+            style={{ width: `${avance}%` }}
+          />
+        </div>
+        <div className="mt-2 text-right text-xs text-gris">{avance}%</div>
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ etiqueta, valor, alerta }) {
+  return (
+    <div className="tarjeta">
+      <div className="text-sm text-gris">{etiqueta}</div>
+      <div className={`font-display text-4xl ${alerta ? "text-red-400" : "text-oro"}`}>
+        {valor}
+      </div>
+    </div>
+  );
+}
+
+function Encabezado({ titulo, sub }) {
+  return (
+    <div className="mb-6">
+      <h1 className="font-display text-2xl text-crema">{titulo}</h1>
+      {sub && <p className="text-sm text-gris">{sub}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Leads
+
+function moverEtapa(data, ws, leadId, etapa) {
+  const siguiente = structuredClone(data);
+  const lead = (siguiente[ws].leads || []).find((l) => l.id === leadId);
+  if (!lead) return data;
+  lead.etapa = etapa;
+  // cadencia de seguimiento: SIEMPRE de la config, nunca constante
+  const dias = cfg(siguiente, ws).cadenciaDias?.[etapa];
+  lead.followUpDate = dias ? sumarDias(dias) : lead.followUpDate || "";
+  return siguiente;
+}
+
+function Leads({ data, commit, ws }) {
+  const config = cfg(data, ws);
+  const leads = data[ws]?.leads || [];
+  const [nuevo, setNuevo] = useState({ nombre: "", email: "", fuente: "directo" });
+
+  const agregar = (e) => {
+    e.preventDefault();
+    if (!nuevo.email) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].leads = [
+      ...(siguiente[ws].leads || []),
+      {
+        id: uid("lead"),
+        ...nuevo,
+        etapa: config.stages?.[0] || "Nuevo",
+        creado: Math.floor(Date.now() / 1000),
+        followUpDate: sumarDias(config.cadenciaDias?.[config.stages?.[0]] || 2),
+      },
+    ];
+    commit(siguiente);
+    setNuevo({ nombre: "", email: "", fuente: "directo" });
+  };
+
+  const actualizar = (id, campo, valor) => {
+    if (campo === "etapa") return commit(moverEtapa(data, ws, id, valor));
+    const siguiente = structuredClone(data);
+    const lead = siguiente[ws].leads.find((l) => l.id === id);
+    if (lead) lead[campo] = valor;
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado titulo="Leads" sub={`${leads.length} en total`} />
+      <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo"
+          placeholder="Nombre"
+          value={nuevo.nombre}
+          onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
+        />
+        <input
+          className="campo"
+          type="email"
+          placeholder="Email"
+          value={nuevo.email}
+          onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.fuente}
+          onChange={(e) => setNuevo({ ...nuevo, fuente: e.target.value })}
+        >
+          {(config.fuentes || ["directo"]).map((f) => (
+            <option key={f}>{f}</option>
+          ))}
+        </select>
+        <button className="boton">Agregar lead</button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Nombre</th>
+              <th className="p-2">Email</th>
+              <th className="p-2">Fuente</th>
+              <th className="p-2">Etapa</th>
+              <th className="p-2">Valor</th>
+              <th className="p-2">Seguimiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leads.map((l) => (
+              <tr key={l.id} className="border-b border-gris/10">
+                <td className="p-2">{l.nombre || "(sin nombre)"}</td>
+                <td className="p-2 text-gris">{l.email}</td>
+                <td className="p-2 text-gris">{l.fuente}</td>
+                <td className="p-2">
+                  <select
+                    className="campo !py-1"
+                    value={l.etapa}
+                    onChange={(e) => actualizar(l.id, "etapa", e.target.value)}
+                  >
+                    {(config.stages || []).map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="p-2">
+                  <input
+                    className="campo !w-24 !py-1"
+                    type="number"
+                    value={l.valor || ""}
+                    placeholder="0"
+                    onChange={(e) => actualizar(l.id, "valor", e.target.value)}
+                  />
+                </td>
+                <td className="p-2 text-gris">{l.followUpDate || "-"}</td>
+              </tr>
+            ))}
+            {leads.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gris">
+                  Aún no hay leads. Agrega el primero arriba o conecta un formulario a
+                  /crm/lead.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Pipeline
+
+function Pipeline({ data, commit, ws }) {
+  const config = cfg(data, ws);
+  const leads = data[ws]?.leads || [];
+  const etapas = config.stages || [];
+
+  return (
+    <div>
+      <Encabezado titulo="Pipeline" sub="Forecast ponderado por probabilidad de etapa" />
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {etapas.map((etapa) => {
+          const columna = leads.filter((l) => l.etapa === etapa);
+          const prob = (config.probabilidadPorEtapa?.[etapa] ?? 0) / 100;
+          const forecast = columna.reduce(
+            (s, l) => s + (Number(l.valor) || 0) * prob,
+            0
+          );
+          return (
+            <div key={etapa} className="w-64 shrink-0">
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-crema">{etapa}</span>
+                <span className="text-xs text-gris">
+                  {columna.length} · {Math.round(forecast).toLocaleString()}{" "}
+                  {config.moneda || "USD"}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {columna.map((l) => (
+                  <div key={l.id} className="tarjeta !p-3">
+                    <div className="text-sm">{l.nombre || l.email}</div>
+                    {l.valor && (
+                      <div className="text-xs text-oro">
+                        {Number(l.valor).toLocaleString()} {config.moneda || "USD"}
+                      </div>
+                    )}
+                    <select
+                      aria-label={`Mover ${l.nombre || l.email} a otra etapa`}
+                      className="campo mt-2 !py-1 text-xs"
+                      value={l.etapa}
+                      onChange={(e) =>
+                        commit(moverEtapa(data, ws, l.id, e.target.value))
+                      }
+                    >
+                      {etapas.map((s) => (
+                        <option key={s} value={s}>
+                          Mover a: {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Seguimiento
+
+function Seguimiento({ data, commit, ws }) {
+  const leads = (data[ws]?.leads || []).filter(
+    (l) => l.followUpDate && !["Descartado", "Baja", "Cliente", "Comprador"].includes(l.etapa)
+  );
+  const hoy = hoyISO();
+  const finSemana = sumarDias(7);
+  const grupos = {
+    Vencidas: leads.filter((l) => l.followUpDate < hoy),
+    Hoy: leads.filter((l) => l.followUpDate === hoy),
+    "Esta semana": leads.filter((l) => l.followUpDate > hoy && l.followUpDate <= finSemana),
+    "Más adelante": leads.filter((l) => l.followUpDate > finSemana),
+  };
+
+  const posponer = (id, dias) => {
+    const siguiente = structuredClone(data);
+    const lead = siguiente[ws].leads.find((l) => l.id === id);
+    if (lead) lead.followUpDate = sumarDias(dias);
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado titulo="Seguimiento" sub="Tareas por fecha de próximo toque" />
+      {Object.entries(grupos).map(([grupo, lista]) => (
+        <div key={grupo} className="mb-6">
+          <h2
+            className={`mb-2 text-sm font-semibold uppercase tracking-wide ${
+              grupo === "Vencidas" && lista.length ? "text-red-400" : "text-gris"
+            }`}
+          >
+            {grupo} ({lista.length})
+          </h2>
+          {lista.map((l) => (
+            <div key={l.id} className="tarjeta mb-2 flex items-center justify-between !p-3">
+              <div>
+                <div className="text-sm">{l.nombre || l.email}</div>
+                <div className="text-xs text-gris">
+                  {l.etapa} · toca el {l.followUpDate}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => posponer(l.id, 1)}>
+                  +1 día
+                </button>
+                <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => posponer(l.id, 7)}>
+                  +7 días
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Consultas (diagnóstico Atlantis)
+
+function Consultas({ data, commit, ws }) {
+  const consultas = data[ws]?.consultas || [];
+  const leads = data[ws]?.leads || [];
+  const [nueva, setNueva] = useState({ leadId: "", fecha: "" });
+  const ESTADOS = ["agendada", "realizada", "no-show", "cancelada"];
+
+  if (ws !== "atlantis")
+    return (
+      <p className="text-gris">
+        Las consultas de diagnóstico viven en el workspace de Atlantis.
+      </p>
+    );
+
+  const agendar = (e) => {
+    e.preventDefault();
+    if (!nueva.leadId || !nueva.fecha) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].consultas = [
+      ...(siguiente[ws].consultas || []),
+      { id: uid("con"), ...nueva, estado: "agendada" },
+    ];
+    commit(siguiente);
+    setNueva({ leadId: "", fecha: "" });
+  };
+
+  const cambiarEstado = (id, estado) => {
+    const siguiente = structuredClone(data);
+    const con = siguiente[ws].consultas.find((c) => c.id === id);
+    if (con) con.estado = estado;
+    commit(siguiente);
+  };
+
+  const nombreLead = (id) =>
+    leads.find((l) => l.id === id)?.nombre ||
+    leads.find((l) => l.id === id)?.email ||
+    "(lead)";
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Consultas de diagnóstico"
+        sub="La consulta es un diagnóstico, no una venta"
+      />
+      <form onSubmit={agendar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-3">
+        <select
+          className="campo"
+          value={nueva.leadId}
+          onChange={(e) => setNueva({ ...nueva, leadId: e.target.value })}
+        >
+          <option value="">Selecciona el lead</option>
+          {leads.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.nombre || l.email}
+            </option>
+          ))}
+        </select>
+        <input
+          className="campo"
+          type="datetime-local"
+          value={nueva.fecha}
+          onChange={(e) => setNueva({ ...nueva, fecha: e.target.value })}
+        />
+        <button className="boton">Agendar</button>
+      </form>
+
+      {consultas.map((c) => (
+        <div key={c.id} className="tarjeta mb-2 flex items-center justify-between !p-3">
+          <div>
+            <div className="text-sm">{nombreLead(c.leadId)}</div>
+            <div className="text-xs text-gris">{(c.fecha || "").replace("T", " · ")}</div>
+          </div>
+          <select
+            className="campo !w-36 !py-1 text-xs"
+            value={c.estado}
+            onChange={(e) => cambiarEstado(c.id, e.target.value)}
+          >
+            {ESTADOS.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      ))}
+      {consultas.length === 0 && (
+        <p className="text-sm text-gris">Sin consultas agendadas todavía.</p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Fuentes / UTM
+
+function Fuentes({ data, commit, ws }) {
+  const enlaces = data[ws]?.enlacesUTM || [];
+  const [nuevo, setNuevo] = useState({ url: "", fuente: "instagram", campana: "" });
+
+  const generar = (e) => {
+    e.preventDefault();
+    if (!nuevo.url) return;
+    const id = uid("utm");
+    const enlace = `${nuevo.url}${nuevo.url.includes("?") ? "&" : "?"}utm_source=${
+      nuevo.fuente
+    }&utm_campaign=${nuevo.campana || id}`;
+    const siguiente = structuredClone(data);
+    // si se re-agrega uno borrado, la señal 'revivir' levanta la lápida
+    siguiente[ws].revivir = { enlacesUTM: [id] };
+    siguiente[ws].enlacesUTM = [...enlaces, { id, ...nuevo, enlace }];
+    commit(siguiente);
+    setNuevo({ url: "", fuente: "instagram", campana: "" });
+  };
+
+  const borrar = (id) => {
+    // borrar por LÁPIDA, nunca por omisión (autocorreccion #2)
+    const siguiente = structuredClone(data);
+    const borrados = siguiente[ws].borrados || {};
+    borrados.enlacesUTM = [...(borrados.enlacesUTM || []), id];
+    siguiente[ws].borrados = borrados;
+    siguiente[ws].enlacesUTM = enlaces.filter((u) => u.id !== id);
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Fuentes / UTM"
+        sub="fuente = utm_source (canal real) · type = formulario (valor fijo)"
+      />
+      <form onSubmit={generar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo sm:col-span-2"
+          placeholder="URL destino (https://...)"
+          value={nuevo.url}
+          onChange={(e) => setNuevo({ ...nuevo, url: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.fuente}
+          onChange={(e) => setNuevo({ ...nuevo, fuente: e.target.value })}
+        >
+          {(cfg(data, ws).fuentes || []).map((f) => (
+            <option key={f}>{f}</option>
+          ))}
+        </select>
+        <button className="boton">Generar enlace</button>
+      </form>
+
+      {enlaces.map((u) => (
+        <div key={u.id} className="tarjeta mb-2 flex items-center justify-between gap-3 !p-3">
+          <code className="min-w-0 flex-1 truncate text-xs text-oro">{u.enlace}</code>
+          <div className="flex shrink-0 gap-2">
+            <button
+              className="boton-secundario !px-2 !py-1 text-xs"
+              onClick={() => navigator.clipboard?.writeText(u.enlace)}
+            >
+              Copiar
+            </button>
+            <button
+              className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400"
+              onClick={() => borrar(u.id)}
+            >
+              Borrar
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Compradores (cicloderiqueza)
+
+function Compradores({ data, commit, ws }) {
+  const compradores = data[ws]?.compradores || [];
+  const config = cfg(data, ws);
+  const [nuevo, setNuevo] = useState({ email: "", plataforma: "Hotmart", idioma: "es" });
+
+  const agregar = (e) => {
+    e.preventDefault();
+    if (!nuevo.email) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].compradores = [
+      ...compradores,
+      {
+        id: uid("compra"),
+        ...nuevo,
+        fecha: hoyISO(),
+        accesoApp: true,
+        bonos: true,
+        reembolsado: false,
+      },
+    ];
+    commit(siguiente);
+    setNuevo({ email: "", plataforma: "Hotmart", idioma: "es" });
+  };
+
+  const marcarReembolso = (id) => {
+    // garantía 7 días: el reembolso revoca app y bonos (regla del producto)
+    const siguiente = structuredClone(data);
+    const c = siguiente[ws].compradores.find((x) => x.id === id);
+    if (c) {
+      c.reembolsado = true;
+      c.accesoApp = false;
+      c.bonos = false;
+      const u = (siguiente[ws].app_usuarios || []).find((x) => x.email === c.email);
+      if (u) u.revocado = true;
+    }
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Compradores"
+        sub={`Producto a ${config.precio || "44 USD"} · garantía de 7 días`}
+      />
+      <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo"
+          type="email"
+          placeholder="Email"
+          value={nuevo.email}
+          onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.plataforma}
+          onChange={(e) => setNuevo({ ...nuevo, plataforma: e.target.value })}
+        >
+          {["Hotmart", "ClickBank", "ThriveCart"].map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+        <select
+          className="campo"
+          value={nuevo.idioma}
+          onChange={(e) => setNuevo({ ...nuevo, idioma: e.target.value })}
+        >
+          <option value="es">ES</option>
+          <option value="en">EN</option>
+        </select>
+        <button className="boton">Registrar compra</button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Email</th>
+              <th className="p-2">Plataforma</th>
+              <th className="p-2">Idioma</th>
+              <th className="p-2">Fecha</th>
+              <th className="p-2">Estado</th>
+              <th className="p-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {compradores.map((c) => (
+              <tr key={c.id} className="border-b border-gris/10">
+                <td className="p-2">{c.email}</td>
+                <td className="p-2 text-gris">{c.plataforma}</td>
+                <td className="p-2 text-gris">{(c.idioma || "es").toUpperCase()}</td>
+                <td className="p-2 text-gris">{c.fecha}</td>
+                <td className="p-2">
+                  {c.reembolsado ? (
+                    <span className="text-red-400">Reembolsado · acceso revocado</span>
+                  ) : (
+                    <span className="text-oro">Activo</span>
+                  )}
+                </td>
+                <td className="p-2">
+                  {!c.reembolsado && (
+                    <button
+                      className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400"
+                      onClick={() => marcarReembolso(c.id)}
+                    >
+                      Reembolso
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {compradores.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gris">
+                  Sin compras registradas. Los webhooks de Hotmart/ClickBank/ThriveCart
+                  entrarán por n8n (fase 3).
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Afiliados (cicloderiqueza)
+
+function Afiliados({ data, commit, ws }) {
+  const afiliados = data[ws]?.afiliados || [];
+  const [nuevo, setNuevo] = useState({ canal: "", vertical: "finanzas e inversión" });
+  const VERTICALES = [
+    "productividad/hábitos",
+    "mentalidad",
+    "finanzas e inversión",
+    "crecimiento personal",
+    "crecimiento profesional",
+  ];
+
+  const agregar = (e) => {
+    e.preventDefault();
+    if (!nuevo.canal) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].afiliados = [
+      ...afiliados,
+      { id: uid("afi"), ...nuevo, estado: "prospecto", fitScore: null },
+    ];
+    commit(siguiente);
+    setNuevo({ canal: "", vertical: VERTICALES[2] });
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Afiliados / Embajadores"
+        sub="YouTubers de las 5 verticales · comisión se define en la llamada de partners"
+      />
+      <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-3">
+        <input
+          className="campo"
+          placeholder="Canal de YouTube (URL o @handle)"
+          value={nuevo.canal}
+          onChange={(e) => setNuevo({ ...nuevo, canal: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.vertical}
+          onChange={(e) => setNuevo({ ...nuevo, vertical: e.target.value })}
+        >
+          {VERTICALES.map((v) => (
+            <option key={v}>{v}</option>
+          ))}
+        </select>
+        <button className="boton">Agregar</button>
+      </form>
+
+      {afiliados.map((a) => (
+        <div key={a.id} className="tarjeta mb-2 flex items-center justify-between !p-3">
+          <div>
+            <div className="text-sm">{a.canal}</div>
+            <div className="text-xs text-gris">
+              {a.vertical} · Fit Score: {a.fitScore ?? "por calcular (fase 4)"}
+            </div>
+          </div>
+          <span className="text-xs text-oro">{a.estado}</span>
+        </div>
+      ))}
+      {afiliados.length === 0 && (
+        <p className="text-sm text-gris">
+          El descubrimiento automático (skill youtube-embajadores) llega en la fase 4.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- App usuarios (Calculadora Pro)
+
+function AppUsuarios({ data, ws }) {
+  const usuarios = data[ws]?.app_usuarios || [];
+  const limite = cfg(data, ws).appGratisPrimerosN || 0;
+  const vitalicios = usuarios.filter((u) => u.vitalicio && !u.revocado).length;
+
+  return (
+    <div>
+      <Encabezado
+        titulo="App · Calculadora Pro"
+        sub={`Gratis de por vida para los primeros ${limite} compradores · ${vitalicios} otorgados`}
+      />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Email</th>
+              <th className="p-2">Vitalicio</th>
+              <th className="p-2">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u) => (
+              <tr key={u.email} className="border-b border-gris/10">
+                <td className="p-2">{u.email}</td>
+                <td className="p-2 text-gris">{u.vitalicio ? "Sí" : "No"}</td>
+                <td className="p-2">
+                  {u.revocado ? (
+                    <span className="text-red-400">Revocado</span>
+                  ) : (
+                    <span className="text-oro">Activo</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {usuarios.length === 0 && (
+              <tr>
+                <td colSpan={3} className="p-6 text-center text-gris">
+                  Las credenciales las genera n8n al confirmarse cada compra (fase 3).
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Accesos
+
+function Accesos() {
+  const [nuevaClave, setNuevaClave] = useState("");
+  const [mensaje, setMensaje] = useState("");
+  const [secretos, setSecretos] = useState({});
+  const [valores, setValores] = useState({});
+
+  useEffect(() => {
+    estadoSecretos().then(setSecretos);
+  }, []);
+
+  const rotarClave = async (e) => {
+    e.preventDefault();
+    const ok = await cambiarClave(nuevaClave);
+    setMensaje(ok ? "Clave actualizada." : "No se pudo cambiar la clave (mínimo 8 caracteres).");
+    if (ok) setNuevaClave("");
+  };
+
+  const guardar = async (clave) => {
+    const valor = valores[clave];
+    if (!valor) return;
+    const ok = await guardarSecreto(clave, valor);
+    if (ok) {
+      setValores({ ...valores, [clave]: "" });
+      setSecretos(await estadoSecretos());
+    }
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Accesos"
+        sub="Los secretos viven en el vault del servidor; aquí solo se escriben, nunca se leen"
+      />
+
+      <form onSubmit={rotarClave} className="tarjeta mb-6 max-w-md space-y-3">
+        <div className="text-sm font-semibold">Clave del Centro de Mando</div>
+        <input
+          className="campo"
+          type="password"
+          placeholder="Nueva clave (mínimo 8 caracteres)"
+          value={nuevaClave}
+          onChange={(e) => setNuevaClave(e.target.value)}
+        />
+        <button className="boton" disabled={nuevaClave.length < 8}>
+          Rotar clave
+        </button>
+        {mensaje && <p className="text-xs text-gris">{mensaje}</p>}
+        <p className="text-xs text-gris/70">
+          Los flujos de n8n usan la CRON_KEY estable: rotar esta clave no los rompe.
+        </p>
+      </form>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {Object.entries(secretos).map(([clave, info]) => (
+          <div key={clave} className="tarjeta !p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-semibold">{clave}</span>
+              <span className={`text-xs ${info.valido ? "text-oro" : "text-gris/50"}`}>
+                {info.valido ? info.mascara : "sin configurar"}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="campo !py-1 text-xs"
+                type="password"
+                placeholder="Pegar valor nuevo"
+                value={valores[clave] || ""}
+                onChange={(e) => setValores({ ...valores, [clave]: e.target.value })}
+                autoComplete="off"
+              />
+              <button
+                className="boton-secundario !px-3 !py-1 text-xs"
+                onClick={() => guardar(clave)}
+                disabled={!valores[clave]}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
