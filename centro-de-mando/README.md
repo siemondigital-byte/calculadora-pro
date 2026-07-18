@@ -26,18 +26,29 @@ en la raíz del repo).
   interceptor 401, service worker con `CACHE vN`.
 - `docker-compose.yml` + `nginx-web.conf` — motor + web + n8n.
 
-## Desplegar (F0, cuando haya VPS)
+## Desplegar (F0) — un solo comando en el VPS
 
-1. DNS: `crm.`, `motor.`, `hooks.` → IP del VPS. TLS con Traefik o certbot.
-2. En el VPS: clonar, crear `.env` con `CRM_PASSWORD`, `CRON_KEY`,
-   `TOKEN_SECRET`, `ANTHROPIC_API_KEY` (el resto de claves van por el vault
-   desde la UI de Accesos, nunca en `.env`).
-3. `cd web && npm ci && VITE_MOTOR_URL=https://motor.atlantisglobalrealty.com npm run build`
-4. `docker compose up -d --build`
-5. Verificación obligatoria (checklist completo en
+La web se construye DENTRO de Docker (multi-stage) y Caddy emite el TLS solo:
+el VPS no necesita Node ni certbot.
+
+1. **DNS primero:** registros A de `crm.`, `motor.` y `hooks.`
+   `atlantisglobalrealty.com` → IP del VPS (sin esto Caddy no emite TLS).
+2. En la terminal del VPS (hPanel → VPS → Terminal del navegador), como root:
+   ```
+   git clone --branch claude/new-session-3rjwcr https://github.com/siemondigital-byte/calculadora-pro.git /root/atlantis
+   bash /root/atlantis/centro-de-mando/scripts/bootstrap-vps.sh
+   ```
+   (Repo privado: usar `https://<TOKEN>@github.com/...` en el clone.)
+   El script instala Docker si falta, genera `.env` con claves nuevas
+   (imprime la clave de acceso al CRM una sola vez), levanta todo y corre el
+   checklist de verificación.
+3. Pegar `ANTHROPIC_API_KEY` en `/root/atlantis/centro-de-mando/.env` y
+   `docker compose up -d motor` para activar la IA. El resto de claves van por
+   el vault desde la UI de Accesos, nunca en `.env`.
+4. Verificación obligatoria (checklist completo en
    `docs/plan-centro-de-mando-atlantis.md` y en la skill `despliegue.md`):
-   - `curl https://motor.../` → 200; sin Bearer → 503/401.
-   - Login en `crm...`, crear un lead, `GET /crm/data` confirma el efecto.
+   - `curl https://motor.../` → 200; `/crm/data` sin Bearer → 401.
+   - Login en `crm...`, crear un lead, recargar y confirmar que persiste.
 
 ## Ritual de cada deploy de web (no opcional)
 

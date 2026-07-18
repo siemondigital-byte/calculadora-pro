@@ -1,12 +1,22 @@
 # Centro de Mando · Atlantis Global Realty
-# Subdominios previstos (DNS A al VPS):
-#   crm.atlantisglobalrealty.com      -> web (nginx)
-#   motor.atlantisglobalrealty.com    -> motor (FastAPI)
-#   hooks.atlantisglobalrealty.com    -> n8n
+# Subdominios (DNS A -> IP del VPS, ANTES de levantar, para que Caddy emita TLS):
+#   crm.atlantisglobalrealty.com    -> web (PWA)
+#   motor.atlantisglobalrealty.com  -> motor (FastAPI)
+#   hooks.atlantisglobalrealty.com  -> n8n
 # Postiz (publicar.*) y Umami (analitica.*) se agregan en fase 5.
-# El reverse proxy con TLS (Traefik o nginx del host) va por fuera de este archivo.
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
   motor:
     build: ./motor-prospeccion
     restart: unless-stopped
@@ -14,30 +24,27 @@ services:
       # CRM_PASSWORD solo como semilla inicial; la clave viva se rota desde
       # Accesos y queda en /data/clave.txt. CRON_KEY y TOKEN_SECRET son
       # ESTABLES: no rotarlos al rotar la clave de login.
-      - CRM_PASSWORD=${CRM_PASSWORD:?definir en .env del VPS}
-      - CRON_KEY=${CRON_KEY:?definir en .env del VPS}
-      - TOKEN_SECRET=${TOKEN_SECRET:?definir en .env del VPS}
+      - CRM_PASSWORD=${CRM_PASSWORD:?definir en .env}
+      - CRON_KEY=${CRON_KEY:?definir en .env}
+      - TOKEN_SECRET=${TOKEN_SECRET:?definir en .env}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_MODEL=claude-sonnet-5
     volumes:
       - ./data:/data
-    ports:
-      - "127.0.0.1:8010:8000"
 
   web:
-    image: nginx:alpine
+    build:
+      context: ./web
+      args:
+        VITE_MOTOR_URL: ${VITE_MOTOR_URL:-https://motor.atlantisglobalrealty.com}
     restart: unless-stopped
-    volumes:
-      - ./web/dist:/usr/share/nginx/html:ro
-      - ./nginx-web.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "127.0.0.1:8080:80"
 
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
     environment:
       - N8N_HOST=hooks.atlantisglobalrealty.com
+      - N8N_PROTOCOL=https
       - WEBHOOK_URL=https://hooks.atlantisglobalrealty.com/
       - GENERIC_TIMEZONE=America/Bogota
       # el Code node no trae crypto por defecto; sin esta variable el cifrado
@@ -45,5 +52,7 @@ services:
       - NODE_FUNCTION_ALLOW_BUILTIN=crypto
     volumes:
       - ./n8n-data:/home/node/.n8n
-    ports:
-      - "127.0.0.1:5678:5678"
+
+volumes:
+  caddy-data:
+  caddy-config:
