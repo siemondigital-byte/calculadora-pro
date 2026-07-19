@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import MaquetadorView from "./MaquetadorView.jsx";
+import MercadoView from "./MercadoView.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -40,6 +41,7 @@ const NAV = {
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
         ["consultas", "Consultas"],
+        ["mercado", "Estudio de mercado"],
         ["fuentes", "Fuentes / UTM"],
       ],
     },
@@ -162,6 +164,7 @@ export default function App() {
     contenido: <Contenido {...props} />,
     nurturing: <Nurturing {...props} />,
     maquetador: <MaquetadorView {...props} />,
+    mercado: <MercadoView {...props} />,
     accesos: <Accesos {...props} />,
   };
 

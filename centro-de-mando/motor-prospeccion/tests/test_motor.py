@@ -609,6 +609,49 @@ check("publicar via postiz ok", r.json()["ok"] is True and r.json()["via"] == "p
 check("postiz SIEMPRE schedule (nunca now)", CAPTURA["body"]["type"] == "schedule"
       and bool(CAPTURA["body"]["date"]))
 
+# ------------------------------------- salud web -> soluciones -> maquetador
+import seo as seo_mod  # noqa: E402
+
+AUDIT_FAKE = {
+    "ok": True, "url": "https://atlantisglobalrealty.com/", "global": 62,
+    "categorias": [{"nombre": "Meta", "puntos": 10, "max": 20},
+                   {"nombre": "Imagenes", "puntos": 5, "max": 10}],
+    "top_fixes": [{"txt": "Title generico", "fix": "reescribir con keyword", "evidencia": []}],
+    "contexto": {"title": "Vieja", "description": "vieja desc", "headings": ["h1 Atlantis"],
+                 "imgs_sin_alt": ["/img/ciclo.png"], "enlaces_rotos": [], "extracto": "..."},
+}
+seo_mod.auditar = lambda url, kw="": dict(AUDIT_FAKE)
+
+# 55. Auditar guarda el historico del workspace
+r = c.post("/seo/auditar", json={"url": "https://atlantisglobalrealty.com/",
+    "workspace": "atlantis"}, headers=AUTH2)
+check("auditoria ok 62/100", r.json()["global"] == 62)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("historico de salud guardado", d["atlantis"]["saludHistorial"][-1]["global"] == 62)
+
+# 56. Soluciones: se generan, se limpian y se PERSISTEN en saludWeb
+motor._claude_json = lambda *a, **k: {
+    "title_propuesto": "Atlantis Global Realty | Arquitectos de patrimonio",
+    "description_propuesta": "Construye patrimonio inmobiliario con metodo — y criterio.",
+    "keywords": {}, "alts": [{"imagen": "/img/ciclo.png", "alt": "La linea del ciclo"}],
+    "jerarquia": [], "enlaces": [], "otras": []}
+r = c.post("/seo/soluciones", json={"workspace": "atlantis"}, headers=AUTH2)
+check("soluciones generadas", r.json()["ok"] is True)
+check("soluciones sin em dash", "—" not in json.dumps(r.json()))
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+sols_guardadas = (d["atlantis"].get("saludWeb") or {}).get("soluciones") or {}
+check("soluciones persistidas en saludWeb", sols_guardadas.get("title_propuesto", "").startswith("Atlantis"))
+
+# 57. El Maquetador puede aplicar EXACTAMENTE esas soluciones (ciclo cerrado)
+open(os.path.join(web_pub.BASE, "index.html"), "w").write(HOME)
+r = c.post("/web/aplicar_soluciones", json={"soluciones": sols_guardadas, "dry_run": True}, headers=AUTH2)
+check("ciclo cerrado: dry-run ve cambios de las soluciones guardadas",
+      r.json()["ok"] and r.json()["hay_cambios"], str(r.json()))
+
+# 58. /ideas sin clave de YouTube responde claro (sin tronar)
+r = c.post("/ideas", json={"workspace": "atlantis"}, headers=AUTH2)
+check("ideas sin clave -> error claro", r.json()["ok"] is False and "clave" in r.json()["error"])
+
 print()
 print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
 sys.exit(1 if fallos else 0)
