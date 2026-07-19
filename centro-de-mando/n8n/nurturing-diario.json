@@ -1,0 +1,49 @@
+{
+  "name": "Nurturing diario - Ciclo de Riqueza",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "3 9 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Cada dia 9:03am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/nurturing/procesar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REEMPLAZAR_CRON_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"workspace\": \"cicloderiqueza\"}",
+        "options": {}
+      },
+      "name": "Motor: procesar nurturing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    }
+  ],
+  "connections": {
+    "Cada dia 9:03am": { "main": [[{ "node": "Motor: procesar nurturing", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

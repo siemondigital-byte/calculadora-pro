@@ -20,9 +20,12 @@ from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import httpx
+from fastapi.responses import HTMLResponse, Response
 
+import buzones
 import collectors
 import crm_store
+import nurturing
 import secretos
 
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
@@ -528,6 +531,157 @@ def generar_contenido(body: dict = Body(...), authorization: str = Header(None))
             if isinstance(pieza.get(campo), str):
                 pieza[campo] = _sin_em_dash(pieza[campo])
     return {"ok": True, "pieza": pieza}
+
+
+# ------------------------------------------------------- buzones y correo
+
+@app.get("/buzones")
+def buzones_listar(authorization: str = Header(None)):
+    _auth(authorization)
+    return {"buzones": buzones.listar_mascarado()}
+
+
+@app.post("/buzones")
+def buzones_guardar(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    try:
+        buzones.guardar(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@app.post("/buzones/probar")
+def buzones_probar(body: dict = Body(None), authorization: str = Header(None)):
+    _auth(authorization)
+    try:
+        buzones.probar((body or {}).get("email"))
+        return {"ok": True}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:300]}
+
+
+@app.post("/buzones/eliminar")
+def buzones_eliminar(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    buzones.eliminar(body.get("email", ""))
+    return {"ok": True}
+
+
+@app.post("/enviar_correo")
+def enviar_correo(body: dict = Body(...), authorization: str = Header(None)):
+    """Envio manual. Registra el envio en <ws>.enviados."""
+    _auth(authorization)
+    para = str(body.get("para", "")).strip()
+    asunto = str(body.get("asunto", "")).strip()
+    if not para or not asunto:
+        raise HTTPException(400, "para y asunto requeridos")
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    try:
+        buzones.enviar(para, asunto, body.get("cuerpo") or "", body.get("desde"))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"no se pudo enviar: {str(e)[:200]}")
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    data.setdefault(ws, {}).setdefault("enviados", []).append({
+        "para": para, "asunto": asunto, "fecha": int(time.time()),
+    })
+    guardar_seguro(data)
+    return {"ok": True}
+
+
+# ------------------------------------------------------- nurturing (F4)
+
+@app.post("/nurturing/generar")
+def nurturing_generar(body: dict = Body(...), authorization: str = Header(None)):
+    """Genera la secuencia con IA desde la config. Queda en BORRADOR: nada se
+    envia hasta revisar y activar."""
+    _auth(authorization)
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "cicloderiqueza"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    nur = nurturing._slice(data, ws)
+    cfg = {**(nur.get("config") or {}), **(body.get("config") or {})}
+    nur["config"] = cfg
+    n = min(9, int(cfg.get("nCorreos") or 5))
+    secuencia = _claude_json(
+        nurturing.prompt_secuencia(cfg, n), max_tokens=7000, system=_VOZ_MARCA
+    )
+    if not isinstance(secuencia, list) or not secuencia:
+        raise HTTPException(502, "la IA no devolvio una secuencia valida")
+    for correo in secuencia:
+        for campo in ("asunto", "cuerpo"):
+            if isinstance(correo.get(campo), str):
+                correo[campo] = _sin_em_dash(correo[campo])
+    nur["secuencia"] = secuencia
+    nur["activo"] = False
+    guardar_seguro(data)
+    return {"ok": True, "correos": len(secuencia)}
+
+
+@app.post("/nurturing/activar")
+def nurturing_activar(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "cicloderiqueza"
+    data = crm_store.leer() or {}
+    nur = nurturing._slice(data, ws)
+    activo = bool(body.get("activo"))
+    if activo and not nur.get("secuencia"):
+        raise HTTPException(400, "genera y revisa la secuencia antes de activar")
+    if activo and not (nur.get("config") or {}).get("remitente"):
+        raise HTTPException(400, "define el remitente en la config del nurturing")
+    nur["activo"] = activo
+    guardar_seguro(data)
+    return {"ok": True, "activo": activo}
+
+
+@app.post("/nurturing/procesar")
+def nurturing_procesar(body: dict = Body(None), authorization: str = Header(None)):
+    """Cron diario (n8n con CRON_KEY): inscribe, saca y envia lo que toca."""
+    _auth(authorization)
+    ws = (body or {}).get("workspace")
+    ws = ws if ws in WORKSPACES else "cicloderiqueza"
+    base_url = os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com")
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    resumen = nurturing.procesar(
+        data, ws,
+        lambda para, asunto, html, desde=None: buzones.enviar(para, asunto, html, desde),
+        base_url=base_url,
+    )
+    guardar_seguro(data)
+    return {"ok": True, **resumen}
+
+
+@app.get("/nurturing/px/{tid}.gif")
+def nurturing_pixel(tid: str):
+    """Pixel de apertura (publico)."""
+    data = crm_store.leer()
+    if data:
+        cambio = False
+        for ws in WORKSPACES:
+            if nurturing.marcar_apertura(data, ws, tid):
+                cambio = True
+        if cambio:
+            guardar_seguro(data)
+    gif = (b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!"
+           b"\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00"
+           b"\x00\x02\x02D\x01\x00;")
+    return Response(content=gif, media_type="image/gif")
+
+
+@app.get("/nurturing/baja")
+def nurturing_baja(ws: str = "", e: str = "", t: str = ""):
+    """Baja con token HMAC (publico, un clic desde el correo)."""
+    ws = ws if ws in WORKSPACES else "cicloderiqueza"
+    data = crm_store.leer()
+    if not data or not nurturing.dar_baja(data, ws, e, t):
+        raise HTTPException(400, "enlace de baja invalido")
+    guardar_seguro(data)
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;background:#0A0A0C;"
+        "color:#F4EFE6;display:flex;align-items:center;justify-content:center;"
+        "height:100vh'><div style='text-align:center'><h2 style='color:#E6C788'>"
+        "Listo</h2><p>No recibiras mas correos de esta serie.</p></div>"
+        "</body></html>"
+    )
 
 
 # ------------------------------------------- compras / app usuarios (F3)

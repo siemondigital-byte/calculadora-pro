@@ -8,14 +8,25 @@ en la raíz del repo).
 
 ## Estado
 
-- **F1 · Motor núcleo: hecho y verificado** (34 chequeos: auth fail-closed,
-  merge seguro fill-missing + lápidas, vault cifrado con allowlist, rotación de
-  clave, backups diarios).
-- **F2 · Web PWA: hecho y verificado** (13 chequeos E2E en navegador: login,
-  leads, pipeline con forecast, seguimiento por cadencia de config, consultas,
-  UTM con lápidas, compradores con revocación por reembolso, workspaces).
-- F0 (VPS/DNS), F3 (webhooks de compra), F4 (prospección/outreach), F5
-  (contenido/ads), F6 (crons): pendientes según el plan.
+- **F1 · Motor núcleo:** hecho y verificado (auth fail-closed, merge seguro
+  fill-missing + lápidas, vault cifrado con allowlist, backups diarios).
+- **F2 · Web PWA:** hecha y verificada E2E en navegador (workspaces, panel,
+  leads, pipeline, seguimiento por cadencia de config, consultas, UTM).
+- **F3 · Infoproducto:** compras idempotentes, gating "primeros N vitalicios",
+  revocación por reembolso, `/app/validar` (la Calculadora Pro ya lo usa),
+  plantillas n8n de compra/reembolso.
+- **F4 · Prospección + Nurturing:** colector YouTube con Ambassador Fit Score,
+  capturar/promover/descartar con blocklist, buzones SMTP, envío manual,
+  nurturing completo (secuencia IA en borrador → activar, auto-inscripción,
+  cadencia + tope diario, baja HMAC, píxel de apertura, salida al
+  comprar/responder) + cron n8n diario.
+- **F5 (parcial) · Contenido y medición:** `/viral/ideas` y
+  `/generar_contenido` con la voz de marca, CAPI best-effort con eventos
+  automáticos Lead/Purchase.
+- 87 chequeos del motor + E2E de navegador en verde (`tests/test_motor.py`).
+- Pendiente: F0 (VPS/DNS/claves), correo frío con lectura IMAP y clasificación
+  IA, Maquetador/web pública, Postiz/FAL/Umami, analítica, asistente flotante,
+  push, monitoreo de mercado (F5/F6 restantes).
 
 ## Piezas
 

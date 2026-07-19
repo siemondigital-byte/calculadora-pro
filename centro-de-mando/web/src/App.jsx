@@ -5,6 +5,7 @@ import {
   estadoSecretos,
   guardarSecreto,
   loadData,
+  motorGet,
   motorPost,
   saveData,
   seed,
@@ -40,6 +41,13 @@ const NAV = {
         ["fuentes", "Fuentes / UTM"],
       ],
     },
+    {
+      sec: "Contenido",
+      items: [
+        ["contenido", "Contenido"],
+        ["nurturing", "Nurturing"],
+      ],
+    },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
   ],
   cicloderiqueza: [
@@ -55,6 +63,13 @@ const NAV = {
         ["afiliados", "Afiliados"],
         ["appusuarios", "App · Calculadora Pro"],
         ["fuentes", "Fuentes / UTM"],
+      ],
+    },
+    {
+      sec: "Contenido",
+      items: [
+        ["contenido", "Contenido"],
+        ["nurturing", "Nurturing"],
       ],
     },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
@@ -139,6 +154,8 @@ export default function App() {
     compradores: <Compradores {...props} />,
     afiliados: <Afiliados {...props} />,
     appusuarios: <AppUsuarios {...props} />,
+    contenido: <Contenido {...props} />,
+    nurturing: <Nurturing {...props} />,
     accesos: <Accesos {...props} />,
   };
 
@@ -1151,6 +1168,263 @@ function AppUsuarios({ data, ws }) {
   );
 }
 
+// ---------------------------------------------------------------- Contenido
+
+function Contenido({ data, commit, ws }) {
+  const [tema, setTema] = useState("");
+  const [ideas, setIdeas] = useState([]);
+  const [temaPost, setTemaPost] = useState("");
+  const [tipo, setTipo] = useState("post");
+  const [pieza, setPieza] = useState(null);
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+
+  const generarIdeas = async () => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/viral/ideas", { tema, n: 10 });
+      setIdeas(r.ideas || []);
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const generarPieza = async () => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/generar_contenido", { tipo, tema: temaPost });
+      setPieza(r.pieza);
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const guardarIdea = (idea) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].viralIdeas = [
+      ...(siguiente[ws].viralIdeas || []),
+      { id: uid("idea"), ...idea, estado: "backlog", creado: Math.floor(Date.now() / 1000) },
+    ];
+    commit(siguiente);
+  };
+
+  const backlog = data[ws]?.viralIdeas || [];
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Contenido"
+        sub="Ideas que despiertan el problema (Schwartz 1-2) · voz de marca inyectada"
+      />
+      {estado && <p className="mb-4 text-sm text-red-400">{estado}</p>}
+
+      <div className="tarjeta mb-6">
+        <div className="mb-3 text-sm font-semibold">Ideas de video corto</div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            className="campo"
+            placeholder="Tema (ej: depender del sueldo, juntar dinero sin plan)"
+            value={tema}
+            onChange={(e) => setTema(e.target.value)}
+          />
+          <button className="boton shrink-0" disabled={cargando || !tema} onClick={generarIdeas}>
+            {cargando ? "Generando..." : "Generar 10 ideas"}
+          </button>
+        </div>
+        {ideas.map((idea, i) => (
+          <div key={i} className="mt-3 rounded-lg border border-gris/10 bg-negro/40 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm text-oro">{idea.gancho}</div>
+                <div className="mt-1 text-sm text-crema/90">{idea.desarrollo}</div>
+                <div className="mt-1 text-xs text-gris">
+                  CTA: {idea.cta} · conciencia {idea.nivel_conciencia} · {idea.formato} ·
+                  puntaje {idea.puntaje}/10
+                </div>
+              </div>
+              <button className="boton-secundario shrink-0 !px-2 !py-1 text-xs" onClick={() => guardarIdea(idea)}>
+                Al backlog
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="tarjeta mb-6">
+        <div className="mb-3 text-sm font-semibold">Generar pieza</div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <select className="campo sm:!w-40" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            {["post", "anuncio", "correo", "guion corto"].map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+          <input
+            className="campo"
+            placeholder="Tema de la pieza"
+            value={temaPost}
+            onChange={(e) => setTemaPost(e.target.value)}
+          />
+          <button className="boton shrink-0" disabled={cargando || !temaPost} onClick={generarPieza}>
+            Generar
+          </button>
+        </div>
+        {pieza && (
+          <div className="mt-4 rounded-lg border border-gris/10 bg-negro/40 p-4">
+            <div className="font-display text-lg text-oro">{pieza.titulo}</div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-crema/90">{pieza.texto}</p>
+            <div className="mt-2 text-xs text-gris">CTA: {pieza.cta}</div>
+            <button
+              className="boton-secundario mt-3 !px-2 !py-1 text-xs"
+              onClick={() =>
+                navigator.clipboard?.writeText(`${pieza.titulo}\n\n${pieza.texto}\n\n${pieza.cta}`)
+              }
+            >
+              Copiar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {backlog.length > 0 && (
+        <div className="tarjeta">
+          <div className="mb-2 text-sm font-semibold">Backlog de ideas ({backlog.length})</div>
+          {backlog.map((idea) => (
+            <div key={idea.id} className="border-b border-gris/10 py-2 text-sm last:border-0">
+              <span className="text-oro">{idea.gancho}</span>{" "}
+              <span className="text-xs text-gris">· {idea.estado}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Nurturing
+
+function Nurturing({ data, commit, ws, recargar }) {
+  const nur = data[ws]?.nurturing || {};
+  const cfgNur = nur.config || {};
+  const [config, setConfig] = useState({
+    persona: cfgNur.persona || "",
+    oferta: cfgNur.oferta || "",
+    remitente: cfgNur.remitente || "",
+    nCorreos: cfgNur.nCorreos || 5,
+    cadenciaDias: cfgNur.cadenciaDias || 3,
+    topeDiario: cfgNur.topeDiario || 30,
+    autoInscribir: cfgNur.autoInscribir ?? true,
+  });
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+
+  const llamar = async (ruta, body, mensajeOk) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost(ruta, { ...body, workspace: ws });
+      setEstado(mensajeOk(r));
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const editarCorreo = (i, campo, valor) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].nurturing.secuencia[i][campo] = valor;
+    commit(siguiente);
+  };
+
+  const activos = (nur.inscritos || []).filter((x) => x.estado === "activo").length;
+  const metricas = nur.metricas || {};
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Nurturing"
+        sub="La IA genera la secuencia desde la config; nada se envía hasta revisar y activar"
+      />
+      {estado && <p className="mb-4 text-sm text-oro">{estado}</p>}
+
+      <div className="tarjeta mb-6 grid gap-3 sm:grid-cols-2">
+        <input className="campo" placeholder="Persona (a quién le escribes)"
+          value={config.persona} onChange={(e) => setConfig({ ...config, persona: e.target.value })} />
+        <input className="campo" placeholder="Oferta"
+          value={config.oferta} onChange={(e) => setConfig({ ...config, oferta: e.target.value })} />
+        <input className="campo" placeholder="Remitente (hello@...)"
+          value={config.remitente} onChange={(e) => setConfig({ ...config, remitente: e.target.value })} />
+        <div className="grid grid-cols-3 gap-2">
+          <label className="text-xs text-gris">
+            Correos
+            <input className="campo mt-1" type="number" min="2" max="9" value={config.nCorreos}
+              onChange={(e) => setConfig({ ...config, nCorreos: Number(e.target.value) })} />
+          </label>
+          <label className="text-xs text-gris">
+            Cadencia (días)
+            <input className="campo mt-1" type="number" min="1" value={config.cadenciaDias}
+              onChange={(e) => setConfig({ ...config, cadenciaDias: Number(e.target.value) })} />
+          </label>
+          <label className="text-xs text-gris">
+            Tope diario
+            <input className="campo mt-1" type="number" min="1" value={config.topeDiario}
+              onChange={(e) => setConfig({ ...config, topeDiario: Number(e.target.value) })} />
+          </label>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-crema/80">
+          <input type="checkbox" checked={config.autoInscribir}
+            onChange={(e) => setConfig({ ...config, autoInscribir: e.target.checked })} />
+          Auto-inscribir leads elegibles
+        </label>
+        <div className="flex gap-2">
+          <button className="boton" disabled={cargando}
+            onClick={() => llamar("/nurturing/generar", { config }, (r) => `Secuencia generada: ${r.correos} correos. Revísala abajo.`)}>
+            {cargando ? "Generando..." : "Generar secuencia (IA)"}
+          </button>
+          <button
+            className={nur.activo ? "boton-secundario !border-red-400/40 !text-red-400" : "boton-secundario"}
+            disabled={cargando}
+            onClick={() => llamar("/nurturing/activar", { activo: !nur.activo },
+              (r) => (r.activo ? "Nurturing ACTIVO." : "Nurturing pausado."))}
+          >
+            {nur.activo ? "Pausar" : "Activar"}
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <Kpi etiqueta="Inscritos activos" valor={activos} />
+        <Kpi etiqueta="Correos enviados" valor={metricas.enviados || 0} />
+        <Kpi etiqueta="Aperturas" valor={metricas.aperturas || 0} />
+      </div>
+
+      {(nur.secuencia || []).map((correo, i) => (
+        <div key={i} className="tarjeta mb-3">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">
+            Correo {i + 1} · {correo.fase}
+          </div>
+          <input className="campo mb-2" value={correo.asunto || ""}
+            onChange={(e) => editarCorreo(i, "asunto", e.target.value)} />
+          <textarea className="campo min-h-24" value={correo.cuerpo || ""}
+            onChange={(e) => editarCorreo(i, "cuerpo", e.target.value)} />
+        </div>
+      ))}
+      {(!nur.secuencia || nur.secuencia.length === 0) && (
+        <p className="text-sm text-gris">
+          Sin secuencia todavía. Completa la config y pulsa "Generar secuencia".
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- Accesos
 
 function Accesos() {
@@ -1158,10 +1432,30 @@ function Accesos() {
   const [mensaje, setMensaje] = useState("");
   const [secretos, setSecretos] = useState({});
   const [valores, setValores] = useState({});
+  const [buzones, setBuzones] = useState([]);
+  const [buzonNuevo, setBuzonNuevo] = useState({ email: "", password: "" });
+  const [estadoBuzon, setEstadoBuzon] = useState("");
+
+  const cargarBuzones = () =>
+    motorGet("/buzones").then((r) => setBuzones(r.buzones || [])).catch(() => {});
 
   useEffect(() => {
     estadoSecretos().then(setSecretos);
+    cargarBuzones();
   }, []);
+
+  const guardarBuzon = async () => {
+    setEstadoBuzon("");
+    try {
+      await motorPost("/buzones", buzonNuevo);
+      const prueba = await motorPost("/buzones/probar", { email: buzonNuevo.email });
+      setEstadoBuzon(prueba.ok ? "Buzón conectado." : `Guardado, pero falló la conexión: ${prueba.error}`);
+      setBuzonNuevo({ email: "", password: "" });
+      cargarBuzones();
+    } catch (e) {
+      setEstadoBuzon(String(e.message || e));
+    }
+  };
 
   const rotarClave = async (e) => {
     e.preventDefault();
@@ -1204,6 +1498,30 @@ function Accesos() {
           Los flujos de n8n usan la CRON_KEY estable: rotar esta clave no los rompe.
         </p>
       </form>
+
+      <div className="tarjeta mb-6 max-w-md space-y-3">
+        <div className="text-sm font-semibold">Buzones de correo (SMTP)</div>
+        {buzones.map((b) => (
+          <div key={b.email} className="text-sm text-gris">
+            {b.email} · {b.host}:{b.puerto} {b.tienePassword ? "· conectado" : "· sin contraseña"}
+          </div>
+        ))}
+        <input className="campo" type="email" placeholder="hello@atlantisglobalrealty.com"
+          value={buzonNuevo.email}
+          onChange={(e) => setBuzonNuevo({ ...buzonNuevo, email: e.target.value })} />
+        <input className="campo" type="password" placeholder="Contraseña del webmail"
+          autoComplete="off" value={buzonNuevo.password}
+          onChange={(e) => setBuzonNuevo({ ...buzonNuevo, password: e.target.value })} />
+        <button className="boton" disabled={!buzonNuevo.email || !buzonNuevo.password}
+          onClick={guardarBuzon}>
+          Guardar y probar conexión
+        </button>
+        {estadoBuzon && <p className="text-xs text-gris">{estadoBuzon}</p>}
+        <p className="text-xs text-gris/70">
+          Default Hostinger (smtp.hostinger.com:465). La contraseña va al servidor y
+          nunca se vuelve a mostrar.
+        </p>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         {Object.entries(secretos).map(([clave, info]) => (

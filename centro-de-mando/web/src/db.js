@@ -73,6 +73,12 @@ export async function estadoSecretos() {
   return r.ok ? r.json() : {};
 }
 
+export async function motorGet(ruta) {
+  const r = await fetch(`${MOTOR}${ruta}`, { headers: cabeceras() });
+  if (!r.ok) throw new Error(`Error ${r.status}`);
+  return r.json();
+}
+
 export async function motorPost(ruta, body) {
   const r = await fetch(`${MOTOR}${ruta}`, {
     method: "POST",

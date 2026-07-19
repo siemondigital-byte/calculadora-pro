@@ -291,6 +291,103 @@ check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
 check("generar_contenido sin tema -> 400",
       c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
 
+# -------------------------------------------------- buzones + nurturing (F4)
+import buzones  # noqa: E402
+
+ENVIADOS_FAKE = []
+buzones.enviar = lambda para, asunto, html, desde=None: ENVIADOS_FAKE.append(
+    {"para": para, "asunto": asunto, "html": html})
+
+# 27. Buzon: se guarda y la API solo devuelve mascara
+r = c.post("/buzones", json={"email": "hello@atlantis.com", "password": "secreta-smtp"}, headers=AUTH2)
+check("buzon guardado", r.json().get("ok") is True)
+r = c.get("/buzones", headers=AUTH2)
+check("buzones sin password en la API",
+      r.json()["buzones"][0]["tienePassword"] is True
+      and "secreta-smtp" not in json.dumps(r.json()))
+
+# 28. Envio manual queda en el log de enviados
+r = c.post("/enviar_correo", json={"para": "x@y.com", "asunto": "Hola",
+    "cuerpo": "<p>hola</p>", "workspace": "atlantis"}, headers=AUTH2)
+check("enviar_correo ok", r.json().get("ok") is True)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("envio registrado en enviados", any(e["para"] == "x@y.com" for e in d["atlantis"]["enviados"]))
+
+# 29. Generar secuencia (IA simulada) queda en borrador
+motor._claude_json = lambda *a, **k: [
+    {"asunto": "Bienvenida — parte 1", "cuerpo": "<p>hola</p>", "fase": "bienvenida"},
+    {"asunto": "El metodo", "cuerpo": "<p>metodo</p>", "fase": "convencer"},
+    {"asunto": "La oferta", "cuerpo": "<p>44 USD</p>", "fase": "ventas"}]
+r = c.post("/nurturing/generar", json={"workspace": "cicloderiqueza", "config": {
+    "autoInscribir": True, "cadenciaDias": 3, "topeDiario": 2,
+    "remitente": "hello@atlantis.com", "nCorreos": 3}}, headers=AUTH2)
+check("secuencia generada (3 correos)", r.json().get("correos") == 3)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+nur = d["cicloderiqueza"]["nurturing"]
+check("secuencia en borrador (activo=False)", nur["activo"] is False)
+check("secuencia sin em dashes", "—" not in json.dumps(nur["secuencia"]))
+
+# 30. Procesar en borrador NO envia nada (aunque inscriba)
+ENVIADOS_FAKE.clear()
+r = c.post("/nurturing/procesar", json={"workspace": "cicloderiqueza"},
+           headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("borrador: 0 envios", r.json()["enviados"] == 0 and len(ENVIADOS_FAKE) == 0)
+
+# 31. Leads elegibles + activar + procesar respeta tope diario (2)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+for i in range(3):
+    d["cicloderiqueza"]["leads"].append({
+        "id": f"lead-nur-{i}", "email": f"nutrido{i}@test.com", "etapa": "Nuevo",
+        "creado": 1})
+c.put("/crm/data", json={"data": d}, headers=AUTH2)
+r = c.post("/nurturing/activar", json={"workspace": "cicloderiqueza", "activo": True}, headers=AUTH2)
+check("activar ok", r.json().get("activo") is True)
+ENVIADOS_FAKE.clear()
+r = c.post("/nurturing/procesar", json={"workspace": "cicloderiqueza"},
+           headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("tope diario respetado (2 de 3)", r.json()["enviados"] == 2 and len(ENVIADOS_FAKE) == 2,
+      str(r.json()))
+check("correo lleva baja + pixel + disclaimer",
+      "/nurturing/baja" in ENVIADOS_FAKE[0]["html"]
+      and "/nurturing/px/" in ENVIADOS_FAKE[0]["html"]
+      and "educativo" in ENVIADOS_FAKE[0]["html"])
+
+# 32. Segundo ciclo: envia al tercero, no repite a los primeros (cadencia)
+ENVIADOS_FAKE.clear()
+r = c.post("/nurturing/procesar", json={"workspace": "cicloderiqueza"},
+           headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("ciclo 2: solo el pendiente (1)", r.json()["enviados"] == 1, str(r.json()))
+
+# 33. Comprar saca de la serie
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+lead0 = next(l for l in d["cicloderiqueza"]["leads"] if l.get("email") == "nutrido0@test.com")
+lead0["etapa"] = "Comprador"
+c.put("/crm/data", json={"data": d}, headers=AUTH2)
+c.post("/nurturing/procesar", json={"workspace": "cicloderiqueza"},
+       headers={"Authorization": "Bearer cron-key-interna-n8n"})
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+ins0 = next(i for i in d["cicloderiqueza"]["nurturing"]["inscritos"] if i["email"] == "nutrido0@test.com")
+check("comprador sale de la serie", ins0["estado"] == "salido")
+
+# 34. Baja con token HMAC (token malo rechazado)
+import nurturing as nur_mod  # noqa: E402
+tok = nur_mod.token_baja("nutrido1@test.com")
+check("baja token malo -> 400",
+      c.get("/nurturing/baja?ws=cicloderiqueza&e=nutrido1@test.com&t=malo").status_code == 400)
+r = c.get(f"/nurturing/baja?ws=cicloderiqueza&e=nutrido1@test.com&t={tok}")
+check("baja token bueno -> 200", r.status_code == 200)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("baja registrada y salido",
+      "nutrido1@test.com" in d["cicloderiqueza"]["nurturing"]["bajas"])
+
+# 35. Pixel de apertura suma metricas
+ins2 = next(i for i in d["cicloderiqueza"]["nurturing"]["inscritos"] if i["email"] == "nutrido2@test.com")
+tid = ins2["pixeles"][0]
+r = c.get(f"/nurturing/px/{tid}.gif")
+check("pixel devuelve gif", r.status_code == 200 and r.headers["content-type"] == "image/gif")
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("apertura contada", d["cicloderiqueza"]["nurturing"]["metricas"]["aperturas"] >= 1)
+
 print()
 print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
 sys.exit(1 if fallos else 0)
