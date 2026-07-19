@@ -1,0 +1,303 @@
+{
+  "name": "Ciclo de Riqueza · Compra → Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "compra-crd",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "n_webhook",
+      "name": "Webhook Compra",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza el evento de compra de Hotmart / ClickBank / ThriveCart.\n// AJUSTA las rutas de campos a tu cuenta si tu payload difiere.\nconst b = $json.body || $json;\nlet email, nombre, evento, plataforma;\n\nif (b.data && b.data.buyer) {                 // Hotmart\n  plataforma = 'hotmart';\n  email  = b.data.buyer.email;\n  nombre = b.data.buyer.name;\n  evento = b.event;                            // PURCHASE_APPROVED / PURCHASE_REFUNDED / PURCHASE_CHARGEBACK\n} else if (b.transactionType || b.receipt) {  // ClickBank\n  plataforma = 'clickbank';\n  email  = (b.customer && b.customer.billing && b.customer.billing.email) || b.email;\n  nombre = (b.customer && b.customer.billing && b.customer.billing.fullName) || b.name;\n  evento = b.transactionType;                  // SALE / RFND / CGBK\n} else {                                       // ThriveCart u otro\n  plataforma = b.plataforma || 'thrivecart';\n  email  = b.customer_email || b.email;\n  nombre = b.customer_name  || b.name || '';\n  evento = b.event || b.order_status;          // success / refund ...\n}\n\nconst compra    = /approved|sale|success|complete|paid/i.test(evento || '');\nconst reembolso = /refund|refunded|chargeback|cgbk|rfnd|cancel|dispute/i.test(evento || '');\n\nfunction genPass(n = 12) {\n  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';\n  let s = ''; for (let i = 0; i < n; i++) s += abc[Math.floor(Math.random() * abc.length)];\n  return s;\n}\n\nreturn [{ json: {\n  email: (email || '').trim().toLowerCase(),\n  nombre: nombre || '',\n  plataforma,\n  password: genPass(12),\n  accion: compra ? 'compra' : (reembolso ? 'reembolso' : 'ignorar')\n}}];\n"
+      },
+      "id": "n_norm",
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "c-compra",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "compra",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "compra"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "c-reembolso",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "reembolso",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reembolso"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "ignorar"
+        }
+      },
+      "id": "n_switch",
+      "name": "¿Acción?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/auth/v1/admin/users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ email: $json.email, password: $json.password, email_confirm: true, user_metadata: { nombre: $json.nombre } }) }}",
+        "options": {}
+      },
+      "id": "n_auth",
+      "name": "Crear usuario Auth",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/rpc/registrar_compra",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ p_uid: $json.id, p_plataforma: $('Normalizar').item.json.plataforma, p_cupo: 500 }) }}",
+        "options": {}
+      },
+      "id": "n_reg",
+      "name": "registrar_compra",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "n_mail",
+      "name": "Enviar correo (conecta tu mail)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/rpc/revocar_acceso",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ p_email: $json.email }) }}",
+        "options": {}
+      },
+      "id": "n_rev",
+      "name": "revocar_acceso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        380
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "n_ig",
+      "name": "Ignorar",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        700,
+        540
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Compra": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "¿Acción?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Acción?": {
+      "main": [
+        [
+          {
+            "node": "Crear usuario Auth",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "revocar_acceso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignorar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear usuario Auth": {
+      "main": [
+        [
+          {
+            "node": "registrar_compra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "registrar_compra": {
+      "main": [
+        [
+          {
+            "node": "Enviar correo (conecta tu mail)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
