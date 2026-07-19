@@ -30,6 +30,10 @@ _SECRETOS_PERMITIDOS = {
     "YT_ANALYTICS_REFRESH",
     "UMAMI_WEBSITE_ID",
     "APIFY_TOKEN",
+    "PEXELS_KEY",
+    "UNSPLASH_KEY",
+    "PIXABAY_KEY",
+    "COVERR_KEY",
 }
 
 _lock = threading.Lock()

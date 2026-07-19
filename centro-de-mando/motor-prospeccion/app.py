@@ -665,6 +665,1086 @@ def ideas_tendencia(body: dict = Body(None), authorization: str = Header(None)):
     return trend.ideas(pilares or None, idiomas, min(int(body.get("n", 14) or 14), 24))
 
 
+# ------------------------------------------------- blog SEO + estudio (F5)
+# Portado del codigo de referencia; prompts reescritos para Atlantis (la marca
+# es config, la estructura se conserva).
+
+import keywords as _kw  # noqa: E402
+
+_MEDIA_DIR = os.environ.get("MEDIA_DIR", os.path.join(DATA_DIR, "gc_media"))
+os.makedirs(_MEDIA_DIR, exist_ok=True)
+try:
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/media", StaticFiles(directory=_MEDIA_DIR), name="media")
+except Exception:  # noqa: BLE001
+    pass
+
+_FLUX = "fal-ai/flux/dev"
+_SEEDANCE = "fal-ai/bytedance/seedance/v1/pro/image-to-video"
+_ASPECTO_FLUX = {"9:16": "portrait_16_9", "16:9": "landscape_16_9", "1:1": "square_hd",
+                 "4:3": "landscape_4_3", "3:4": "portrait_4_3"}
+_DIM = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080), "4:5": (1080, 1350)}
+
+_DESIGN_SYSTEM = (
+    "Eres el disenador de marca de Atlantis Global Realty (arquitectos de patrimonio). "
+    "Generas piezas graficas en SVG autocontenido, planas y elegantes, estetica de banca "
+    "privada editorial. Paleta: fondo negro #0A0A0C a navy #0F1B2D, acento oro champagne "
+    "#E6C788, texto crema #F4EFE6, gris #D7D7D9. Sin neon ni morado/rosa. Motivo grafico "
+    "de la marca: una linea de oro fina que orbita o se cierra sobre si misma (el ciclo). "
+    "Micro-etiqueta '// ATLANTIS GLOBAL REALTY' en mono. Composicion editorial, jerarquia "
+    "clara, margenes amplios, los numeros mandan. Fuentes system-ui/Georgia (sin enlaces "
+    "externos). Devuelves SOLO el codigo SVG (de <svg> a </svg>), sin markdown."
+)
+
+
+def _base_publica():
+    return os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com").rstrip("/")
+
+
+def _claude_json_par(prompt, max_tokens=4000, model=None, system=None):
+    """Compat con el codigo portado: devuelve (data, error) en vez de lanzar."""
+    try:
+        return _claude_json(prompt, max_tokens=max_tokens, model=model, system=system), None
+    except HTTPException as e:
+        return None, str(e.detail)
+
+
+def _fal_key():
+    return secretos.get("FAL_API_KEY")
+
+
+def _slug_blog(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", s or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:80] or "articulo"
+
+
+def _optimizar_prompt(texto):
+    """Reescribe el texto (ES) a un prompt cinematografico en ingles. Si falla, usa el original."""
+    if not os.environ.get("ANTHROPIC_API_KEY") or not texto:
+        return texto
+    try:
+        import anthropic
+        cliente = anthropic.Anthropic()
+        u = ("Reescribe esto como un prompt en INGLES para generar imagen, cinematografico y "
+             "conciso: sujeto, composicion, iluminacion, estilo. Estetica de marca elegante "
+             "(banca privada editorial): tonos obsidiana, navy y oro champagne, sobrio. NO "
+             "inventes marcas ni personas reales. Devuelve SOLO el prompt.\n\nTexto: " + texto)
+        r = cliente.messages.create(model="claude-haiku-4-5-20251001", max_tokens=250,
+                                    messages=[{"role": "user", "content": u}])
+        t = "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip()
+        return t or texto
+    except Exception:  # noqa: BLE001
+        return texto
+
+
+def _banco_lang(q):
+    """Espanol detectado -> Pixabay necesita lang=es para matchear tags."""
+    ql = " " + (q or "").lower() + " "
+    if any(c in ql for c in "áéíóúñ¿¡"):
+        return "es"
+    for w in (" de ", " en ", " la ", " el ", " los ", " las ", " con ", " para ",
+              " un ", " una ", " y ", " del ", " sobre ", " sin "):
+        if w in ql:
+            return "es"
+    return "en"
+
+
+def _kw_en(q):
+    """Traduce la busqueda a keywords en ingles (Coverr solo indexa en ingles)."""
+    if _banco_lang(q) != "es":
+        return q
+    d, err = _claude_json_par(
+        "Traduce esta busqueda de banco de video/foto a 2 a 4 PALABRAS CLAVE EN INGLES, "
+        "simples y genericas (objetos, acciones, escenas). NADA de nombres propios ni "
+        f'frases largas. Busqueda: "{q}". Devuelve SOLO JSON: {{"kw": "word word word"}}',
+        max_tokens=4000, model="claude-haiku-4-5-20251001")
+    if not err and isinstance(d, dict) and (d.get("kw") or "").strip():
+        return str(d["kw"]).strip()[:80]
+    return q
+
+
+def _orient_ok(w, h, orient):
+    try:
+        w, h = int(w or 0), int(h or 0)
+    except Exception:  # noqa: BLE001
+        return True
+    if not w or not h:
+        return True
+    if orient == "portrait":
+        return h > w * 1.05
+    if orient == "square":
+        return 0.85 <= (w / h) <= 1.18
+    return w > h * 1.05
+
+
+def _filtrar_relevantes(items):
+    """Deja SOLO keywords que buscaria un cliente potencial de Atlantis."""
+    kws = [it.get("keyword") for it in items if isinstance(it, dict) and it.get("keyword")]
+    if len(kws) <= 6:
+        return items
+    lista = "\n".join(f"{i}. {k}" for i, k in enumerate(kws))
+    d, err = _claude_json_par(
+        "De la lista de keywords de abajo, elige SOLO las que buscaria un CLIENTE "
+        "POTENCIAL de Atlantis Global Realty: profesionales que quieren construir "
+        "patrimonio, invertir en bienes raices (preventa/sobre planos), poner a "
+        "trabajar sus ahorros o entender finanzas de inversion. DESCARTA sin piedad: "
+        "cursos/carreras academicas, busquedas de agentes inmobiliarios buscando "
+        "empleo, alquiler vacacional, temas tecnicos ajenos, y cualquier cosa sin "
+        "relacion. Ante la duda, DESCARTA.\n\n" + lista + "\n\n"
+        "Devuelve SOLO un array JSON con los NUMEROS (indices) a MANTENER. Ej: [0,3,5].",
+        max_tokens=4000, system=_VOZ_MARCA)
+    if not isinstance(d, list) or not d:
+        return items
+    keep = set()
+    for x in d:
+        try:
+            keep.add(int(x))
+        except Exception:  # noqa: BLE001
+            pass
+    filtradas = [items[i] for i in range(len(items)) if i in keep]
+    return filtradas or items
+
+
+@app.post("/blog/fotos")
+def blog_fotos(req: dict = Body(...), authorization: str = Header(None)):
+    """Fotos reales gratis (Pexels/Unsplash/Pixabay, las que tengan key)."""
+    _auth(authorization)
+    import requests as _rq
+    q = (req.get("query") or req.get("keyword") or "").strip() or "patrimonio arquitectura"
+    orient = (req.get("orientation") or "landscape").lower()
+    if orient not in ("landscape", "portrait", "square"):
+        orient = "landscape"
+    fuente = (req.get("fuente") or "todos").lower()
+    out = []
+    pk = secretos.get("PEXELS_KEY")
+    if pk and fuente in ("todos", "pexels"):
+        try:
+            r = _rq.get("https://api.pexels.com/v1/search", headers={"Authorization": pk},
+                        params={"query": q, "per_page": 15, "locale": "es-ES",
+                                "orientation": orient}, timeout=25)
+            if r.status_code == 401:
+                return {"ok": False, "error": "key_invalida", "nota": "La API key de Pexels no es valida."}
+            for p in r.json().get("photos", []):
+                src = p.get("src") or {}
+                out.append({"url": src.get("large") or src.get("original"),
+                            "thumb": src.get("medium") or src.get("small"),
+                            "autor": p.get("photographer", ""), "pagina": p.get("url", ""),
+                            "banco": "Pexels"})
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": "pexels_error", "detalle": str(e)[:150]}
+    uk = secretos.get("UNSPLASH_KEY")
+    if uk and fuente in ("todos", "unsplash"):
+        try:
+            r = _rq.get("https://api.unsplash.com/search/photos",
+                        headers={"Authorization": "Client-ID " + uk},
+                        params={"query": q, "per_page": 12,
+                                "orientation": ("squarish" if orient == "square" else orient)},
+                        timeout=25)
+            for p in (r.json().get("results") or []):
+                urls = p.get("urls") or {}
+                out.append({"url": urls.get("regular"), "thumb": urls.get("small"),
+                            "autor": ((p.get("user") or {}).get("name") or ""),
+                            "pagina": ((p.get("links") or {}).get("html") or ""),
+                            "banco": "Unsplash"})
+        except Exception:  # noqa: BLE001
+            pass
+    px = secretos.get("PIXABAY_KEY")
+    if px and fuente in ("todos", "pixabay"):
+        try:
+            po = {"landscape": "horizontal", "portrait": "vertical", "square": "all"}.get(orient, "all")
+            r = _rq.get("https://pixabay.com/api/", params={
+                "key": px, "q": q, "image_type": "photo", "orientation": po,
+                "per_page": 15, "safesearch": "true", "lang": _banco_lang(q)}, timeout=25)
+            for p in (r.json().get("hits") or []):
+                out.append({"url": p.get("largeImageURL") or p.get("webformatURL"),
+                            "thumb": p.get("previewURL") or p.get("webformatURL"),
+                            "autor": p.get("user", ""), "pagina": p.get("pageURL", ""),
+                            "banco": "Pixabay"})
+        except Exception:  # noqa: BLE001
+            pass
+    if not pk and not uk and not px:
+        return {"ok": False, "error": "sin_key",
+                "nota": "Conecta una API key gratis de Pexels, Unsplash o Pixabay (Accesos)."}
+    grupos = {}
+    for f in out:
+        if f.get("url"):
+            grupos.setdefault(f.get("banco") or "?", []).append(f)
+    mez = []
+    while len(mez) < 30 and any(grupos.values()):
+        for b in list(grupos.keys()):
+            if grupos[b]:
+                mez.append(grupos[b].pop(0))
+                if len(mez) >= 30:
+                    break
+    return {"ok": True, "fotos": mez, "total": len(mez)}
+
+
+@app.post("/gc/videos_banco")
+def gc_videos_banco(req: dict = Body(...), authorization: str = Header(None)):
+    """Videos gratis (Pexels + Pixabay + Coverr). Quirks resueltos: Pixabay casi
+    todo horizontal (ordenar, no excluir); Coverr solo ingles (traducir)."""
+    _auth(authorization)
+    import requests as _rq
+    q = (req.get("query") or "").strip() or "arquitectura ciudad"
+    orient = (req.get("orientation") or "landscape").lower()
+    if orient not in ("landscape", "portrait", "square"):
+        orient = "landscape"
+    fuente = (req.get("fuente") or "todos").lower()
+    out = []
+    pk = secretos.get("PEXELS_KEY")
+    if pk and fuente in ("todos", "pexels"):
+        try:
+            r = _rq.get("https://api.pexels.com/videos/search", headers={"Authorization": pk},
+                        params={"query": q, "per_page": 18 if fuente == "pexels" else 10,
+                                "orientation": orient}, timeout=25)
+            for v in r.json().get("videos", []):
+                mp4 = [f for f in (v.get("video_files") or [])
+                       if f.get("file_type") == "video/mp4" and f.get("link")]
+                mp4.sort(key=lambda f: (f.get("width") or 0))
+                pick = next((f for f in mp4 if 600 <= (f.get("width") or 0) <= 1000), None)
+                if not pick:
+                    pick = next((f for f in mp4 if (f.get("width") or 0) >= 600), None) or (mp4[0] if mp4 else None)
+                if pick and pick.get("link"):
+                    out.append({"url": pick["link"], "thumb": v.get("image") or "",
+                                "autor": ((v.get("user") or {}).get("name") or ""),
+                                "pagina": v.get("url", ""), "dur": v.get("duration"),
+                                "banco": "Pexels"})
+        except Exception:  # noqa: BLE001
+            pass
+    px = secretos.get("PIXABAY_KEY")
+    if px and fuente in ("todos", "pixabay"):
+        try:
+            r = _rq.get("https://pixabay.com/api/videos/", params={
+                "key": px, "q": q, "per_page": 20 if fuente == "pixabay" else 12,
+                "safesearch": "true", "lang": _banco_lang(q)}, timeout=25)
+            px_out = []
+            for v in (r.json().get("hits") or []):
+                vids = v.get("videos") or {}
+                pick = vids.get("small") or vids.get("medium") or vids.get("tiny") or vids.get("large") or {}
+                if not pick.get("url"):
+                    continue
+                thumb = (vids.get("medium") or vids.get("small") or {}).get("thumbnail") or ""
+                px_out.append({"url": pick["url"], "thumb": thumb, "autor": v.get("user", ""),
+                               "pagina": v.get("pageURL", ""), "dur": v.get("duration"),
+                               "banco": "Pixabay",
+                               "_match": _orient_ok(pick.get("width"), pick.get("height"), orient)})
+            px_out.sort(key=lambda x: 0 if x.get("_match") else 1)
+            for x in px_out:
+                x.pop("_match", None)
+                out.append(x)
+        except Exception:  # noqa: BLE001
+            pass
+    cv = secretos.get("COVERR_KEY")
+    if cv and fuente in ("todos", "coverr"):
+        try:
+            q_cv = _kw_en(q)
+            r = _rq.get("https://api.coverr.co/videos",
+                        params={"query": q_cv, "page_size": 18 if fuente == "coverr" else 8,
+                                "urls": "true"},
+                        headers={"Authorization": "Bearer " + cv}, timeout=25)
+            jr = r.json()
+            if not (jr.get("hits") or jr.get("data") or jr.get("videos") or []) and q_cv:
+                r = _rq.get("https://api.coverr.co/videos",
+                            params={"query": q_cv.split()[0],
+                                    "page_size": 18 if fuente == "coverr" else 8, "urls": "true"},
+                            headers={"Authorization": "Bearer " + cv}, timeout=25)
+                jr = r.json()
+            cv_out = []
+            for v in (jr.get("hits") or jr.get("data") or jr.get("videos") or []):
+                urls = v.get("urls") or {}
+                u = urls.get("mp4") or urls.get("mp4_download") or urls.get("mp4_preview") or v.get("url")
+                if not u:
+                    continue
+                vert = bool(v.get("is_vertical", False))
+                match = vert if orient == "portrait" else (not vert if orient == "landscape" else True)
+                cv_out.append({"url": u, "thumb": v.get("thumbnail") or v.get("poster") or "",
+                               "autor": (v.get("title") or "Coverr"), "pagina": "https://coverr.co",
+                               "dur": v.get("duration"), "banco": "Coverr", "_match": match})
+            cv_out.sort(key=lambda x: 0 if x.get("_match") else 1)
+            for x in cv_out:
+                x.pop("_match", None)
+                out.append(x)
+        except Exception:  # noqa: BLE001
+            pass
+    if not (pk or px or cv):
+        return {"ok": False, "error": "sin_key",
+                "nota": "Conecta tu API key de Pexels, Pixabay o Coverr (Accesos)."}
+    grupos = {}
+    for x in out:
+        if x.get("url"):
+            grupos.setdefault(x["banco"], []).append(x)
+    mezclado = []
+    while len(mezclado) < 24 and any(grupos.values()):
+        for b in list(grupos.keys()):
+            if grupos[b]:
+                mezclado.append(grupos[b].pop(0))
+                if len(mezclado) >= 24:
+                    break
+    return {"ok": True, "videos": mezclado}
+
+
+@app.post("/traducir")
+def traducir(req: dict = Body(...), authorization: str = Header(None)):
+    """Traduce una frase corta (pilares/keywords). Haiku, rapido y barato."""
+    _auth(authorization)
+    texto = (req.get("texto") or "").strip()
+    destino = (req.get("destino") or "en").lower()
+    if not texto:
+        return {"ok": False, "error": "sin_texto"}
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return {"ok": False, "error": "sin_clave"}
+    idioma = {"en": "ingles", "es": "espanol", "pt": "portugues", "fr": "frances"}.get(destino, "ingles")
+    try:
+        import anthropic
+        cliente = anthropic.Anthropic()
+        r = cliente.messages.create(
+            model="claude-haiku-4-5-20251001", max_tokens=120,
+            messages=[{"role": "user", "content": (
+                f"Traduce al {idioma} esta frase corta (termino de busqueda). Devuelve SOLO "
+                f"la traduccion natural, sin comillas ni explicacion:\n{texto}")}])
+        txt = "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip().strip('"').strip()
+        return {"ok": True, "texto": txt}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:150]}
+
+
+# ---- suite de keywords (Apify/DFS/ATP/GSC/Planner) ----
+
+@app.post("/blog/keywords")
+def blog_keywords(req: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    seed = (req.get("seed") or req.get("keyword") or req.get("tema") or "").strip()
+    pais = (req.get("pais") or "co").strip().lower()
+    return _kw.investigar(seed, country=pais)
+
+
+@app.get("/blog/keywords_cache")
+def blog_keywords_cache(authorization: str = Header(None)):
+    _auth(authorization)
+    filas = _kw.todo_cacheado()
+    return {"ok": True, "keywords": filas, "total": len(filas)}
+
+
+@app.post("/blog/curar_lista")
+def blog_curar_lista(req: dict = Body(...), authorization: str = Header(None)):
+    """Filtra la lista curada dejando lo relevante (conserva objetivo y manuales)."""
+    _auth(authorization)
+    curadas = req.get("curadas") or []
+    fijas = [c for c in curadas if isinstance(c, dict) and (c.get("objetivo") or c.get("fuente") == "manual")]
+    candidatas = [c for c in curadas if c not in fijas]
+    relevantes = _filtrar_relevantes(candidatas)
+    ids_keep = {c.get("id") for c in (fijas + relevantes) if c.get("id")}
+    quitadas = [c.get("keyword") for c in curadas if c.get("id") not in ids_keep]
+    return {"ok": True, "keep_ids": list(ids_keep), "quitadas": len(quitadas)}
+
+
+_ENFOQUES_KW = [
+    "el DESEO o RESULTADO que la gente quiere (patrimonio, ingresos pasivos, no depender del sueldo, jubilarse con flujo)",
+    "el PROBLEMA o DOLOR del dia a dia (junto dinero sin saber que hacer, todo depende de que yo produzca, miedo a invertir)",
+    "terminos de SOLUCION de su rango (invertir sobre planos, preventa inmobiliaria, cesion de derechos, TIR inmobiliaria)",
+    "preguntas de DECISION o COMPRA (cuanto necesito para invertir, vale la pena la preventa, como elegir constructora)",
+    "angulos por MERCADO variado (Colombia, Mexico, Republica Dominicana, Panama, Dubai, hispanos en EE.UU.)",
+    "finanzas personales de transicion (que hacer con los ahorros, capacidad de endeudamiento, seguridad economica)",
+]
+
+
+@app.post("/blog/sugerir_keywords")
+def blog_sugerir_keywords(req: dict = Body(...), authorization: str = Header(None)):
+    """Semillas nuevas para investigar, segun el posicionamiento de Atlantis."""
+    _auth(authorization)
+    import random
+    existentes = [c.get("keyword") for c in (req.get("curadas") or [])
+                  if isinstance(c, dict) and c.get("keyword")]
+    evitar = existentes + [str(x) for x in (req.get("evitar") or [])]
+    ctx = (req.get("contexto_mercado") or "").strip()
+    enfoque = (req.get("enfoque") or "").strip() or random.choice(_ENFOQUES_KW)
+    d, err = _claude_json_par(
+        "Eres el estratega SEO de Atlantis Global Realty. Propon 10 SEMILLAS / keywords "
+        "NUEVAS para investigar que un cliente POTENCIAL escribiria en Google, en espanol "
+        "de LatAm y en el lenguaje real de la gente (no jerga tecnica). El lector es un "
+        "profesional de 25 a 52 que gana bien pero no invierte; muchos no saben que tienen "
+        "el problema (conciencia 1-2).\n"
+        f"ENFOQUE DE ESTA TANDA (explora sobre todo esto): {enfoque}.\n"
+        "Opciones FRESCAS y DISTINTAS; evita lo academico, lo de agentes buscando empleo y "
+        "lo generico. Nunca prometas retornos en el texto.\n"
+        + ("NO repitas NINGUNA de estas: " + "; ".join(evitar[:80]) + "\n" if evitar else "")
+        + (f"CONTEXTO DE MERCADO: {ctx}\n" if ctx else "")
+        + 'Devuelve SOLO array JSON: [{"keyword":"...","motivo":"1 frase corta"}]',
+        max_tokens=4000, system=_VOZ_MARCA)
+    if not isinstance(d, list):
+        return {"ok": False, "error": err or "sin_json"}
+    return {"ok": True, "sugerencias": d[:12]}
+
+
+@app.post("/blog/dfs_keywords")
+def blog_dfs_keywords(req: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    import dataforseo as _dfs
+    seed = (req.get("seed") or req.get("keyword") or "").strip()
+    pais = (req.get("pais") or req.get("region") or "co").strip().lower()
+    res = _dfs.ideas(seed, pais=pais)
+    if res.get("ok") and res.get("keywords") and req.get("filtrar", True):
+        res["keywords"] = _filtrar_relevantes(res["keywords"])
+        res["total"] = len(res["keywords"])
+    return res
+
+
+@app.get("/blog/dfs_estado")
+def blog_dfs_estado(authorization: str = Header(None)):
+    _auth(authorization)
+    import dataforseo as _dfs
+    return _dfs.verificar()
+
+
+@app.post("/blog/dfs_competencia")
+def blog_dfs_competencia(req: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    import dataforseo as _dfs
+    dom = (req.get("dominio") or req.get("domain") or "").strip()
+    pais = (req.get("pais") or "co").strip().lower()
+    res = _dfs.competencia(dom, pais=pais)
+    if res.get("ok") and res.get("keywords") and req.get("filtrar", True):
+        res["keywords"] = _filtrar_relevantes(res["keywords"])
+        res["total"] = len(res["keywords"])
+    return res
+
+
+@app.post("/blog/dfs_trends")
+def blog_dfs_trends(req: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    import dataforseo as _dfs
+    return _dfs.tendencia((req.get("keyword") or "").strip(),
+                          pais=(req.get("pais") or "co").strip().lower())
+
+
+@app.post("/blog/atp_buscar")
+def blog_atp_buscar(req: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    import atp as _atp
+    kw = (req.get("seed") or req.get("keyword") or "").strip()
+    region = (req.get("region") or req.get("pais") or "co").strip().lower()
+    provider = (req.get("provider") or "gweb").strip().lower()
+    res = _atp.buscar(kw, region=region, provider=provider)
+    if res.get("ok") and res.get("preguntas") and req.get("filtrar", True):
+        res["preguntas"] = _filtrar_relevantes(res["preguntas"])
+        res["total"] = len(res["preguntas"])
+    return res
+
+
+@app.get("/blog/atp_cuenta")
+def blog_atp_cuenta(authorization: str = Header(None)):
+    _auth(authorization)
+    import atp as _atp
+    return _atp.contexto_cuenta()
+
+
+@app.post("/blog/gsc_importar")
+def blog_gsc_importar(req: dict = Body(...), authorization: str = Header(None)):
+    """Importa el CSV de Search Console (Consultas): query, clics, impresiones, CTR, posicion."""
+    _auth(authorization)
+    import csv as _csv
+    import io as _io
+    texto = (req.get("csv") or "").strip()
+    if not texto:
+        return {"ok": False, "error": "pega el contenido del CSV de Search Console"}
+    delim = ";" if texto.splitlines()[0].count(";") > texto.splitlines()[0].count(",") else ","
+    filas = list(_csv.reader(_io.StringIO(texto), delimiter=delim))
+    if len(filas) < 2:
+        return {"ok": False, "error": "el CSV no tiene filas de datos"}
+
+    def _n(v):
+        try:
+            return float(str(v).replace("%", "").replace(",", ".").strip())
+        except Exception:  # noqa: BLE001
+            return 0.0
+    out = []
+    for row in filas[1:]:
+        if not row or not (row[0] or "").strip():
+            continue
+        out.append({
+            "query": row[0].strip(),
+            "clics": int(_n(row[1])) if len(row) > 1 else 0,
+            "impresiones": int(_n(row[2])) if len(row) > 2 else 0,
+            "ctr": round(_n(row[3]), 2) if len(row) > 3 else 0.0,
+            "posicion": round(_n(row[4]), 1) if len(row) > 4 else 0.0,
+        })
+    out.sort(key=lambda q: q["impresiones"], reverse=True)
+    return {"ok": True, "consultas": out, "total": len(out), "fecha": time.strftime("%Y-%m-%d")}
+
+
+@app.post("/blog/kwplanner_importar")
+def blog_kwplanner(req: dict = Body(...), authorization: str = Header(None)):
+    """Importa el CSV del Keyword Planner de Google Ads (ES o EN)."""
+    _auth(authorization)
+    texto = (req.get("csv") or "").strip()
+    if not texto:
+        return {"ok": False, "error": "pega el contenido del CSV del Keyword Planner"}
+    filas = _kw.parsear_planner(texto)
+    if not filas:
+        return {"ok": False, "error": "no reconoci las columnas (exporta con la fila de encabezados)"}
+    filas.sort(key=lambda f: (f.get("volumen") or 0), reverse=True)
+    return {"ok": True, "keywords": filas, "total": len(filas),
+            "fecha": time.strftime("%Y-%m-%d"), "fuente": "google-ads"}
+
+
+# ---- blog: ideas, articulo, portada y feed publico ----
+
+def seo_score_articulo(a):
+    """Score SEO determinista (0-100): keyword, longitud, estructura, meta."""
+    kw = (a.get("keyword") or "").lower().strip()
+    titulo = (a.get("h1") or a.get("titulo") or "").lower()
+    meta = (a.get("meta_description") or "")
+    cuerpo = (a.get("cuerpo_md") or "")
+    palabras = len(cuerpo.split())
+    h2s = len(re.findall(r"^##\s", cuerpo, re.M))
+    pts = 0
+    if kw and kw in titulo:
+        pts += 20
+    if kw and kw in meta.lower():
+        pts += 10
+    if kw:
+        pts += min(15, cuerpo.lower().count(kw) * 3)
+    if 120 <= len(meta) <= 170:
+        pts += 15
+    elif meta:
+        pts += 7
+    if 800 <= palabras <= 1600:
+        pts += 20
+    elif palabras >= 500:
+        pts += 10
+    pts += min(15, h2s * 3)
+    if re.search(r"\[[^\]]+\]\(https?://", cuerpo):
+        pts += 5
+    return min(100, pts)
+
+
+@app.post("/blog/ideas")
+def blog_ideas(req: dict = Body(...), authorization: str = Header(None)):
+    """Ideas de articulos ancladas a keywords reales (Apify/curadas/GSC si hay)."""
+    _auth(authorization)
+    tema = (req.get("tema") or "construir patrimonio inmobiliario con metodo").strip()
+    ctx = (req.get("contexto_mercado") or "").strip()
+    seed = (req.get("seed") or "").strip() or tema
+    pais = (req.get("pais") or "co").strip().lower()
+    usar_kw = req.get("usar_keywords", True)
+    kwres = _kw.investigar(seed, country=pais) if (usar_kw and _kw.hay_apify()) else {"ok": False}
+    bloque_kw = _kw.resumen_para_prompt(kwres) if kwres.get("ok") else ""
+    curadas = req.get("curadas") or []
+    obj = [c for c in curadas if isinstance(c, dict) and c.get("objetivo") and c.get("keyword")]
+    obj.sort(key=lambda c: (c.get("volumen") or 0), reverse=True)
+    bloque_obj = ""
+    if obj:
+        def _et(c):
+            v, dd = c.get("volumen"), c.get("dificultad")
+            return f"- {c['keyword']}" + (f" ({v}/mes" if v else " (sin vol.") + (f", dif {dd})" if dd is not None else ")")
+        bloque_obj = ("KEYWORDS OBJETIVO ELEGIDAS A MANO (PRIORIDAD MAXIMA, ancla ideas a "
+                      "estas primero):\n" + "\n".join(_et(c) for c in obj[:20]) + "\n")
+    gsc = req.get("gsc") or []
+    bloque_gsc = ""
+    if isinstance(gsc, list) and gsc:
+        top = sorted(gsc, key=lambda q: (q.get("impresiones") or 0), reverse=True)[:15]
+        bloque_gsc = ("BUSQUEDAS REALES QUE YA LLEGAN AL SITIO (Search Console): "
+                      + "; ".join(f"{q.get('query')} ({q.get('impresiones', 0)} impr)"
+                                  for q in top if q.get("query")) + "\n")
+    d, err = _claude_json_par(
+        (f"ESTUDIO DE MERCADO (usalo para elegir angulos con hueco):\n{ctx}\n\n" if ctx else "")
+        + (bloque_obj + "\n" if bloque_obj else "")
+        + (bloque_kw + "\n\n" if bloque_kw else "")
+        + (bloque_gsc + "\n" if bloque_gsc else "")
+        + f"Propone 8 ARTICULOS de blog SEO para atlantisglobalrealty.com sobre: {tema}.\n"
+        + ("PRIORIZA las keywords reales de arriba (mayor oportunidad: volumen bueno, "
+           "dificultad baja). Cada idea anclada a UNA de esas keywords cuando exista.\n"
+           if bloque_kw else "Cada keyword: long-tail realista que alguien buscaria en Google.\n")
+        + "Por idea: keyword principal, titulo SEO (50 a 60 chars, keyword incluida), "
+        "intencion (informacional/comercial/transaccional) y el angulo en una frase. "
+        "Mezcla niveles del funnel y VARIA los temas: cubre el rango del metodo "
+        "(preventa/sobre planos, apalancamiento con la constructora, rotacion por ciclos, "
+        "TIR sobre capital propio, Numero de Seguridad Economica, diversificacion "
+        "geografica, capacidad de endeudamiento) y perfiles de lector variados. El lector "
+        "muchas veces NO sabe que tiene el problema (conciencia 1-2): incluye angulos que "
+        "despiertan el problema. Nunca prometas retornos. Sin inventar volumenes.\n"
+        'Devuelve SOLO array JSON: [{"keyword":"...","titulo":"...","intencion":"...","angulo":"..."}]',
+        max_tokens=4000, system=_VOZ_MARCA)
+    if not isinstance(d, list):
+        return {"ok": False, "error": err or "sin_json"}
+    porkw = {f["keyword"]: f for f in (kwres.get("keywords") or [])} if kwres.get("ok") else {}
+    for idea in d:
+        real = porkw.get((idea.get("keyword") or "").strip().lower())
+        if real:
+            idea["volumen"] = real.get("volumen")
+            idea["dificultad"] = real.get("dificultad")
+            idea["oportunidad"] = real.get("oportunidad")
+    return {"ok": True, "ideas": d[:8],
+            "keywords": kwres.get("keywords", []) if kwres.get("ok") else [],
+            "fuente_keywords": "apify" if kwres.get("ok") else ("sin_token" if not _kw.hay_apify() else "sin_datos"),
+            "nota_keywords": kwres.get("nota", "") if kwres.get("ok") else ""}
+
+
+@app.post("/blog/articulo")
+def blog_articulo(req: dict = Body(...), authorization: str = Header(None)):
+    """Borrador completo de articulo SEO en la voz de Atlantis."""
+    _auth(authorization)
+    titulo = (req.get("titulo") or "").strip()
+    keyword = (req.get("keyword") or "").strip()
+    if not titulo:
+        return {"ok": False, "error": "falta el titulo"}
+    d, err = _claude_json_par(
+        f"Escribe el BORRADOR de un articulo de blog SEO para atlantisglobalrealty.com.\n"
+        f"TITULO: {titulo}\nKEYWORD principal: {keyword or '(deducela del titulo)'}\n\n"
+        "Estructura: meta_description (150 a 160 chars con la keyword), h1 (puede afinar "
+        "el titulo), y el cuerpo en markdown: intro que conecta con el problema del lector "
+        "(2 parrafos), 4 a 6 secciones con ## H2 descriptivos (keyword en al menos 2), "
+        "listas donde ayuden, ejemplos practicos VARIADOS (mercados y perfiles distintos), "
+        "y cierre con CTA suave al libro-metodo (44 USD) o a la consulta de diagnostico "
+        "gratuita. 900 a 1200 palabras.\n"
+        "REGLAS DURAS: educa desde la estructura del metodo (preventa, apalancamiento con "
+        "la constructora, rotacion por ciclos, TIR sobre capital propio, Numero de "
+        "Seguridad Economica) SIN prometer retornos: los rendimientos proyectados son del "
+        "constructor. Nombra los riesgos reales cuando aplique (cambiario, due diligence "
+        "de constructora, restricciones legales): la honestidad es parte de la marca. "
+        "Cero cifras de mercado inventadas (si no tienes la fuente, no des la cifra). "
+        "Ningun nombre propio de persona; firma institucional. Cierra con el disclaimer: "
+        "'Contenido educativo. No es asesoria financiera, legal ni tributaria.'\n"
+        'Devuelve SOLO JSON: {"meta_description":"...","h1":"...","cuerpo_md":"..."}',
+        max_tokens=7000, system=_VOZ_MARCA)
+    if not isinstance(d, dict):
+        return {"ok": False, "error": err or "sin_json"}
+    art = {k: _sin_em_dash(str(v)) for k, v in d.items()}
+    art["score_seo"] = seo_score_articulo({**art, "keyword": keyword})
+    return {"ok": True, "articulo": art}
+
+
+@app.get("/blog/publicos")
+def blog_publicos(slug: str = "", ws: str = "atlantis"):
+    """PUBLICO: articulos en estado 'publicado' (los consume la pagina /blog)."""
+    ws = ws if ws in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {}
+    arts = ((data.get(ws) or {}).get("blogArticulos")) or []
+    hoy = time.strftime("%Y-%m-%d")
+    pub = []
+    for a in arts:
+        if a.get("estado") != "publicado" or not (a.get("cuerpo_md") or "").strip():
+            continue
+        f = a.get("fechaPublicacion") or ""
+        if f and f > hoy:
+            continue
+        pub.append({
+            "slug": _slug_blog(a.get("h1") or a.get("titulo") or ""),
+            "titulo": a.get("h1") or a.get("titulo") or "",
+            "meta_description": a.get("meta_description") or "",
+            "keyword": a.get("keyword") or "",
+            "fecha": f or (a.get("creado") or ""),
+            "imagen": a.get("imagen") or "",
+            "cuerpo_md": a.get("cuerpo_md") or "",
+        })
+    pub.sort(key=lambda x: str(x["fecha"]), reverse=True)
+    cfg = ((data.get(ws) or {}).get("blogConfig")) or {}
+    config = {"video": cfg.get("video") or "", "frase": cfg.get("frase") or ""}
+    if slug:
+        uno = next((x for x in pub if x["slug"] == slug), None)
+        return {"ok": bool(uno), "articulo": uno, "config": config}
+    return {"ok": True, "config": config,
+            "articulos": [{k: v for k, v in x.items() if k != "cuerpo_md"} for x in pub]}
+
+
+@app.post("/blog/imagen")
+def blog_imagen(req: dict = Body(...), authorization: str = Header(None)):
+    """Portada del articulo: FAL -> WebP optimizado -> hosteado en /media."""
+    _auth(authorization)
+    import io as _io
+    import requests as _rq
+    key = _fal_key()
+    if not key:
+        return {"ok": False, "error": "sin_fal_key", "nota": "Falta la FAL_API_KEY (Accesos)."}
+    titulo = (req.get("titulo") or req.get("keyword") or "").strip()
+    if not titulo:
+        return {"ok": False, "error": "falta el titulo"}
+    prompt_es = (f"Imagen editorial de portada para un articulo sobre: '{titulo}'. Estilo "
+                 "sobrio de banca privada: arquitectura, ciudad o concepto abstracto de "
+                 "patrimonio; composicion elegante con acento oro champagne sobre fondo "
+                 "oscuro; SIN texto ni letras. Alta calidad, no recargada.")
+    prompt_en = _optimizar_prompt(prompt_es)
+    try:
+        r = _rq.post("https://fal.run/" + _FLUX,
+                     headers={"Authorization": "Key " + key, "Content-Type": "application/json"},
+                     json={"prompt": prompt_en, "image_size": "landscape_16_9", "num_images": 1},
+                     timeout=120)
+        url = ((r.json().get("images") or [{}])[0]).get("url", "")
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:200]}
+    if not url:
+        return {"ok": False, "error": "fal_sin_imagen"}
+    try:
+        img = _rq.get(url, timeout=60).content
+    except Exception:  # noqa: BLE001
+        return {"ok": True, "url": url, "optimizada": False}
+    fname, raw, optim = uuid.uuid4().hex + ".png", img, False
+    try:
+        from PIL import Image
+        im = Image.open(_io.BytesIO(img)).convert("RGB")
+        if im.width > 1280:
+            im = im.resize((1280, int(im.height * 1280 / im.width)))
+        out = _io.BytesIO()
+        im.save(out, "WEBP", quality=82)
+        raw, fname, optim = out.getvalue(), uuid.uuid4().hex + ".webp", True
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        with open(os.path.join(_MEDIA_DIR, fname), "wb") as f:
+            f.write(raw)
+        return {"ok": True, "url": _base_publica() + "/media/" + fname, "optimizada": optim,
+                "peso_kb": round(len(raw) / 1024)}
+    except Exception:  # noqa: BLE001
+        return {"ok": True, "url": url, "optimizada": False}
+
+
+# ---- estudio de contenido: FAL, diseno SVG, carrusel, subir, proxy ----
+
+@app.post("/gc/titulares")
+def gc_titulares(req: dict = Body(...), authorization: str = Header(None)):
+    """4 propuestas de titulo+subtitulo+CTA para una pieza grafica."""
+    _auth(authorization)
+    base = (req.get("base") or "").strip()
+    idioma = "en" if (req.get("idioma") or "es").lower().startswith("en") else "es"
+    lang_txt = "en INGLES natural (nativo)" if idioma == "en" else "en espanol neutro"
+    d, err = _claude_json_par(
+        "Propone 4 combinaciones de TITULO + SUBTITULO + CTA para una pieza grafica de "
+        "redes de Atlantis Global Realty (post/ad). "
+        + ((f"TEMA (todas las propuestas SOBRE ESTE MISMO TEMA, desde la voz de la marca): "
+            f'"{base}"\n'
+            "MUY IMPORTANTE: si el tema viene como el TITULO DE UN VIDEO ajeno (programa, "
+            "episodio, canal, invitado o marca de OTRA empresa), IGNORA esos nombres "
+            "propios y habla del TEMA DE FONDO para la audiencia de Atlantis. PROHIBIDO "
+            "mencionar nombres de terceros.\n") if base else "")
+        + ("Las 4 propuestas hablan del MISMO tema, cada una con un ANGULO distinto: "
+           if base else "Cada propuesta con un ANGULO distinto: ")
+        + "1) dolor/problema, 2) beneficio/transformacion, 3) curiosidad/pregunta, "
+        "4) dato/contraintuitivo (sin inventar cifras). Van SOBRE UNA IMAGEN: titulo de "
+        "3 a 6 palabras; subtitulo UNA linea de maximo 10 palabras; CTA de 2 a 3 palabras.\n"
+        "ORIGINALIDAD: cero cliches de marketing y cero lenguaje de guru ('libertad "
+        "financiera ya', 'hazte rico', 'el futuro es ahora'). Voz de banca privada con "
+        "criterio: concreta, serena, una idea inesperada. Nunca prometas retornos.\n"
+        f"Tono editorial y limpio, {lang_txt}.\n"
+        'Devuelve SOLO array JSON: [{"titulo":"...","subtitulo":"...","cta":"..."}]',
+        max_tokens=4000, system=_VOZ_MARCA)
+    if not isinstance(d, list):
+        return {"ok": False, "error": err or "sin_json"}
+    limpias = []
+    for p in d[:4]:
+        if isinstance(p, dict):
+            limpias.append({k: _sin_em_dash(str(v)) for k, v in p.items()})
+    return {"ok": True, "propuestas": limpias}
+
+
+@app.post("/gc/imagen")
+def gc_imagen(req: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    import requests as _rq
+    key = _fal_key()
+    if not key:
+        return {"ok": False, "error": "sin_fal_key"}
+    prompt_es = req.get("prompt") or ""
+    prompt_en = _optimizar_prompt(prompt_es) if req.get("optimizar", True) else prompt_es
+    body = {"prompt": prompt_en,
+            "image_size": _ASPECTO_FLUX.get(req.get("aspecto", "9:16"), "portrait_16_9"),
+            "num_images": 1}
+    try:
+        r = _rq.post("https://fal.run/" + _FLUX,
+                     headers={"Authorization": "Key " + key, "Content-Type": "application/json"},
+                     json=body, timeout=120)
+        d = r.json()
+        url = ((d.get("images") or [{}])[0]).get("url", "")
+        if not url:
+            return {"ok": False, "error": str(d)[:200]}
+        return {"ok": True, "url": url, "prompt_en": prompt_en, "prompt_es": prompt_es}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/gc/video")
+def gc_video(req: dict = Body(...), authorization: str = Header(None)):
+    """Seedance image->video: encola y devuelve request_id (polling en /gc/estado)."""
+    _auth(authorization)
+    import requests as _rq
+    key = _fal_key()
+    if not key:
+        return {"ok": False, "error": "sin_fal_key"}
+    image_url = req.get("image_url") or ""
+    if not image_url:
+        return {"ok": False, "error": "falta image_url"}
+    prompt_en = _optimizar_prompt(req.get("prompt", "")) if req.get("prompt") else ""
+    body = {"prompt": prompt_en, "image_url": image_url,
+            "resolution": req.get("resolucion", "720p"),
+            "duration": str(req.get("duracion", "5"))}
+    try:
+        r = _rq.post("https://queue.fal.run/" + _SEEDANCE,
+                     headers={"Authorization": "Key " + key, "Content-Type": "application/json"},
+                     json=body, timeout=60)
+        d = r.json()
+        rid = d.get("request_id")
+        if not rid:
+            return {"ok": False, "error": str(d)[:200]}
+        return {"ok": True, "request_id": rid}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/gc/estado")
+def gc_estado(request_id: str = "", authorization: str = Header(None)):
+    _auth(authorization)
+    import requests as _rq
+    key = _fal_key()
+    if not key or not request_id:
+        return {"ok": False, "error": "falta clave o request_id"}
+    H = {"Authorization": "Key " + key}
+    base = "https://queue.fal.run/" + _SEEDANCE + "/requests/" + request_id
+    try:
+        st = _rq.get(base + "/status", headers=H, timeout=30).json()
+        estado = st.get("status", "")
+        if estado != "COMPLETED":
+            return {"ok": True, "estado": estado}
+        res = _rq.get(base, headers=H, timeout=30).json()
+        return {"ok": True, "estado": "COMPLETED",
+                "video_url": (res.get("video") or {}).get("url", "")}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/gc/subir")
+def gc_subir(req: dict = Body(...), authorization: str = Header(None)):
+    """Guarda un archivo (base64/dataURL) en /media y devuelve su URL publica.
+    Videos: recomprime a ~1080p con ffmpeg si esta disponible."""
+    _auth(authorization)
+    import base64 as _b64
+    data = req.get("data") or ""
+    if "," in data:
+        data = data.split(",", 1)[1]
+    try:
+        raw = _b64.b64decode(data)
+    except Exception:  # noqa: BLE001
+        return {"ok": False, "error": "base64 invalido"}
+    ext = (req.get("ext") or "png").lower()
+    if ext not in ("png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "mov"):
+        ext = "png"
+    es_video = ext in ("mp4", "webm", "mov")
+    if not raw or (len(raw) > 12_000_000 and not es_video) or len(raw) > 220_000_000:
+        return {"ok": False, "error": "vacio o muy grande"}
+    if es_video:
+        import shutil
+        import subprocess
+        import tempfile
+        ent = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix="." + ext, delete=False) as tin:
+                tin.write(raw)
+                ent = tin.name
+            if not shutil.which("ffmpeg"):
+                raise RuntimeError("sin ffmpeg")
+            fname = uuid.uuid4().hex + ".mp4"
+            outp = os.path.join(_MEDIA_DIR, fname)
+            subprocess.run(["ffmpeg", "-y", "-i", ent, "-vf", "scale='min(1080,iw)':-2",
+                            "-c:v", "libx264", "-crf", "28", "-preset", "veryfast",
+                            "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", outp],
+                           check=True, capture_output=True, timeout=420)
+            return {"ok": True, "url": _base_publica() + "/media/" + fname, "comprimido": True}
+        except Exception:  # noqa: BLE001
+            fname = uuid.uuid4().hex + "." + ext
+            with open(os.path.join(_MEDIA_DIR, fname), "wb") as f:
+                f.write(raw)
+            return {"ok": True, "url": _base_publica() + "/media/" + fname}
+        finally:
+            if ent:
+                try:
+                    os.unlink(ent)
+                except Exception:  # noqa: BLE001
+                    pass
+    fname = uuid.uuid4().hex + "." + ext
+    try:
+        with open(os.path.join(_MEDIA_DIR, fname), "wb") as f:
+            f.write(raw)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "url": _base_publica() + "/media/" + fname}
+
+
+def _extraer_svg(txt):
+    m = re.search(r"<svg[\s\S]*?</svg>", txt, re.I)
+    if m:
+        return m.group(0)
+    i = txt.lower().find("<svg")
+    if i >= 0:
+        return txt[i:].rstrip() + "</svg>"
+    return ""
+
+
+@app.post("/gc/diseno")
+def gc_diseno(req: dict = Body(...), authorization: str = Header(None)):
+    """Pieza grafica SVG de marca (editable en el front)."""
+    _auth(authorization)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return {"ok": False, "error": "sin_clave"}
+    import anthropic
+    w, h = _DIM.get(req.get("formato", "1:1"), (1080, 1080))
+    user = (f"Crea una pieza grafica para redes, viewBox='0 0 {w} {h}'.\n"
+            f"TITULO: {req.get('titulo', '')}\nSUBTITULO: {req.get('subtitulo', '')}\n"
+            f"CTA (opcional): {req.get('cta', '')}\n"
+            f"Estilo/tema: {req.get('estilo', '') or 'marca Atlantis, banca privada sobria'}.\n"
+            "Fondo oscuro, acento oro champagne, incluye la micro-etiqueta "
+            "'// ATLANTIS GLOBAL REALTY'. Texto legible y jerarquizado. Devuelve SOLO el SVG.")
+    try:
+        cliente = anthropic.Anthropic()
+        svg = ""
+        for _ in range(2):
+            r = cliente.messages.create(model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-5"),
+                                        max_tokens=8000, system=_DESIGN_SYSTEM,
+                                        messages=[{"role": "user", "content": user}])
+            txt = "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
+            svg = _extraer_svg(txt)
+            if svg and "</svg>" in svg and len(svg) > 120:
+                break
+        if not svg:
+            return {"ok": False, "error": "no_svg"}
+        return {"ok": True, "svg": svg, "w": w, "h": h}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/gc/carrusel")
+def gc_carrusel(req: dict = Body(...), authorization: str = Header(None)):
+    """Carrusel de N laminas cohesivas: guion en voz de marca + SVG por lamina."""
+    _auth(authorization)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return {"ok": False, "error": "sin_clave"}
+    import anthropic
+    mensaje = (req.get("mensaje") or req.get("titulo") or "").strip()
+    if not mensaje:
+        return {"ok": False, "error": "falta_mensaje"}
+    formato = req.get("formato", "4:5")
+    w, h = _DIM.get(formato, (1080, 1350))
+    try:
+        n = int(req.get("n") or 5)
+    except Exception:  # noqa: BLE001
+        n = 5
+    n = max(3, min(8, n))
+    cta = (req.get("cta") or "").strip()
+    plan, err = _claude_json_par(
+        f"Disena el GUION de un CARRUSEL de {n} laminas para redes que desarrolla este "
+        f"mensaje:\n\"{mensaje}\"\n\n"
+        "Lamina 1 = GANCHO (detiene el scroll). Intermedias = una idea concreta por "
+        "lamina con valor real. Ultima = CIERRE con llamado a la accion"
+        + ((": " + cta) if cta else " (proponlo tu, suave)") + ".\n"
+        "Titulo de 3 a 8 palabras; subtitulo de 1 linea. Nunca prometas retornos.\n"
+        f"Devuelve SOLO array JSON de exactamente {n} objetos: "
+        '[{"rol":"gancho|desarrollo|cierre","titulo":"...","subtitulo":"..."}]',
+        max_tokens=4000, system=_VOZ_MARCA)
+    if not isinstance(plan, list) or not plan:
+        return {"ok": False, "error": err or "sin_plan"}
+    plan = plan[:n]
+    total = len(plan)
+    estilo_com = (
+        "Carrusel COHESIVO: mismo fondo oscuro, mismos acentos oro champagne, misma "
+        "tipografia y rejilla en TODAS las laminas. En una esquina SOLO el numero de "
+        "lamina y la micro-etiqueta '// ATLANTIS GLOBAL REALTY'. PROHIBIDO escribir "
+        "'gancho', 'desarrollo', 'cierre' ni etiquetas de rol: son instrucciones "
+        "internas. Todo el texto visible en espanol correcto, CON tildes y con la ñ."
+    )
+    cliente = anthropic.Anthropic()
+    slides = []
+    for idx, s in enumerate(plan):
+        rol = (s.get("rol") or "desarrollo")
+        tit = _sin_em_dash(str(s.get("titulo") or ""))
+        sub = _sin_em_dash(str(s.get("subtitulo") or ""))
+        rol_dir = {"gancho": "Lamina de GANCHO: titulo GRANDE que domina, alto contraste, poco texto.",
+                   "cierre": "Lamina de CIERRE: llamado a la accion como boton/etiqueta visible."}.get(
+                       rol, "Lamina de DESARROLLO: una idea clara y aireada, titulo > subtitulo.")
+        user = (f"Crea la lamina {idx + 1} de {total} de un carrusel, viewBox='0 0 {w} {h}'.\n"
+                f"TITULO: {tit}\nSUBTITULO: {sub}\n{rol_dir}\n{estilo_com}\n"
+                f"Numero a mostrar: {str(idx + 1).zfill(2)}/{str(total).zfill(2)}.\n"
+                "Devuelve SOLO el SVG.")
+        svg = ""
+        try:
+            for _ in range(2):
+                r = cliente.messages.create(model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-5"),
+                                            max_tokens=8000, system=_DESIGN_SYSTEM,
+                                            messages=[{"role": "user", "content": user}])
+                txt = "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
+                svg = _extraer_svg(txt)
+                if svg and "</svg>" in svg and len(svg) > 120:
+                    break
+        except Exception as e:  # noqa: BLE001
+            if slides:
+                break
+            return {"ok": False, "error": str(e)}
+        if svg:
+            slides.append({"svg": svg, "w": w, "h": h, "rol": rol, "titulo": tit,
+                           "subtitulo": sub, "n": idx + 1})
+    if not slides:
+        return {"ok": False, "error": "no_svg"}
+    return {"ok": True, "slides": slides, "w": w, "h": h, "total": len(slides), "mensaje": mensaje}
+
+
+_PROXY_MAX_BYTES = 300 * 1024 * 1024
+
+
+def _ip_privada(host):
+    """True si el host resuelve a IP interna/reservada (bloqueo SSRF)."""
+    import ipaddress
+    import socket
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:  # noqa: BLE001
+        return True
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except Exception:  # noqa: BLE001
+            return True
+        if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
+            return True
+    return False
+
+
+@app.get("/gc/proxy")
+def gc_proxy(url: str = "", k: str = ""):
+    """Proxy same-origin SOLO para el editor de video (un clip, evita canvas
+    tainted). NO soporta Range: jamas enrutar previews de listas por aqui
+    (autocorreccion #4). Auth por query k (el <video> no manda headers)."""
+    import urllib.parse
+    from fastapi.responses import StreamingResponse
+    import requests as _rq
+    clave = clave_actual()
+    cron = os.environ.get("CRON_KEY", "").strip()
+    if not clave or not (hmac.compare_digest(k or "", clave)
+                         or (cron and hmac.compare_digest(k or "", cron))):
+        raise HTTPException(401, "no autorizado")
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "url invalida")
+    host = urllib.parse.urlparse(url).hostname or ""
+    if not host or _ip_privada(host):
+        raise HTTPException(400, "destino no permitido")
+    try:
+        rr = _rq.get(url, stream=True, timeout=60, allow_redirects=False)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+    if 300 <= rr.status_code < 400:
+        raise HTTPException(400, "redireccion no permitida")
+    ct = rr.headers.get("content-type", "application/octet-stream")
+
+    def _cuerpo():
+        total = 0
+        for chunk in rr.iter_content(chunk_size=16384):
+            total += len(chunk)
+            if total > _PROXY_MAX_BYTES:
+                break
+            yield chunk
+
+    return StreamingResponse(_cuerpo(), media_type=ct,
+                             headers={"Access-Control-Allow-Origin": "*",
+                                      "Cache-Control": "public, max-age=86400"})
+
+
 # ------------------------------------------- maquetador / web publica (F5)
 
 @app.get("/web/estado")

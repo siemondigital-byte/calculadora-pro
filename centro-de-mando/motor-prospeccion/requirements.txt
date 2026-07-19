@@ -5,3 +5,4 @@ anthropic>=0.40
 cryptography>=42
 pywebpush>=2.0
 requests>=2.31
+pillow>=10

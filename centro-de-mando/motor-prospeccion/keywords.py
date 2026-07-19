@@ -36,7 +36,8 @@ _SEMILLA = {
 
 
 def _token():
-    return (os.environ.get("APIFY_TOKEN") or "").strip()
+    import secretos as _sec
+    return (_sec.get("APIFY_TOKEN") or os.environ.get("APIFY_TOKEN") or "").strip()
 
 
 def hay_apify():

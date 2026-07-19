@@ -652,6 +652,84 @@ check("ciclo cerrado: dry-run ve cambios de las soluciones guardadas",
 r = c.post("/ideas", json={"workspace": "atlantis"}, headers=AUTH2)
 check("ideas sin clave -> error claro", r.json()["ok"] is False and "clave" in r.json()["error"])
 
+# ------------------------------------------------- blog SEO + estudio (F5)
+# 59. Banco de medios sin keys -> mensaje claro
+r = c.post("/blog/fotos", json={"query": "arquitectura"}, headers=AUTH2)
+check("fotos sin key -> sin_key", r.json().get("error") == "sin_key")
+r = c.post("/gc/videos_banco", json={"query": "ciudad"}, headers=AUTH2)
+check("videos sin key -> sin_key", r.json().get("error") == "sin_key")
+
+# 60. Deteccion de idioma del banco (quirk Pixabay) y helpers
+check("_banco_lang detecta espanol", motor._banco_lang("reunión de negocios") == "es")
+check("_banco_lang detecta ingles", motor._banco_lang("business meeting") == "en")
+check("_orient_ok vertical", motor._orient_ok(720, 1280, "portrait") is True
+      and motor._orient_ok(1280, 720, "portrait") is False)
+
+# 61. blog/ideas con IA simulada: estructura + adjuncion de volumen
+motor._claude_json = lambda *a, **k: [
+    {"keyword": "invertir en preventa", "titulo": "Invertir en preventa: guia con metodo",
+     "intencion": "informacional", "angulo": "despertar el problema"}]
+r = c.post("/blog/ideas", json={"tema": "preventa inmobiliaria"}, headers=AUTH2)
+check("blog/ideas devuelve ideas", len(r.json()["ideas"]) == 1 and r.json()["ok"])
+
+# 62. blog/articulo con score SEO determinista
+motor._claude_json = lambda *a, **k: {
+    "meta_description": "Aprende a invertir en preventa con metodo y criterio, paso a paso, sin depender de tu sueldo para construir patrimonio real y sostenible en el tiempo.",
+    "h1": "Invertir en preventa con metodo",
+    "cuerpo_md": ("intro que conecta\n\n" + "\n\n".join(
+        f"## Seccion invertir en preventa {i}\n" + ("palabra " * 180) for i in range(5)))}
+r = c.post("/blog/articulo", json={"titulo": "Invertir en preventa",
+    "keyword": "invertir en preventa"}, headers=AUTH2)
+art = r.json()["articulo"]
+check("blog/articulo con score", r.json()["ok"] and int(art["score_seo"]) >= 60, str(art.get("score_seo")))
+
+# 63. blog/publicos: solo publicados, sin futuros, con slug
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+d["atlantis"]["blogArticulos"] = [
+    {"id": "a1", "titulo": "Articulo Publicado", "h1": "Artículo Publicado", "estado": "publicado",
+     "cuerpo_md": "hola", "meta_description": "m", "fechaPublicacion": "2026-01-01"},
+    {"id": "a2", "titulo": "Borrador", "estado": "borrador", "cuerpo_md": "x"},
+    {"id": "a3", "titulo": "Futuro", "estado": "publicado", "cuerpo_md": "x",
+     "fechaPublicacion": "2030-01-01"}]
+c.put("/crm/data", json={"data": d}, headers=AUTH2)
+r = c.get("/blog/publicos")
+arts = r.json()["articulos"]
+check("publicos: 1 visible (ni borrador ni futuro)", len(arts) == 1
+      and arts[0]["slug"] == "articulo-publicado", str(arts))
+r = c.get("/blog/publicos?slug=articulo-publicado")
+check("publicos por slug trae cuerpo", r.json()["articulo"]["cuerpo_md"] == "hola")
+
+# 64. gsc_importar y kwplanner parsean CSV
+r = c.post("/blog/gsc_importar", json={"csv":
+    "Consulta,Clics,Impresiones,CTR,Posicion\ninvertir en preventa,10,200,5%,8.2\n"}, headers=AUTH2)
+check("gsc_importar parsea", r.json()["total"] == 1
+      and r.json()["consultas"][0]["impresiones"] == 200)
+
+# 65. gc/titulares con IA simulada limpia em dashes
+motor._claude_json = lambda *a, **k: [
+    {"titulo": "El ciclo — completo", "subtitulo": "s", "cta": "Ver metodo"}]
+r = c.post("/gc/titulares", json={"base": "el ciclo"}, headers=AUTH2)
+check("titulares limpios", r.json()["ok"] and "—" not in json.dumps(r.json()))
+
+# 66. gc/subir guarda en /media y sirve por static
+import base64 as _b64mod
+r = c.post("/gc/subir", json={"data": _b64mod.b64encode(b"PNGFAKE").decode(), "ext": "png"}, headers=AUTH2)
+check("gc/subir devuelve url /media", r.json()["ok"] and "/media/" in r.json()["url"])
+nombre = r.json()["url"].split("/media/")[-1]
+r = c.get(f"/media/{nombre}")
+check("archivo servido por /media", r.status_code == 200 and r.content == b"PNGFAKE")
+
+# 67. gc/proxy: fail-closed y anti-SSRF
+check("proxy sin clave -> 401", c.get("/gc/proxy?url=https://x.com/v.mp4").status_code == 401)
+check("proxy bloquea IP privada", c.get(
+    "/gc/proxy?url=http://127.0.0.1/x.mp4&k=clave-nueva-rotada-99").status_code == 400)
+
+# 68. gc/imagen falla con gracia (la FAL key del vault es falsa y no hay red):
+#     nunca truena, siempre {ok: False, error}
+r = c.post("/gc/imagen", json={"prompt": "x", "optimizar": False}, headers=AUTH2)
+check("gc/imagen falla con gracia", r.status_code == 200 and r.json()["ok"] is False
+      and bool(r.json().get("error")))
+
 print()
 print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
 sys.exit(1 if fallos else 0)

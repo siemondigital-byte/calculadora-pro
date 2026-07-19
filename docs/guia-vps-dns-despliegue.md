@@ -2,6 +2,10 @@
 
 > Para quien lo hace por primera vez. Tiempo total: ~30 minutos (más la espera
 > del DNS). Al final tendrás el CRM en vivo en `crm.atlantisglobalrealty.com`.
+>
+> **¿Ya tienes un VPS (el de Siemon)?** Sáltate la Parte 1 y usa el
+> **Escenario B** (abajo, después de la Parte 4): el mismo VPS sirve para los
+> dos negocios, con datos aislados y sin tocar nada de lo que ya corre.
 
 ---
 
@@ -77,6 +81,51 @@ En el panel donde administras el dominio `atlantisglobalrealty.com`
    `{"ok":true,"servicio":"centro-de-mando-atlantis"}`.
 4. Si algo no responde: en la terminal del VPS,
    `cd /root/atlantis/centro-de-mando && docker compose logs --tail 50`.
+
+## Escenario B · Usar el MISMO VPS donde ya corre el Centro de Mando de Siemon
+
+Totalmente viable y más barato. Qué implica:
+
+**Lo que comparte:** la máquina (CPU/RAM/disco), el Traefik que ya enruta con
+TLS, y el n8n existente (los flujos de Atlantis se importan ahí mismo, como
+workflows nuevos).
+
+**Lo que queda aislado:** el código (`/root/atlantis`), los contenedores
+(`atlantis-motor`, `atlantis-web`), y TODOS los datos
+(`/root/atlantis/centro-de-mando/data`: su propio `crm.json`, vault, backups).
+Nada de Siemon se toca ni se mezcla.
+
+**Los trade-offs honestos:**
+1. *Un solo punto de falla:* si el VPS cae, caen los dos negocios.
+2. *Recursos compartidos:* el stack de Siemon (n8n + Postiz + Temporal + Umami)
+   ya consume bastante; Atlantis agrega ~500 MB de RAM. Si el plan es de 8 GB
+   va bien; si es de 4 GB, revisa `free -h` y considera subir el plan (en
+   Hostinger se sube sin reinstalar).
+3. *Postiz compartido:* conecta las cuentas de redes de Atlantis como cuentas
+   adicionales en el Postiz existente (el README de traspaso ya recomienda
+   separar; un segundo Postiz completo es pesado, mejor un solo Postiz con
+   cuentas de ambas marcas).
+4. *n8n con dominio de Siemon:* los webhooks de Atlantis vivirán bajo
+   `hooks.siemondigital.com/webhook/...`. Funcionan perfecto; solo es estética
+   interna (nadie del público los ve).
+
+**Pasos (en vez de las Partes 1 y 3):**
+
+1. **DNS:** crea 2 registros A en `atlantisglobalrealty.com`: `crm` y `motor`
+   → la IP del VPS actual (la misma de siemondigital). `hooks` no hace falta.
+2. En la terminal del VPS (como root):
+   ```bash
+   git clone --branch claude/new-session-3rjwcr https://github.com/siemondigital-byte/calculadora-pro.git /root/atlantis
+   bash /root/atlantis/centro-de-mando/scripts/bootstrap-vps-compartido.sh
+   ```
+   Este script detecta solo el Traefik existente (su red y su emisor de
+   certificados), NO instala Caddy ni otro n8n, y levanta únicamente
+   `motor` + `web` de Atlantis registrados en ese Traefik. Imprime la clave
+   de acceso y el checklist.
+3. **n8n:** en el n8n de siempre, importa los flujos de
+   `/root/atlantis/centro-de-mando/n8n/` y pon en los nodos "Motor" la
+   `CRON_KEY` que está en `/root/atlantis/centro-de-mando/.env`.
+4. Sigue con la Parte 4 (verificación) y la Parte 5 (activaciones) normal.
 
 ## Parte 5 · Activaciones post-despliegue (cuando puedas)
 
