@@ -17,6 +17,12 @@ set -euo pipefail
 DIR_CM="/root/atlantis/centro-de-mando"
 DOMINIO_CRM="${DOMINIO_CRM:-crm.atlantisglobalrealty.com}"
 DOMINIO_MOTOR="${DOMINIO_MOTOR:-motor.atlantisglobalrealty.com}"
+DOMINIO_HOOKS="${DOMINIO_HOOKS:-hooks.atlantisglobalrealty.com}"
+DOMINIO_PUBLICAR="${DOMINIO_PUBLICAR:-publicar.atlantisglobalrealty.com}"
+# CON_N8N=1 levanta un n8n PROPIO de Atlantis (workflows separados, dominio propio).
+# CON_POSTIZ=1 levanta un Postiz PROPIO (requiere ~1 GB de RAM adicional).
+CON_N8N="${CON_N8N:-1}"
+CON_POSTIZ="${CON_POSTIZ:-0}"
 
 echo "== Centro de Mando · Atlantis — bootstrap en VPS compartido =="
 cd "$DIR_CM"
@@ -58,6 +64,8 @@ if [ ! -f .env ]; then
     echo "ANTHROPIC_API_KEY="
     echo "VAPID_PUBLIC_KEY=$VAPID_PUB"
     echo "VAPID_PRIVATE_KEY=/data/vapid_private.pem"
+    echo "POSTIZ_JWT_SECRET=$(openssl rand -hex 32)"
+    echo "POSTIZ_DB_PASS=$(openssl rand -hex 16)"
   } > .env
   chmod 600 .env
   echo
@@ -110,14 +118,96 @@ services:
       - traefik.http.routers.atlantis-crm.entrypoints=$ENTRYPOINT
       - traefik.http.routers.atlantis-crm.tls.certresolver=$RESOLVER
       - traefik.http.services.atlantis-crm.loadbalancer.server.port=80
+YML
+
+# 3b. n8n PROPIO de Atlantis (workflows y credenciales separados de Siemon)
+if [ "$CON_N8N" = "1" ]; then
+cat >> compose.compartido.yml <<YML
+
+  n8n-atlantis:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=$DOMINIO_HOOKS
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://$DOMINIO_HOOKS/
+      - GENERIC_TIMEZONE=America/Bogota
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+    networks: [proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.atlantis-hooks.rule=Host(\`$DOMINIO_HOOKS\`)
+      - traefik.http.routers.atlantis-hooks.entrypoints=$ENTRYPOINT
+      - traefik.http.routers.atlantis-hooks.tls.certresolver=$RESOLVER
+      - traefik.http.services.atlantis-hooks.loadbalancer.server.port=5678
+YML
+fi
+
+# 3c. Postiz PROPIO de Atlantis (OAuth y cuentas de redes separados).
+#     Pesa ~1 GB de RAM: activar con CON_POSTIZ=1 solo si el VPS tiene margen.
+if [ "$CON_POSTIZ" = "1" ]; then
+cat >> compose.compartido.yml <<YML
+
+  postiz-atlantis:
+    image: ghcr.io/gitroomhq/postiz-app:latest
+    restart: unless-stopped
+    environment:
+      - MAIN_URL=https://$DOMINIO_PUBLICAR
+      - FRONTEND_URL=https://$DOMINIO_PUBLICAR
+      - NEXT_PUBLIC_BACKEND_URL=https://$DOMINIO_PUBLICAR/api
+      - JWT_SECRET=\${POSTIZ_JWT_SECRET}
+      - DATABASE_URL=postgresql://postiz:\${POSTIZ_DB_PASS}@postiz-atlantis-db:5432/postiz
+      - REDIS_URL=redis://postiz-atlantis-redis:6379
+      - BACKEND_INTERNAL_URL=http://localhost:3000
+      - IS_GENERAL=true
+      - DISABLE_REGISTRATION=false
+      - STORAGE_PROVIDER=local
+      - UPLOAD_DIRECTORY=/uploads
+      - NEXT_PUBLIC_UPLOAD_DIRECTORY=/uploads
+    volumes:
+      - ./postiz-uploads:/uploads
+    networks: [proxy, postiz-atlantis]
+    depends_on: [postiz-atlantis-db, postiz-atlantis-redis]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.atlantis-publicar.rule=Host(\`$DOMINIO_PUBLICAR\`)
+      - traefik.http.routers.atlantis-publicar.entrypoints=$ENTRYPOINT
+      - traefik.http.routers.atlantis-publicar.tls.certresolver=$RESOLVER
+      - traefik.http.services.atlantis-publicar.loadbalancer.server.port=5000
+
+  postiz-atlantis-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postiz
+      - POSTGRES_PASSWORD=\${POSTIZ_DB_PASS}
+      - POSTGRES_DB=postiz
+    volumes:
+      - ./postiz-db:/var/lib/postgresql/data
+    networks: [postiz-atlantis]
+
+  postiz-atlantis-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [postiz-atlantis]
+YML
+fi
+
+# pie: definicion de redes (SIEMPRE al final, despues de todos los servicios)
+cat >> compose.compartido.yml <<YML
 
 networks:
   proxy:
     external: true
     name: $RED
 YML
+if [ "$CON_POSTIZ" = "1" ]; then
+  printf '  postiz-atlantis:\n    driver: bridge\n' >> compose.compartido.yml
+fi
 
-echo "-- Construyendo y levantando motor + web de Atlantis..."
+echo "-- Construyendo y levantando el stack de Atlantis..."
 docker compose -f compose.compartido.yml --env-file .env up -d --build
 
 # 4. Verificacion
@@ -125,14 +215,28 @@ sleep 6
 docker compose -f compose.compartido.yml ps
 echo
 echo "== Checklist =="
-echo "[ ] DNS: $DOMINIO_CRM y $DOMINIO_MOTOR -> IP de ESTE VPS (registros A)"
-for h in "$DOMINIO_MOTOR" "$DOMINIO_CRM"; do
+DOMINIOS="$DOMINIO_MOTOR $DOMINIO_CRM"
+[ "$CON_N8N" = "1" ] && DOMINIOS="$DOMINIOS $DOMINIO_HOOKS"
+[ "$CON_POSTIZ" = "1" ] && DOMINIOS="$DOMINIOS $DOMINIO_PUBLICAR"
+echo "[ ] DNS: registros A hacia la IP de ESTE VPS para: $DOMINIOS"
+for h in $DOMINIOS; do
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 12 "https://$h/" || true)"
   echo "[$([ "$code" != "000" ] && echo x || echo ' ')] https://$h -> $code"
 done
 echo "[ ] curl -s https://$DOMINIO_MOTOR/crm/data (sin Bearer) debe dar 401"
 echo "[ ] Login en https://$DOMINIO_CRM con la clave impresa arriba"
 echo
-echo "n8n: importa los flujos de $DIR_CM/n8n/ en el n8n EXISTENTE del VPS"
-echo "(hooks.siemondigital.com) y pon la CRON_KEY de $DIR_CM/.env en los nodos Motor."
-echo "Los stacks de Siemon y Atlantis quedan aislados: datos en /root/atlantis/centro-de-mando/data."
+if [ "$CON_N8N" = "1" ]; then
+  echo "n8n de Atlantis: entra a https://$DOMINIO_HOOKS, crea el usuario admin,"
+  echo "importa los flujos de $DIR_CM/n8n/ y pon la CRON_KEY de $DIR_CM/.env en"
+  echo "los nodos Motor. Solo veras los workflows de Atlantis (instancia propia)."
+else
+  echo "n8n: importa los flujos de $DIR_CM/n8n/ en el n8n existente del VPS y"
+  echo "pon la CRON_KEY de $DIR_CM/.env en los nodos Motor."
+fi
+if [ "$CON_POSTIZ" = "1" ]; then
+  echo "Postiz de Atlantis: entra a https://$DOMINIO_PUBLICAR, crea la cuenta y"
+  echo "conecta las redes de Atlantis. Pon POSTIZ_URL=https://$DOMINIO_PUBLICAR/api"
+  echo "en el .env del motor y la POSTIZ_API_KEY por el vault (CRM -> Accesos)."
+fi
+echo "Los stacks de Siemon y Atlantis quedan aislados: datos de Atlantis en $DIR_CM/data."

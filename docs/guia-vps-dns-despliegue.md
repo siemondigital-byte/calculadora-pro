@@ -101,31 +101,47 @@ Nada de Siemon se toca ni se mezcla.
    ya consume bastante; Atlantis agrega ~500 MB de RAM. Si el plan es de 8 GB
    va bien; si es de 4 GB, revisa `free -h` y considera subir el plan (en
    Hostinger se sube sin reinstalar).
-3. *Postiz compartido:* conecta las cuentas de redes de Atlantis como cuentas
-   adicionales en el Postiz existente (el README de traspaso ya recomienda
-   separar; un segundo Postiz completo es pesado, mejor un solo Postiz con
-   cuentas de ambas marcas).
-4. *n8n con dominio de Siemon:* los webhooks de Atlantis vivirán bajo
-   `hooks.siemondigital.com/webhook/...`. Funcionan perfecto; solo es estética
-   interna (nadie del público los ve).
+3. *n8n y Postiz:* Atlantis puede tener **los suyos propios, con su dominio**
+   (recomendado, ver abajo) o compartir los de Siemon.
+
+**¿n8n y Postiz propios de Atlantis? Sí, y es lo recomendado para n8n:**
+
+- `hooks.atlantisglobalrealty.com` → una **instancia n8n propia** de Atlantis:
+  solo se ven los workflows de Atlantis, con su propio usuario admin y sus
+  credenciales, y los webhooks salen bajo el dominio de Atlantis. Cuesta
+  ~300 MB de RAM. El script la levanta por defecto (`CON_N8N=1`).
+  > Un "alias" de dominio sobre el n8n de Siemon NO sirve para esto: n8n no
+  > separa workflows por dominio; se verían los de ambos negocios mezclados.
+- `publicar.atlantisglobalrealty.com` → un **Postiz propio** (app + su base de
+  datos + redis): cuentas de redes y OAuth 100% separados de Siemon. Cuesta
+  ~1 GB de RAM adicional: actívalo con `CON_POSTIZ=1` solo si el VPS tiene
+  margen (revisa `free -h`; con 8 GB y el stack de Siemon corriendo suele
+  caber, con 4 GB no).
+  > Un alias tampoco funciona aquí: los OAuth de las redes sociales se
+  > registran contra UN dominio; con dos dominios sobre el mismo Postiz las
+  > conexiones fallarían.
 
 **Pasos (en vez de las Partes 1 y 3):**
 
-1. **DNS:** crea 2 registros A en `atlantisglobalrealty.com`: `crm` y `motor`
-   → la IP del VPS actual (la misma de siemondigital). `hooks` no hace falta.
+1. **DNS:** registros A en `atlantisglobalrealty.com` → la IP del VPS actual:
+   `crm`, `motor`, `hooks` (y `publicar` si activas el Postiz propio).
 2. En la terminal del VPS (como root):
    ```bash
    git clone --branch claude/new-session-3rjwcr https://github.com/siemondigital-byte/calculadora-pro.git /root/atlantis
-   bash /root/atlantis/centro-de-mando/scripts/bootstrap-vps-compartido.sh
+   CON_POSTIZ=1 bash /root/atlantis/centro-de-mando/scripts/bootstrap-vps-compartido.sh
    ```
-   Este script detecta solo el Traefik existente (su red y su emisor de
-   certificados), NO instala Caddy ni otro n8n, y levanta únicamente
-   `motor` + `web` de Atlantis registrados en ese Traefik. Imprime la clave
-   de acceso y el checklist.
-3. **n8n:** en el n8n de siempre, importa los flujos de
-   `/root/atlantis/centro-de-mando/n8n/` y pon en los nodos "Motor" la
-   `CRON_KEY` que está en `/root/atlantis/centro-de-mando/.env`.
-4. Sigue con la Parte 4 (verificación) y la Parte 5 (activaciones) normal.
+   (Sin Postiz propio, quita el `CON_POSTIZ=1`.) El script detecta el Traefik
+   existente (red y emisor de certificados), NO instala Caddy, y levanta el
+   stack de Atlantis registrado en ese Traefik: motor + web + n8n propio
+   (+ Postiz si lo activaste). Imprime la clave de acceso y el checklist.
+3. **n8n de Atlantis:** entra a `https://hooks.atlantisglobalrealty.com`, crea
+   el usuario admin, importa los flujos de `/root/atlantis/centro-de-mando/n8n/`
+   y pon en los nodos "Motor" la `CRON_KEY` de
+   `/root/atlantis/centro-de-mando/.env`.
+4. **Postiz de Atlantis** (si lo activaste): entra a
+   `https://publicar.atlantisglobalrealty.com`, crea la cuenta, conecta las
+   redes de la marca, y guarda la `POSTIZ_API_KEY` en el CRM → Accesos.
+5. Sigue con la Parte 4 (verificación) y la Parte 5 (activaciones) normal.
 
 ## Parte 5 · Activaciones post-despliegue (cuando puedas)
 
