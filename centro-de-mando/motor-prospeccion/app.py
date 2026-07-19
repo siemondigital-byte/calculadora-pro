@@ -26,7 +26,9 @@ import buzones
 import collectors
 import crm_store
 import nurturing
+import publicar as pub
 import secretos
+import web_pub
 
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 CLAVE_PATH = os.path.join(DATA_DIR, "clave.txt")
@@ -531,6 +533,135 @@ def generar_contenido(body: dict = Body(...), authorization: str = Header(None))
             if isinstance(pieza.get(campo), str):
                 pieza[campo] = _sin_em_dash(pieza[campo])
     return {"ok": True, "pieza": pieza}
+
+
+# ------------------------------------------- maquetador / web publica (F5)
+
+@app.get("/web/estado")
+def web_estado(authorization: str = Header(None)):
+    """Maquetador: inventario de archivos canonicos + estado del FTP."""
+    _auth(authorization)
+    return web_pub.estado()
+
+
+@app.get("/web/leer")
+def web_leer(ruta: str = "", authorization: str = Header(None)):
+    _auth(authorization)
+    return web_pub.leer(ruta)
+
+
+@app.post("/web/escribir")
+def web_escribir(body: dict = Body(...), authorization: str = Header(None)):
+    """Escribe archivos canonicos (con respaldo previo) y opcionalmente publica."""
+    _auth(authorization)
+    archivos = body.get("archivos") or []
+    if not archivos:
+        return {"ok": False, "error": "sin archivos"}
+    try:
+        return web_pub.escribir(archivos, publicar_ftp=bool(body.get("publicar", True)))
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:150]}
+
+
+@app.post("/web/publicar")
+def web_publicar(body: dict = Body(...), authorization: str = Header(None)):
+    """Publica al hosting por FTP con respaldo previo (doble confirmacion en la UI)."""
+    _auth(authorization)
+    rutas = [r for r in (body.get("rutas") or []) if isinstance(r, str)]
+    if not rutas:
+        return {"ok": False, "error": "elige al menos un archivo"}
+    try:
+        return web_pub.publicar(rutas)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:120]}
+
+
+@app.get("/web/diff")
+def web_diff(ruta: str = "", authorization: str = Header(None)):
+    """Que cambio vs lo publicado, en lenguaje humano."""
+    _auth(authorization)
+    return web_pub.diff_legible(ruta)
+
+
+@app.get("/web/versiones")
+def web_versiones(authorization: str = Header(None)):
+    _auth(authorization)
+    return web_pub.versiones()
+
+
+@app.post("/web/restaurar")
+def web_restaurar(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    try:
+        return web_pub.restaurar(
+            str(body.get("version") or "").strip(), str(body.get("ruta") or "").strip()
+        )
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:120]}
+
+
+@app.post("/web/sembrar_publicado")
+def web_sembrar(authorization: str = Header(None)):
+    """Una vez: baja del hosting lo ya publicado como referencia de diff."""
+    _auth(authorization)
+    return web_pub.sembrar_publicado()
+
+
+@app.post("/web/aplicar_soluciones")
+def web_aplicar_soluciones(body: dict = Body(None), authorization: str = Header(None)):
+    """Aplica soluciones SEO a la copia canonica con empalmes quirurgicos.
+    dry_run=True devuelve el preview sin tocar nada."""
+    _auth(authorization)
+    body = body or {}
+    soluciones = body.get("soluciones")
+    if not soluciones:
+        return {"ok": False, "error": "sin soluciones que aplicar"}
+    return web_pub.aplicar_soluciones(soluciones, dry_run=bool(body.get("dry_run")))
+
+
+@app.post("/web/mejorar_texto")
+def web_mejorar_texto(body: dict = Body(...), authorization: str = Header(None)):
+    """Asistente del maquetador: 2 versiones del texto en la voz de marca."""
+    _auth(authorization)
+    texto = str(body.get("texto", "")).strip()
+    if not texto:
+        return {"ok": False, "error": "sin_texto"}
+    contexto = str(body.get("contexto", "")).strip()
+    intencion = str(body.get("intencion", "") or "mejorar claridad y fuerza").strip()
+    n_palabras = len(texto.split())
+    d = _claude_json(
+        "Eres el asistente de redaccion de la web de Atlantis Global Realty. "
+        f"Reescribe el TEXTO de abajo para {intencion}. Es un elemento de la "
+        f"pagina{f' ({contexto})' if contexto else ''}.\nREGLAS:\n"
+        "- Manten el MISMO idioma del texto original.\n"
+        f"- Largo similar (~{n_palabras} palabras); si es titular o boton, corto y directo.\n"
+        "- NO inventes datos, cifras, nombres ni promesas.\n"
+        f"\nTEXTO ORIGINAL:\n{texto}\n\n"
+        'Devuelve SOLO JSON: {"opciones": ["version 1", "version 2"]}',
+        max_tokens=4000, system=_VOZ_MARCA,
+    )
+    opciones = [
+        _sin_em_dash(o) for o in (d.get("opciones") or [])
+        if isinstance(o, str) and o.strip()
+    ][:3]
+    if not opciones:
+        return {"ok": False, "error": "sin_opciones"}
+    return {"ok": True, "opciones": opciones}
+
+
+# ------------------------------------------------- publicacion en redes (F5)
+
+@app.get("/redes/integraciones")
+def redes_integraciones(authorization: str = Header(None)):
+    _auth(authorization)
+    return pub.integraciones()
+
+
+@app.post("/publicar")
+def publicar_red(body: dict = Body(...), authorization: str = Header(None)):
+    """Postiz si hay clave (SIEMPRE type schedule +1min); nativo IG/FB si no."""
+    _auth(authorization)
+    return pub.publicar(body)
 
 
 # ------------------------------------------------------- asistente (ejecuta)

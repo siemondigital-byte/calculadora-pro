@@ -24,4 +24,11 @@
   .tarjeta {
     @apply rounded-xl border border-gris/10 bg-navy/40 p-5;
   }
+  /* tamanos compactos usados por las vistas portadas del Centro de Mando */
+  .fs-9 { font-size: 9px; }
+  .fs-10 { font-size: 10px; }
+  .fs-11 { font-size: 11px; }
+  .fs-12 { font-size: 12px; }
+  .fs-13 { font-size: 13px; }
+  .fs-24 { font-size: 24px; }
 }

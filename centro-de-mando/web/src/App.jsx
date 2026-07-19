@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import MaquetadorView from "./MaquetadorView.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -47,6 +48,7 @@ const NAV = {
       items: [
         ["contenido", "Contenido"],
         ["nurturing", "Nurturing"],
+        ["maquetador", "Maquetador (mi web)"],
       ],
     },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
@@ -159,6 +161,7 @@ export default function App() {
     appusuarios: <AppUsuarios {...props} />,
     contenido: <Contenido {...props} />,
     nurturing: <Nurturing {...props} />,
+    maquetador: <MaquetadorView {...props} />,
     accesos: <Accesos {...props} />,
   };
 

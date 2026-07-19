@@ -493,6 +493,122 @@ r = c.post("/push/recordatorios", headers={"Authorization": "Bearer cron-key-int
 check("recordatorio diario enviado con pendientes",
       r.json()["atlantis"]["enviados"] == 1 and "seguimiento" in PUSHES[0]["body"], str(r.json()))
 
+# ------------------------------------------- maquetador / web publica (F5)
+import io as io_mod  # noqa: E402
+import web_pub  # noqa: E402
+
+web_pub.BASE = os.path.join(TMP, "webfiles")
+web_pub.VERS = os.path.join(web_pub.BASE, "versiones")
+web_pub.PUB = os.path.join(web_pub.BASE, "publicado")
+web_pub.REG = os.path.join(web_pub.BASE, "publicaciones.json")
+
+REMOTO_FAKE = {}
+class _FtpFake:
+    def retrbinary(self, cmd, cb):
+        ruta = cmd.replace("RETR ", "")
+        if ruta not in REMOTO_FAKE:
+            from ftplib import error_perm as _ep
+            raise _ep("550 no existe")
+        cb(REMOTO_FAKE[ruta])
+    def storbinary(self, cmd, fh):
+        REMOTO_FAKE[cmd.replace("STOR ", "")] = fh.read()
+    def mkd(self, d):
+        pass
+    def quit(self):
+        pass
+web_pub._ftp = lambda: _FtpFake()
+
+HOME = ("<html><head><title>Vieja</title>"
+        '<meta name="description" content="vieja desc">'
+        "</head><body><h1>Atlantis</h1><img src=\"/img/ciclo.png\"></body></html>")
+
+# 46. Escribir canonico + publicar por FTP (con respaldo) end-to-end
+r = c.post("/web/escribir", json={"archivos": [
+    {"ruta": "index.html", "contenido": HOME}], "publicar": True}, headers=AUTH2)
+check("web/escribir publica", r.json().get("ok") is True, str(r.json()))
+check("archivo llego al hosting fake", b"Atlantis" in REMOTO_FAKE.get("index.html", b""))
+
+# 47. Ruta insegura rechazada
+r = c.post("/web/escribir", json={"archivos": [
+    {"ruta": "../fuera.html", "contenido": "x"}]}, headers=AUTH2)
+check("ruta insegura rechazada", r.json().get("ok") is False)
+
+# 48. Estado lista los archivos con su registro de publicacion
+r = c.get("/web/estado", headers=AUTH2)
+idx = next(a for a in r.json()["archivos"] if a["ruta"] == "index.html")
+check("estado muestra publicado", bool(idx["publicado"]))
+
+# 49. Diff legible tras cambiar el titulo
+nuevo = HOME.replace("Vieja", "Arquitectos de patrimonio")
+c.post("/web/escribir", json={"archivos": [
+    {"ruta": "index.html", "contenido": nuevo}], "publicar": False}, headers=AUTH2)
+r = c.get("/web/diff?ruta=index.html", headers=AUTH2)
+check("diff detecta el cambio", r.json()["ok"] and (r.json()["cambiados"] or r.json()["agregados"]), str(r.json()))
+
+# 50. aplicar_soluciones: dry-run no toca, aplicar si (empalmes quirurgicos)
+SOLS = {"title_propuesto": "Atlantis Global Realty | Arquitectos de patrimonio",
+        "description_propuesta": "Patrimonio inmobiliario con metodo.",
+        "alts": [{"imagen": "/img/ciclo.png", "alt": "La linea del ciclo"}]}
+r = c.post("/web/aplicar_soluciones", json={"soluciones": SOLS, "dry_run": True}, headers=AUTH2)
+check("dry-run devuelve preview con cambios", r.json()["preview"] and r.json()["hay_cambios"])
+canonico = open(os.path.join(web_pub.BASE, "index.html")).read()
+check("dry-run NO escribio", "Atlantis Global Realty | Arquitectos" not in canonico)
+r = c.post("/web/aplicar_soluciones", json={"soluciones": SOLS}, headers=AUTH2)
+canonico = open(os.path.join(web_pub.BASE, "index.html")).read()
+check("soluciones aplicadas (title+desc+alt)",
+      "Atlantis Global Realty | Arquitectos" in canonico
+      and 'alt="La linea del ciclo"' in canonico)
+
+# 51. Versiones + restaurar deja hosting y canonico iguales a la version previa
+r = c.get("/web/versiones", headers=AUTH2)
+vers = r.json()["versiones"]
+check("hay versiones respaldadas", len(vers) >= 1)
+con_index = next(v for v in vers if "index.html" in v["rutas"])
+r = c.post("/web/restaurar", json={"version": con_index["version"], "ruta": "index.html"}, headers=AUTH2)
+check("restaurar ok", r.json().get("ok") is True, str(r.json()))
+check("hosting fake restaurado", REMOTO_FAKE["index.html"] == open(
+    os.path.join(web_pub.BASE, "index.html"), "rb").read())
+
+# 52. publicar_html (prototipos) valida ruta
+import web_pub as wp  # noqa: E402
+r_html = wp.publicar_html("propuestas/demo.html", "<html>hola</html>")
+check("publicar_html ok con url de atlantis", r_html["ok"] and "atlantisglobalrealty.com" in r_html["url"])
+check("publicar_html rechaza escape", wp.publicar_html("../x.html", "x")["ok"] is False)
+
+# ------------------------------------------------- publicacion en redes
+# 53. Sin POSTIZ_API_KEY: integraciones responde desconectado; publicar cae a
+#     nativo y explica que falta PUBLICAR_KEY (nunca truena)
+r = c.get("/redes/integraciones", headers=AUTH2)
+check("integraciones sin key -> desconectado", r.json()["conectado"] is False)
+r = c.post("/publicar", json={"red": "linkedin", "texto": "hola"}, headers=AUTH2)
+check("publicar sin proveedores -> error claro", r.json()["ok"] is False and "PUBLICAR_KEY" in r.json()["error"])
+
+# 54. Con Postiz simulado: SIEMPRE type schedule con fecha +1min (el 'now' falla callado)
+import publicar as pub_mod  # noqa: E402
+CAPTURA = {}
+class _RespFake:
+    ok = True
+    status_code = 200
+    def json(self):
+        return {"id": "post-1"}
+class _ReqFake:
+    @staticmethod
+    def get(url, **k):
+        r = _RespFake()
+        r.json = lambda: [{"id": "int-1", "identifier": "linkedin", "name": "LN"}]
+        return r
+    @staticmethod
+    def post(url, **k):
+        CAPTURA["url"] = url
+        CAPTURA["body"] = k.get("json")
+        return _RespFake()
+pub_mod.requests = _ReqFake()
+secretos.set_("POSTIZ_API_KEY", "clave-postiz-test")
+r = c.post("/publicar", json={"red": "linkedin", "texto": "Publicacion de prueba"}, headers=AUTH2)
+check("publicar via postiz ok", r.json()["ok"] is True and r.json()["via"] == "postiz", str(r.json()))
+check("postiz SIEMPRE schedule (nunca now)", CAPTURA["body"]["type"] == "schedule"
+      and bool(CAPTURA["body"]["date"]))
+
 print()
 print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
 sys.exit(1 if fallos else 0)
