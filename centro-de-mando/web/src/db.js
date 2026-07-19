@@ -73,6 +73,17 @@ export async function estadoSecretos() {
   return r.ok ? r.json() : {};
 }
 
+export async function motorPost(ruta, body) {
+  const r = await fetch(`${MOTOR}${ruta}`, {
+    method: "POST",
+    headers: cabeceras(),
+    body: JSON.stringify(body || {}),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || `Error ${r.status}`);
+  return j;
+}
+
 export async function cambiarClave(nueva) {
   const r = await fetch(`${MOTOR}/admin/cambiar_clave`, {
     method: "POST",

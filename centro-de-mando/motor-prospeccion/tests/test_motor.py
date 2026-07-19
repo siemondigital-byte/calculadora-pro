@@ -214,6 +214,83 @@ check("credencial nueva valida",
 d = c.get("/crm/data", headers=AUTH2).json()["data"]
 check("workspace atlantis intacto tras compras", len(d["atlantis"]["leads"]) >= 2)
 
+# ------------------------------------------------------------------- F4
+import collectors  # noqa: E402
+
+_CANALES_FALSOS = [
+    {"canalId": "UC-aaa", "canal": "@finanzasclaras", "titulo": "Finanzas Claras",
+     "descripcion": "Canal de finanzas e inversion para profesionales", "pais": "MX",
+     "subs": 80_000, "videos": 150, "vistas": 6_000_000, "url": "https://youtube.com/channel/UC-aaa"},
+    {"canalId": "UC-bbb", "canal": "@microcanal", "titulo": "Micro Canal",
+     "descripcion": "vlogs", "pais": "", "subs": 500, "videos": 5,
+     "vistas": 2_000, "url": "https://youtube.com/channel/UC-bbb"},
+]
+collectors.youtube_buscar_canales = lambda *a, **k: [dict(x) for x in _CANALES_FALSOS]
+os.environ["YOUTUBE_API_KEY"] = "clave-falsa-para-test"
+
+# 20. /prospectar guarda prospectos puntuados y ordenados por score
+r = c.post("/prospectar", json={"consulta": "finanzas personales",
+    "vertical": "finanzas e inversión"}, headers=AUTH2)
+check("prospectar 2 nuevos", r.json().get("nuevos") == 2, str(r.json()))
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+pros = d["cicloderiqueza"]["prospectos"]
+check("prospectos ordenados por score desc", pros[0]["canalId"] == "UC-aaa"
+      and pros[0]["score"] > pros[1]["score"], str([(p['canalId'], p['score']) for p in pros]))
+check("lead_source correcto", pros[0]["lead_source"] == "Prospección YouTube")
+
+# 21. Re-prospectar no duplica
+r = c.post("/prospectar", json={"consulta": "finanzas personales"}, headers=AUTH2)
+check("re-prospectar 0 nuevos (dedupe)", r.json().get("nuevos") == 0)
+
+# 22. Promover crea lead y no re-promueve
+pid = pros[0]["id"]
+r = c.post("/prospectos/promover", json={"id": pid, "workspace": "cicloderiqueza"}, headers=AUTH2)
+check("promover crea lead", bool(r.json().get("leadId")))
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+lead_promo = next((l for l in d["cicloderiqueza"]["leads"] if l.get("leadSource") == "Prospección YouTube"), None)
+check("lead promovido con leadSource", lead_promo is not None)
+r = c.post("/prospectos/promover", json={"id": pid, "workspace": "cicloderiqueza"}, headers=AUTH2)
+check("re-promover -> duplicado sin efecto", r.json().get("duplicado") is True)
+
+# 23. Descartar bloquea: no vuelve a entrar por prospectar
+pid2 = next(p["id"] for p in pros if p["canalId"] == "UC-bbb")
+c.post("/prospectos/descartar", json={"id": pid2, "workspace": "cicloderiqueza"}, headers=AUTH2)
+r = c.post("/prospectar", json={"consulta": "finanzas personales"}, headers=AUTH2)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("descartado no reaparece", r.json().get("nuevos") == 0 and
+      all(p["canalId"] != "UC-bbb" for p in d["cicloderiqueza"]["prospectos"]))
+check("blocklist persistida", "UC-bbb" in d["cicloderiqueza"]["descartados"])
+
+# 24. Captura manual
+r = c.post("/prospectos/capturar", json={"nombre": "Negocio Manual",
+    "email": "manual@negocio.com", "workspace": "atlantis"}, headers=AUTH2)
+check("captura manual ok", r.json().get("ok") is True)
+
+# ------------------------------------------------------- CAPI (best-effort)
+# 25. Sin configurar: informa sin_config y NUNCA rompe los flujos que lo usan
+r = c.post("/capi/test", headers=AUTH2)
+check("capi sin config -> sin_config", r.json().get("motivo") == "sin_config")
+r = c.get("/capi/estado", headers=AUTH2)
+check("capi estado con mascaras", r.json()["token"]["valido"] is False)
+# (los flujos /crm/lead y /compra/registrar de arriba ya pasaron con CAPI sin
+#  configurar: el best-effort no rompe nada)
+
+# ------------------------------------------------------- contenido IA (F5)
+# 26. Generadores con _claude_json simulado: estructura + limpieza de em dashes
+motor._claude_json = lambda *a, **k: [
+    {"gancho": "Tu sueldo — no es un plan", "desarrollo": "d", "cta": "c",
+     "nivel_conciencia": 1, "formato": "hablar a camara", "puntaje": 8}]
+r = c.post("/viral/ideas", json={"tema": "depender del sueldo"}, headers=AUTH2)
+check("viral/ideas devuelve ideas", len(r.json()["ideas"]) == 1)
+check("viral/ideas limpia em dashes", "—" not in json.dumps(r.json()))
+
+motor._claude_json = lambda *a, **k: {"titulo": "t — t", "texto": "x", "cta": "c"}
+r = c.post("/generar_contenido", json={"tipo": "post", "tema": "el ciclo"}, headers=AUTH2)
+check("generar_contenido devuelve pieza", r.json()["pieza"]["texto"] == "x")
+check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
+check("generar_contenido sin tema -> 400",
+      c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
+
 print()
-print("FALLOS:", fallos if fallos else "ninguno, F1 y F3 verificadas")
+print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
 sys.exit(1 if fallos else 0)

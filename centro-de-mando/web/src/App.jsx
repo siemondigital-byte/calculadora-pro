@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   cambiarClave,
   clearToken,
   estadoSecretos,
   guardarSecreto,
   loadData,
+  motorPost,
   saveData,
   seed,
 } from "./db.js";
@@ -31,6 +32,7 @@ const NAV = {
     {
       sec: "Comercial",
       items: [
+        ["prospeccion", "Prospección"],
         ["leads", "Leads"],
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
@@ -45,6 +47,7 @@ const NAV = {
     {
       sec: "Producto 44 USD",
       items: [
+        ["prospeccion", "Prospección"],
         ["leads", "Leads"],
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
@@ -122,9 +125,12 @@ export default function App() {
     setVista("panel");
   };
 
-  const props = { data, commit, ws };
+  const recargar = () => loadData().then(setData).catch(() => {});
+
+  const props = { data, commit, ws, recargar };
   const VISTAS = {
     panel: <Panel {...props} />,
+    prospeccion: <Prospeccion {...props} />,
     leads: <Leads {...props} />,
     pipeline: <Pipeline {...props} />,
     seguimiento: <Seguimiento {...props} />,
@@ -307,6 +313,175 @@ function Encabezado({ titulo, sub }) {
     <div className="mb-6">
       <h1 className="font-display text-2xl text-crema">{titulo}</h1>
       {sub && <p className="text-sm text-gris">{sub}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Prospección
+
+function Prospeccion({ data, ws, recargar }) {
+  const prospectos = data[ws]?.prospectos || [];
+  const VERTICALES = [
+    "productividad/hábitos",
+    "mentalidad",
+    "finanzas e inversión",
+    "crecimiento personal",
+    "crecimiento profesional",
+  ];
+  const [consulta, setConsulta] = useState("");
+  const [vertical, setVertical] = useState(VERTICALES[2]);
+  const [manual, setManual] = useState({ nombre: "", email: "" });
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+
+  const llamar = async (ruta, body, mensajeOk) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost(ruta, { ...body, workspace: ws });
+      setEstado(mensajeOk(r));
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Prospección"
+        sub={
+          ws === "cicloderiqueza"
+            ? "Embajadores de YouTube por vertical · Ambassador Fit Score"
+            : "Prospectos que encajan con el avatar"
+        }
+      />
+
+      <div className="tarjeta mb-4 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo sm:col-span-2"
+          placeholder="Buscar canales de YouTube (ej: finanzas personales latam)"
+          value={consulta}
+          onChange={(e) => setConsulta(e.target.value)}
+        />
+        <select
+          className="campo"
+          value={vertical}
+          onChange={(e) => setVertical(e.target.value)}
+        >
+          {VERTICALES.map((v) => (
+            <option key={v}>{v}</option>
+          ))}
+        </select>
+        <button
+          className="boton"
+          disabled={cargando || !consulta}
+          onClick={() =>
+            llamar("/prospectar", { consulta, vertical }, (r) => `${r.nuevos} prospectos nuevos.`)
+          }
+        >
+          {cargando ? "Buscando..." : "Prospectar YouTube"}
+        </button>
+      </div>
+
+      <div className="tarjeta mb-4 grid gap-3 sm:grid-cols-3">
+        <input
+          className="campo"
+          placeholder="Nombre (captura manual)"
+          value={manual.nombre}
+          onChange={(e) => setManual({ ...manual, nombre: e.target.value })}
+        />
+        <input
+          className="campo"
+          type="email"
+          placeholder="Email"
+          value={manual.email}
+          onChange={(e) => setManual({ ...manual, email: e.target.value })}
+        />
+        <button
+          className="boton-secundario"
+          disabled={cargando || (!manual.nombre && !manual.email)}
+          onClick={() =>
+            llamar("/prospectos/capturar", manual, () => "Prospecto capturado.").then(() =>
+              setManual({ nombre: "", email: "" })
+            )
+          }
+        >
+          Capturar manual
+        </button>
+      </div>
+
+      {estado && <p className="mb-4 text-sm text-oro">{estado}</p>}
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Prospecto</th>
+              <th className="p-2">Vertical</th>
+              <th className="p-2">Subs</th>
+              <th className="p-2">Score</th>
+              <th className="p-2">Estado</th>
+              <th className="p-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {prospectos.map((p) => (
+              <tr key={p.id} className="border-b border-gris/10">
+                <td className="p-2">
+                  {p.url ? (
+                    <a href={p.url} target="_blank" rel="noreferrer" className="text-oro hover:underline">
+                      {p.titulo || p.nombre || p.canal}
+                    </a>
+                  ) : (
+                    p.titulo || p.nombre || p.canal || p.email
+                  )}
+                </td>
+                <td className="p-2 text-gris">{p.vertical || "-"}</td>
+                <td className="p-2 text-gris">{p.subs ? p.subs.toLocaleString() : "-"}</td>
+                <td className="p-2">
+                  <span className={p.score >= 60 ? "text-oro" : "text-gris"}>{p.score ?? "-"}</span>
+                </td>
+                <td className="p-2 text-gris">{p.estado}</td>
+                <td className="p-2">
+                  <div className="flex gap-2">
+                    {p.estado !== "promovido" && (
+                      <button
+                        className="boton-secundario !px-2 !py-1 text-xs"
+                        disabled={cargando}
+                        onClick={() =>
+                          llamar("/prospectos/promover", { id: p.id }, () => "Promovido a lead.")
+                        }
+                      >
+                        Promover
+                      </button>
+                    )}
+                    <button
+                      className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400"
+                      disabled={cargando}
+                      onClick={() =>
+                        llamar("/prospectos/descartar", { id: p.id }, () => "Descartado (blocklist).")
+                      }
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {prospectos.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gris">
+                  Sin prospectos. Busca canales arriba (requiere YOUTUBE_API_KEY en
+                  Accesos) o captura uno manual.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

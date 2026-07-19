@@ -524,13 +524,14 @@ a { color: inherit; }
       <form id="login-form" novalidate>
         <div class="field">
           <label class="field-label" for="login-email" data-i18n="emailLabel"></label>
-          <input id="login-email" class="text-input" type="email" value="james.carter@gmail.com" autocomplete="username">
+          <input id="login-email" class="text-input" type="email" autocomplete="username">
         </div>
         <div class="field field-gap">
           <label class="field-label" for="login-pw" data-i18n="pwLabel"></label>
-          <input id="login-pw" class="text-input" type="password" value="••••••••••••" autocomplete="current-password">
+          <input id="login-pw" class="text-input" type="password" autocomplete="current-password">
         </div>
         <button type="submit" id="login-btn" class="btn-primary" data-i18n="loginBtn"></button>
+        <p id="login-error" role="alert" style="display:none;margin:12px 0 0;font-size:13px;color:#e08585;"></p>
       </form>
 
       <div class="login-help">
@@ -855,8 +856,10 @@ a { color: inherit; }
       loginTitle: 'Calculadora de Viabilidad Inmobiliaria Pro',
       loginSub: 'Tu instrumento de criterio. Entra con las credenciales que recibiste por correo.',
       emailLabel: 'Correo', pwLabel: 'Contraseña', loginBtn: 'Iniciar sesión', loginHelp: '¿Olvidaste tu contraseña?',
-      allianceLabel: 'En alianza con', demoNote: 'Demo de revisión · cualquier dato te deja entrar',
-      headerSub: 'Sesión de ejemplo', logout: 'Salir',
+      allianceLabel: 'En alianza con', demoNote: 'Acceso incluido con tu compra del libro-método.',
+      headerSub: 'Tu instrumento de criterio', logout: 'Salir',
+      loginError: 'Credenciales inválidas o acceso revocado.',
+      loginChecking: 'Verificando…',
       secSituacion: 'Tu situación', secOportunidad: 'La oportunidad',
       lblIngreso: 'Ingreso mensual', lblGasto: 'Gasto mensual', lblCapital: 'Capital disponible',
       lblHorizonte: 'Horizonte de inversión', lblValor: 'Valor del inmueble', lblInicial: 'Cuota inicial',
@@ -890,8 +893,10 @@ a { color: inherit; }
       loginTitle: 'Real Estate Viability Pro Calculator',
       loginSub: 'Your instrument of judgment. Sign in with the credentials we emailed you.',
       emailLabel: 'Email', pwLabel: 'Password', loginBtn: 'Sign in', loginHelp: 'Forgot your password?',
-      allianceLabel: 'In partnership with', demoNote: 'Review demo · any input lets you in',
-      headerSub: 'Sample session', logout: 'Log out',
+      allianceLabel: 'In partnership with', demoNote: 'Access included with your purchase of the book-method.',
+      headerSub: 'Your instrument of judgment', logout: 'Log out',
+      loginError: 'Invalid credentials or revoked access.',
+      loginChecking: 'Checking…',
       secSituacion: 'Your situation', secOportunidad: 'The opportunity',
       lblIngreso: 'Monthly income', lblGasto: 'Monthly expenses', lblCapital: 'Available capital',
       lblHorizonte: 'Investment horizon', lblValor: 'Property value', lblInicial: 'Down payment',
@@ -1294,14 +1299,80 @@ a { color: inherit; }
       b.addEventListener('click', function () { state.mobileTab = b.getAttribute('data-tab'); render(); });
     });
 
-    // login / logout (any input logs in — demo behavior per the handoff).
+    // login / logout contra el motor del Centro de Mando (/app/validar):
+    // la revocación por reembolso aplica de inmediato. Si el motor está caído
+    // (no un 401), una sesión ya guardada entra igual y se revalida después.
+    var MOTOR = localStorage.getItem('calcpro_motor') || 'https://motor.atlantisglobalrealty.com';
+    var SESION_KEY = 'calcpro_sesion';
+
+    function loginError(mostrar, texto) {
+      var el = $('login-error');
+      if (!el) return;
+      el.style.display = mostrar ? 'block' : 'none';
+      el.textContent = texto || '';
+    }
+
+    function validarCredenciales(email, pw) {
+      return fetch(MOTOR + '/app/validar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: pw })
+      });
+    }
+
+    function entrar() { state.screen = 'app'; render(); window.scrollTo(0, 0); }
+
+    function doLogin(e) {
+      if (e) e.preventDefault();
+      var email = ($('login-email').value || '').trim();
+      var pw = $('login-pw').value || '';
+      var L = T[state.lang];
+      if (!email || !pw) { loginError(true, L.loginError); return; }
+      loginError(true, L.loginChecking);
+      $('login-btn').disabled = true;
+      validarCredenciales(email, pw).then(function (r) {
+        $('login-btn').disabled = false;
+        if (r.ok) {
+          localStorage.setItem(SESION_KEY, btoa(unescape(encodeURIComponent(email + '\n' + pw))));
+          loginError(false);
+          entrar();
+        } else {
+          localStorage.removeItem(SESION_KEY);
+          loginError(true, T[state.lang].loginError);
+        }
+      }).catch(function () {
+        // motor inalcanzable: no hay cómo validar credenciales nuevas
+        $('login-btn').disabled = false;
+        loginError(true, T[state.lang].loginError);
+      });
+    }
     // Wire BOTH the form submit (Enter key) and a direct button click: some
     // sandboxed embeds (preview iframes) block native form submission, so a
     // type=submit button alone would appear unresponsive. doLogin is idempotent.
-    function doLogin(e) { if (e) e.preventDefault(); state.screen = 'app'; render(); window.scrollTo(0, 0); }
     $('login-form').addEventListener('submit', doLogin);
     $('login-btn').addEventListener('click', doLogin);
-    $('logout-btn').addEventListener('click', function () { state.screen = 'login'; render(); window.scrollTo(0, 0); });
+    $('logout-btn').addEventListener('click', function () {
+      localStorage.removeItem(SESION_KEY);
+      state.screen = 'login'; render(); window.scrollTo(0, 0);
+    });
+
+    // sesión guardada: entra directo y se revalida contra el motor; un 401
+    // (reembolso / credencial rotada) la cierra al instante
+    (function () {
+      var cruda = localStorage.getItem(SESION_KEY);
+      if (!cruda) return;
+      var partes;
+      try { partes = decodeURIComponent(escape(atob(cruda))).split('\n'); } catch (err) { return; }
+      if (partes.length !== 2) return;
+      entrar();
+      validarCredenciales(partes[0], partes[1]).then(function (r) {
+        if (r.status === 401) {
+          localStorage.removeItem(SESION_KEY);
+          state.screen = 'login'; render();
+          loginError(true, T[state.lang].loginError);
+        }
+      }).catch(function () { /* sin red: la sesión local sigue; se revalida al volver */ });
+    })();
 
     // re-render on breakpoint changes so panel visibility stays correct
     if (mqMobile.addEventListener) mqMobile.addEventListener('change', render);
