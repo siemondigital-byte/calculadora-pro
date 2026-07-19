@@ -42,8 +42,20 @@ fi
 echo "   n8n arriba."
 
 echo "== 2/4 Importando flujos (con la CRON_KEY puesta) =="
-# idempotente: si ya estan importados, no duplicar
-if docker exec -u node "$CONT" n8n list:workflow 2>/dev/null | grep -q "Compra confirmada"; then
+# idempotente Y fail-safe: si no se puede LEER la lista (n8n a medio arrancar),
+# se ABORTA en vez de importar a ciegas (eso fue lo que duplico flujos antes)
+LISTA=""
+for i in $(seq 1 10); do
+  LISTA=$(docker exec -u node "$CONT" n8n list:workflow 2>/dev/null || true)
+  [ -n "$LISTA" ] && break
+  sleep 5
+done
+if [ -z "$LISTA" ] && ! docker exec -u node "$CONT" n8n list:workflow >/dev/null 2>&1; then
+  echo "   ERROR: no pude leer la lista de workflows; NO importo nada para no duplicar." >&2
+  echo "   Reintenta en un minuto: bash $0" >&2
+  exit 1
+fi
+if echo "$LISTA" | grep -q "Compra confirmada"; then
   echo "   ya estaban importados; no se duplican."
 else
   rm -rf n8n-data/flujos-atlantis
