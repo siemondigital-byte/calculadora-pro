@@ -29,10 +29,40 @@ cd "$DIR_CM"
 
 # 0. Recursos: avisar si la RAM disponible es poca
 LIBRE_MB=$(free -m | awk '/^Mem:/{print $7}')
-echo "-- RAM disponible: ${LIBRE_MB} MB"
+TOTAL_MB=$(free -m | awk '/^Mem:/{print $2}')
+echo "-- RAM: ${LIBRE_MB} MB disponibles de ${TOTAL_MB} MB"
 if [ "${LIBRE_MB:-0}" -lt 900 ]; then
   echo "   AVISO: hay poca RAM libre. El motor+web de Atlantis necesitan ~500 MB."
   echo "   Si el VPS se queda corto, sube el plan o apaga servicios que no uses."
+fi
+
+# Modo SOLO_VERIFICAR=1: reporte del estado del VPS SIN instalar ni tocar nada.
+if [ "${SOLO_VERIFICAR:-0}" = "1" ]; then
+  echo
+  echo "== SOLO VERIFICACION (no se instala nada) =="
+  echo "-- Disco:"
+  df -h / | tail -1
+  echo "-- Contenedores corriendo y su memoria:"
+  docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' 2>/dev/null || docker ps --format '{{.Names}}'
+  echo "-- Traefik detectado:"
+  T=$(docker ps --format '{{.Names}}\t{{.Image}}' | awk -F'\t' 'tolower($2) ~ /traefik/ {print $1; exit}')
+  if [ -n "$T" ]; then
+    echo "   $T (red: $(docker inspect "$T" -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' | head -c 60))"
+  else
+    echo "   NO ENCONTRADO: se necesitaria el bootstrap normal con Caddy"
+  fi
+  echo
+  echo "Veredicto de RAM:"
+  if [ "${LIBRE_MB:-0}" -ge 1800 ]; then
+    echo "  OK para motor+web+n8n de Atlantis Y el Postiz propio (CON_POSTIZ=1)."
+  elif [ "${LIBRE_MB:-0}" -ge 900 ]; then
+    echo "  OK para motor+web+n8n de Atlantis. Para el Postiz propio, sube el plan de RAM primero."
+  else
+    echo "  JUSTO: sube el plan de RAM antes de instalar (o revisa que servicios se pueden apagar)."
+  fi
+  echo
+  echo "Copia TODO este resultado y pegaselo al agente. Nada fue modificado."
+  exit 0
 fi
 
 # 1. Detectar Traefik existente
