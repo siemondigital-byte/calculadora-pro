@@ -4,12 +4,16 @@ al navegador con contrasenas; la API devuelve solo mascaras.
 Defaults Hostinger (smtp.hostinger.com:465). La usuaria agrega el buzon con la
 contrasena del webmail y 'Probar conexion' antes de usarlo.
 """
+import email as email_mod
+import imaplib
 import json
 import os
 import smtplib
 import threading
+from email.header import decode_header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import parseaddr
 
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 RUTA = os.path.join(DATA_DIR, "buzones.json")
@@ -89,6 +93,92 @@ def probar(email=None):
     with smtplib.SMTP_SSL(b["host"], b["puerto"], timeout=15) as smtp:
         smtp.login(b["email"], b["password"])
     return True
+
+
+def listar_interno():
+    """Entradas completas, SOLO para uso del motor (nunca por API)."""
+    with _lock:
+        return _leer()
+
+
+def set_ultima_uid(buzon_email, uid):
+    with _lock:
+        buzones = _leer()
+        for b in buzones:
+            if b.get("email") == buzon_email:
+                b["ultimaUid"] = max(int(b.get("ultimaUid") or 0), int(uid))
+        _escribir(buzones)
+
+
+def _decodificar(valor):
+    if not valor:
+        return ""
+    partes = []
+    for texto, cod in decode_header(valor):
+        if isinstance(texto, bytes):
+            partes.append(texto.decode(cod or "utf-8", errors="replace"))
+        else:
+            partes.append(texto)
+    return "".join(partes)
+
+
+def _extraer_texto(mensaje):
+    if mensaje.is_multipart():
+        for parte in mensaje.walk():
+            if parte.get_content_type() == "text/plain":
+                carga = parte.get_payload(decode=True)
+                if carga:
+                    return carga.decode(parte.get_content_charset() or "utf-8",
+                                        errors="replace")
+        for parte in mensaje.walk():
+            if parte.get_content_type() == "text/html":
+                carga = parte.get_payload(decode=True)
+                if carga:
+                    return carga.decode(parte.get_content_charset() or "utf-8",
+                                        errors="replace")
+        return ""
+    carga = mensaje.get_payload(decode=True)
+    return (carga or b"").decode(mensaje.get_content_charset() or "utf-8",
+                                 errors="replace")
+
+
+def leer_bandeja(buzon_email=None, desde_uid=0, max_correos=200):
+    """Lee INBOX por UID ASCENDENTE desde desde_uid+1, sin truncar mientras se
+    avanza el puntero (autocorreccion IMAP: truncar con [-50:] pierde correos).
+    Los tests inyectan un reemplazo de esta funcion.
+    """
+    b = _buzon(buzon_email)
+    host = b.get("imapHost") or "imap.hostinger.com"
+    puerto = int(b.get("imapPuerto") or 993)
+    resultado = []
+    imap = imaplib.IMAP4_SSL(host, puerto)
+    try:
+        imap.login(b["email"], b["password"])
+        imap.select("INBOX")
+        _, datos = imap.uid("search", None, f"UID {int(desde_uid) + 1}:*")
+        uids = sorted(
+            int(u) for u in (datos[0].split() if datos and datos[0] else [])
+            if int(u) > int(desde_uid)
+        )[:max_correos]
+        for uid in uids:
+            _, msg_datos = imap.uid("fetch", str(uid), "(RFC822)")
+            crudo = next((p[1] for p in msg_datos if isinstance(p, tuple)), None)
+            if not crudo:
+                continue
+            mensaje = email_mod.message_from_bytes(crudo)
+            resultado.append({
+                "uid": uid,
+                "de": parseaddr(mensaje.get("From", ""))[1].lower(),
+                "asunto": _decodificar(mensaje.get("Subject", "")),
+                "texto": _extraer_texto(mensaje)[:4000],
+                "fecha": mensaje.get("Date", ""),
+            })
+    finally:
+        try:
+            imap.logout()
+        except Exception:  # noqa: BLE001
+            pass
+    return resultado
 
 
 def enviar(para, asunto, cuerpo_html, desde=None):

@@ -388,6 +388,47 @@ check("pixel devuelve gif", r.status_code == 200 and r.headers["content-type"] =
 d = c.get("/crm/data", headers=AUTH2).json()["data"]
 check("apertura contada", d["cicloderiqueza"]["nurturing"]["metricas"]["aperturas"] >= 1)
 
+# -------------------------------------------- correo frio: leer + clasificar
+# 36. Bandeja simulada: respuesta de un lead nutrido + un desconocido
+BANDEJA = [
+    {"uid": 11, "de": "nutrido2@test.com", "asunto": "Re: El metodo",
+     "texto": "Me interesa, cuentame mas", "fecha": "Sun, 19 Jul 2026 10:00:00"},
+    {"uid": 12, "de": "desconocido@nadie.com", "asunto": "spam",
+     "texto": "compra mi producto", "fecha": "Sun, 19 Jul 2026 10:05:00"},
+]
+buzones.leer_bandeja = lambda be=None, desde_uid=0, max_correos=200: [
+    x for x in BANDEJA if x["uid"] > desde_uid]
+motor._claude_json = lambda *a, **k: {"clasificacion": "interesado",
+                                      "resumen": "Quiere saber mas — del metodo"}
+r = c.post("/leer_correos", headers={"Authorization": "Bearer cron-key-interna-n8n"})
+j = r.json()
+check("leer_correos: 2 leidos, 1 con match", j["leidos"] == 2 and j["conMatch"] == 1, str(j))
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+hilo = next((o for o in d["cicloderiqueza"]["outreach"] if o["email"] == "nutrido2@test.com"), None)
+check("hilo outreach creado y clasificado", hilo and hilo["clasificacion"] == "interesado")
+check("resumen sin em dash", "—" not in (hilo.get("resumen") or ""))
+lead2 = next(l for l in d["cicloderiqueza"]["leads"] if l.get("email") == "nutrido2@test.com")
+check("lead marcado respondio", lead2.get("respondio") is True)
+
+# 37. El puntero de UID avanza aunque no haya match: re-leer no reprocesa
+r = c.post("/leer_correos", headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("segunda lectura: 0 nuevos (ultimaUid avanzo)", r.json()["leidos"] == 0, str(r.json()))
+
+# 38. Responder saca del nurturing en el siguiente ciclo
+c.post("/nurturing/procesar", json={"workspace": "cicloderiqueza"},
+       headers={"Authorization": "Bearer cron-key-interna-n8n"})
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+ins2b = next(i for i in d["cicloderiqueza"]["nurturing"]["inscritos"] if i["email"] == "nutrido2@test.com")
+check("respondio -> salido del nurturing", ins2b["estado"] == "salido")
+
+# 39. /generar_mensaje usa el hilo y limpia em dashes
+motor._claude_json = lambda *a, **k: {"asunto": "Re: tu pregunta",
+                                      "cuerpo": "Claro — te cuento el metodo."}
+r = c.post("/generar_mensaje", json={"email": "nutrido2@test.com",
+    "workspace": "cicloderiqueza"}, headers=AUTH2)
+check("generar_mensaje devuelve borrador", r.json()["mensaje"]["asunto"].startswith("Re:"))
+check("borrador sin em dash", "—" not in json.dumps(r.json()))
+
 print()
 print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
 sys.exit(1 if fallos else 0)

@@ -589,6 +589,118 @@ def enviar_correo(body: dict = Body(...), authorization: str = Header(None)):
     return {"ok": True}
 
 
+def _clasificar_respuesta(asunto, texto):
+    """Clasifica una respuesta entrante. Best-effort: si la IA falla, queda
+    'sin_clasificar' y el correo NO se pierde."""
+    try:
+        r = _claude_json(
+            "Clasifica esta respuesta a un correo comercial. Devuelve SOLO "
+            "JSON: {\"clasificacion\": \"interesado\"|\"pregunta\"|"
+            "\"no_interesado\"|\"baja\"|\"otro\", \"resumen\": str (1 frase)}."
+            f"\n\nAsunto: {asunto}\n\nTexto:\n{texto[:1500]}",
+            max_tokens=4000,
+        )
+        if isinstance(r, dict) and r.get("clasificacion"):
+            return r
+    except Exception:  # noqa: BLE001
+        pass
+    return {"clasificacion": "sin_clasificar", "resumen": ""}
+
+
+@app.post("/leer_correos")
+def leer_correos(body: dict = Body(None), authorization: str = Header(None)):
+    """Cron (15 min): lee cada buzon por UID ascendente, empata el remitente
+    con leads/prospectos de ambos workspaces, clasifica con IA y guarda el
+    hilo en outreach. El puntero ultimaUid avanza SIEMPRE, haya match o no."""
+    _auth(authorization)
+    resumen = {"leidos": 0, "conMatch": 0, "errores": 0}
+    data = crm_store.leer() or {"workspace": "atlantis"}
+
+    for b in buzones.listar_interno():
+        try:
+            correos = buzones.leer_bandeja(
+                b["email"], desde_uid=int(b.get("ultimaUid") or 0)
+            )
+        except Exception:  # noqa: BLE001
+            resumen["errores"] += 1
+            continue
+        for correo in correos:  # ya vienen en orden ascendente de UID
+            buzones.set_ultima_uid(b["email"], correo["uid"])
+            resumen["leidos"] += 1
+            de = str(correo.get("de", "")).lower()
+            if not de or de == b["email"]:
+                continue
+            for ws in WORKSPACES:
+                slice_ws = data.setdefault(ws, {})
+                lead = next(
+                    (l for l in slice_ws.get("leads", [])
+                     if str(l.get("email", "")).lower() == de), None
+                )
+                prospecto = next(
+                    (p for p in slice_ws.get("prospectos", [])
+                     if str(p.get("email", "")).lower() == de), None
+                )
+                if not lead and not prospecto:
+                    continue
+                resumen["conMatch"] += 1
+                veredicto = _clasificar_respuesta(correo["asunto"], correo["texto"])
+                outreach = slice_ws.setdefault("outreach", [])
+                hilo = next((o for o in outreach if o.get("email") == de), None)
+                if not hilo:
+                    hilo = {"email": de, "conversacion": []}
+                    outreach.append(hilo)
+                hilo["conversacion"].append({
+                    "de": de,
+                    "asunto": correo["asunto"],
+                    "texto": correo["texto"][:2000],
+                    "fecha": correo.get("fecha") or "",
+                    "recibido": int(time.time()),
+                })
+                hilo["clasificacion"] = veredicto["clasificacion"]
+                hilo["resumen"] = _sin_em_dash(veredicto.get("resumen") or "")
+                if lead:
+                    lead["respondio"] = True  # lo saca del nurturing
+                    if veredicto["clasificacion"] == "baja":
+                        nur = slice_ws.get("nurturing") or {}
+                        if de not in (nur.get("bajas") or []):
+                            nur.setdefault("bajas", []).append(de)
+                if prospecto:
+                    prospecto["estado"] = "respondio"
+    guardar_seguro(data)
+    return {"ok": True, **resumen}
+
+
+@app.post("/generar_mensaje")
+def generar_mensaje(body: dict = Body(...), authorization: str = Header(None)):
+    """Redacta una respuesta consciente de la conversacion, en voz de marca."""
+    _auth(authorization)
+    de = str(body.get("email", "")).strip().lower()
+    if not de:
+        raise HTTPException(400, "email requerido")
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {}
+    hilo = next(
+        (o for o in (data.get(ws) or {}).get("outreach", []) if o.get("email") == de),
+        None,
+    )
+    historial = ""
+    for m in (hilo or {}).get("conversacion", [])[-4:]:
+        historial += f"\nDe {m.get('de')}: {m.get('texto', '')[:600]}\n"
+    objetivo = body.get("objetivo") or "responder con valor y avanzar la conversacion"
+    pieza = _claude_json(
+        f"Redacta la respuesta a este hilo de correo. Objetivo: {objetivo}. "
+        "Devuelve SOLO JSON: {\"asunto\": str, \"cuerpo\": str (texto plano, "
+        "parrafos cortos)}. No inventes datos ni promesas."
+        f"\n\nHistorial:{historial or ' (sin historial: primer contacto)'}",
+        max_tokens=4000, system=_VOZ_MARCA,
+    )
+    if isinstance(pieza, dict):
+        for campo in ("asunto", "cuerpo"):
+            if isinstance(pieza.get(campo), str):
+                pieza[campo] = _sin_em_dash(pieza[campo])
+    return {"ok": True, "mensaje": pieza}
+
+
 # ------------------------------------------------------- nurturing (F4)
 
 @app.post("/nurturing/generar")

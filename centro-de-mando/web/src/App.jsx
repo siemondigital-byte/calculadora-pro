@@ -34,6 +34,7 @@ const NAV = {
       sec: "Comercial",
       items: [
         ["prospeccion", "Prospección"],
+        ["correo", "Correo"],
         ["leads", "Leads"],
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
@@ -56,6 +57,7 @@ const NAV = {
       sec: "Producto 44 USD",
       items: [
         ["prospeccion", "Prospección"],
+        ["correo", "Correo"],
         ["leads", "Leads"],
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
@@ -146,6 +148,7 @@ export default function App() {
   const VISTAS = {
     panel: <Panel {...props} />,
     prospeccion: <Prospeccion {...props} />,
+    correo: <Correo {...props} />,
     leads: <Leads {...props} />,
     pipeline: <Pipeline {...props} />,
     seguimiento: <Seguimiento {...props} />,
@@ -499,6 +502,148 @@ function Prospeccion({ data, ws, recargar }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Correo
+
+function Correo({ data, ws, recargar }) {
+  const hilos = data[ws]?.outreach || [];
+  const [abierto, setAbierto] = useState(null);
+  const [borrador, setBorrador] = useState(null);
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+
+  const COLORES = {
+    interesado: "text-oro",
+    pregunta: "text-oro",
+    no_interesado: "text-gris",
+    baja: "text-red-400",
+    sin_clasificar: "text-gris/60",
+  };
+
+  const leerAhora = async () => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/leer_correos", {});
+      setEstado(`Leídos: ${r.leidos} · con match: ${r.conMatch}${r.errores ? ` · errores: ${r.errores}` : ""}`);
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const redactar = async (email) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/generar_mensaje", { email, workspace: ws });
+      setBorrador({ para: email, ...r.mensaje });
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const enviar = async () => {
+    setCargando(true);
+    try {
+      await motorPost("/enviar_correo", {
+        para: borrador.para, asunto: borrador.asunto,
+        cuerpo: (borrador.cuerpo || "").split("\n").map((p) => `<p>${p}</p>`).join(""),
+        workspace: ws,
+      });
+      setEstado(`Enviado a ${borrador.para}.`);
+      setBorrador(null);
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Correo"
+        sub="Respuestas clasificadas por IA · el cron lee la bandeja cada 15 min"
+      />
+      <div className="mb-4 flex items-center gap-3">
+        <button className="boton" disabled={cargando} onClick={leerAhora}>
+          {cargando ? "Trabajando..." : "Leer bandeja ahora"}
+        </button>
+        {estado && <span className="text-sm text-oro">{estado}</span>}
+      </div>
+
+      {hilos.map((h) => (
+        <div key={h.email} className="tarjeta mb-2 !p-4">
+          <button
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setAbierto(abierto === h.email ? null : h.email)}
+          >
+            <div>
+              <span className="text-sm">{h.email}</span>
+              <span className={`ml-3 text-xs ${COLORES[h.clasificacion] || "text-gris"}`}>
+                {h.clasificacion || "sin clasificar"}
+              </span>
+              {h.resumen && <div className="mt-1 text-xs text-gris">{h.resumen}</div>}
+            </div>
+            <span className="text-xs text-gris">{(h.conversacion || []).length} mensajes</span>
+          </button>
+
+          {abierto === h.email && (
+            <div className="mt-3 space-y-2 border-t border-gris/10 pt-3">
+              {(h.conversacion || []).map((m, i) => (
+                <div key={i} className="rounded-lg bg-negro/40 p-3">
+                  <div className="text-xs text-gris">
+                    {m.de} · {m.asunto}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-crema/90">
+                    {(m.texto || "").slice(0, 600)}
+                  </p>
+                </div>
+              ))}
+              <button
+                className="boton-secundario !px-3 !py-1 text-xs"
+                disabled={cargando}
+                onClick={() => redactar(h.email)}
+              >
+                Redactar respuesta con IA
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+      {hilos.length === 0 && (
+        <p className="text-sm text-gris">
+          Sin respuestas todavía. Configura un buzón en Accesos y activa el cron de
+          lectura (n8n, cada 15 min) o pulsa "Leer bandeja ahora".
+        </p>
+      )}
+
+      {borrador && (
+        <div className="tarjeta mt-4">
+          <div className="mb-2 text-sm font-semibold">Borrador para {borrador.para}</div>
+          <input className="campo mb-2" value={borrador.asunto || ""}
+            onChange={(e) => setBorrador({ ...borrador, asunto: e.target.value })} />
+          <textarea className="campo min-h-32" value={borrador.cuerpo || ""}
+            onChange={(e) => setBorrador({ ...borrador, cuerpo: e.target.value })} />
+          <div className="mt-3 flex gap-2">
+            <button className="boton" disabled={cargando} onClick={enviar}>
+              Enviar
+            </button>
+            <button className="boton-secundario" onClick={() => setBorrador(null)}>
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
