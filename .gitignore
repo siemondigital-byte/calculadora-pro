@@ -1,0 +1,7 @@
+# Llaves locales (usa config.example.js como plantilla)
+config.js
+
+# Basura de sistema / dependencias de prueba
+node_modules/
+package-lock.json
+.DS_Store
