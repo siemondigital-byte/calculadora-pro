@@ -121,6 +121,19 @@ Nada de Siemon se toca ni se mezcla.
   > registran contra UN dominio; con dos dominios sobre el mismo Postiz las
   > conexiones fallarían.
 
+  **¿Esto afecta al Postiz de Siemon que ya está conectado? NO.** El Postiz de
+  Atlantis no es un "clon" del existente: es una instalación nueva y vacía,
+  con sus propios contenedores (`postiz-atlantis`, `postiz-atlantis-db`,
+  `postiz-atlantis-redis`), su propia base de datos y sus propios volúmenes
+  bajo `/root/atlantis`. El script no toca, ni reinicia, ni recrea ningún
+  contenedor de Siemon: el Postiz actual sigue corriendo igual, con sus
+  cuentas de redes conectadas intactas, y Traefik enruta cada dominio a su
+  Postiz (el de Siemon al suyo, `publicar.atlantisglobalrealty.com` al nuevo).
+  El único cuidado real es la RAM: si el VPS se queda sin memoria, Linux puede
+  matar cualquier contenedor (incluidos los de Siemon). Por eso el script mide
+  la RAM libre antes y el Postiz propio solo se activa a mano con
+  `CON_POSTIZ=1`.
+
 **Pasos (en vez de las Partes 1 y 3):**
 
 1. **DNS:** registros A en `atlantisglobalrealty.com` → la IP del VPS actual:
