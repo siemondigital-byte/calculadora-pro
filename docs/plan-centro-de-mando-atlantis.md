@@ -233,10 +233,22 @@ Todas por el vault (`/secreto/guardar`), nunca por chat ni `.env` versionado
 3. **MailerLite vs buzones propios** para transaccionales del infoproducto: el
    CLAUDE.md menciona n8n/MailerLite; decidir en F3 (el motor soporta buzones
    SMTP propios; MailerLite sería integración adicional).
-4. **Integración app_usuarios ↔ Calculadora Pro — DECIDIDO (jul-2026):** la app
-   valida contra el motor (`/app/validar`), ya implementado y verificado E2E.
-   **Supabase queda DESCARTADO por decisión de la dueña** (se intentó antes y
-   solo complicó; la rama `feat/pro-supabase` del repo NO forma parte del
-   despliegue — no retomar sin instrucción explícita de ella).
+4. **Integración Calculadora Pro ↔ Centro de Mando — DECIDIDO (jul-2026):**
+   - **La Calculadora Pro (producto de venta, muchos usuarios) usa SUPABASE**
+     para registro/administración de sus compradores: rama `feat/pro-supabase`
+     (login real, proyectos en la nube, gating "primeros N" y revocación por
+     reembolso vía su flujo `automatizacion/n8n-compra-crd.json` con la
+     service_role key en n8n).
+   - **El Centro de Mando NO usa Supabase** (única usuaria: auth por clave del
+     motor + CRON_KEY). Supabase no es parte del despliegue del CRM.
+   - **El flujo de compra hace las DOS cosas**: el webhook de la plataforma de
+     venta dispara (a) el alta en Supabase (flujo de la rama, da el acceso a la
+     app) y (b) `POST /compra/registrar` al motor (registro del comprador en el
+     CRM, lead a etapa Comprador, evento CAPI Purchase). El reembolso igual:
+     revocar en Supabase + `/compra/reembolso` en el CRM.
+   - Los endpoints `/app/validar` y `app_usuarios` del motor quedan como
+     registro interno del CRM (no son la autenticación de la app). Pendiente
+     menor: que la vista "App · Calculadora Pro" del CRM lea los usuarios
+     reales desde Supabase (motor → Supabase con service key).
 5. **Alcance del monitoreo de competencia** para la línea inmobiliaria
    (competidores y keywords los define la usuaria en config).
