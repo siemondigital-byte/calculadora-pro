@@ -233,9 +233,10 @@ Todas por el vault (`/secreto/guardar`), nunca por chat ni `.env` versionado
 3. **MailerLite vs buzones propios** para transaccionales del infoproducto: el
    CLAUDE.md menciona n8n/MailerLite; decidir en F3 (el motor soporta buzones
    SMTP propios; MailerLite sería integración adicional).
-4. **Integración app_usuarios ↔ Calculadora Pro**: definir cómo valida la app el
-   acceso (hoy `index.html` estático). Opciones: login contra el motor
-   (`/app/validar`) o credenciales estáticas generadas por n8n. Recomendado:
-   endpoint en el motor, para que la revocación por reembolso sea inmediata.
+4. **Integración app_usuarios ↔ Calculadora Pro — DECIDIDO (jul-2026):** la app
+   valida contra el motor (`/app/validar`), ya implementado y verificado E2E.
+   **Supabase queda DESCARTADO por decisión de la dueña** (se intentó antes y
+   solo complicó; la rama `feat/pro-supabase` del repo NO forma parte del
+   despliegue — no retomar sin instrucción explícita de ella).
 5. **Alcance del monitoreo de competencia** para la línea inmobiliaria
    (competidores y keywords los define la usuaria en config).
