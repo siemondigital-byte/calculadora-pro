@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import MaquetadorView from "./MaquetadorView.jsx";
 import MercadoView from "./MercadoView.jsx";
+import BlogSeoView from "./BlogSeoView.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -49,6 +50,7 @@ const NAV = {
       sec: "Contenido",
       items: [
         ["contenido", "Contenido"],
+        ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
         ["maquetador", "Maquetador (mi web)"],
       ],
@@ -75,6 +77,7 @@ const NAV = {
       sec: "Contenido",
       items: [
         ["contenido", "Contenido"],
+        ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
       ],
     },
@@ -165,6 +168,7 @@ export default function App() {
     nurturing: <Nurturing {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
+    blogseo: <BlogSeoView {...props} />,
     accesos: <Accesos {...props} />,
   };
 

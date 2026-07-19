@@ -1,6 +1,36 @@
 import React, { useState } from "react";
 import { motorPost } from "./db.js";
 
+// Contexto de mercado para los generadores (viral/blog/ads). Devuelve "" si aun
+// no hay estudio; se enriquece cuando se porte Competencia/Analisis.
+export function insightsMercado(data) {
+  const ws = data?.workspace === "cicloderiqueza" ? "cicloderiqueza" : "atlantis";
+  const s = data?.[ws] || {};
+  const partes = [];
+  const a = s.auditoriaNegocio;
+  if (a && a.hallazgos_para_ads) {
+    const h = a.hallazgos_para_ads;
+    if (h.publico_dolor) partes.push("Publico y dolor dominante: " + h.publico_dolor);
+    if ((h.angulos || []).length) partes.push("Angulos con respaldo: " + h.angulos.join("; "));
+    if ((h.objeciones || []).length) partes.push("Objeciones a responder: " + h.objeciones.join("; "));
+    if (h.competencia_mensaje) partes.push("Mensaje de la competencia: " + h.competencia_mensaje);
+    (a.comparativa || []).forEach((c) => {
+      if (c.hueco) partes.push("Hueco vs " + (c.competidor || "competidor") + ": " + c.hueco);
+    });
+  }
+  (s.competidores || [])
+    .filter((c) => c.perfil && (c.perfil.veredicto === "seguir" || c.perfil.veredicto === "observar"))
+    .slice(0, 4)
+    .forEach((c) => {
+      const p = c.perfil;
+      const debil = (p.por_mejorar || []).slice(0, 2).join("; ");
+      if (debil) partes.push(`A ${c.nombre} (${p.posicionamiento || p.nicho || "competidor"}) le falta: ${debil}`);
+      const mov = (p.oportunidades || []).slice(0, 2).join("; ");
+      if (mov) partes.push(`Movimiento vs ${c.nombre}: ${mov}`);
+    });
+  return partes.join("\n");
+}
+
 // Estudio de mercado · pestaña Salud de tu web (auditoria SEO real + soluciones IA).
 // Competencia y Analisis de negocio llegan en la siguiente ronda de porteo.
 export default function MercadoView({ data, ws, recargar }) {

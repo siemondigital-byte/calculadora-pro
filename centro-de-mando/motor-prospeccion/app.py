@@ -20,7 +20,7 @@ from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import httpx
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 import buzones
 import collectors
@@ -1753,6 +1753,265 @@ def gc_proxy(url: str = "", k: str = ""):
     return StreamingResponse(_cuerpo(), media_type=ct,
                              headers={"Access-Control-Allow-Origin": "*",
                                       "Cache-Control": "public, max-age=86400"})
+
+
+# ------------------- Search Console + Google Ads Keyword Planner (API) -----
+# Stack de keywords segun la skill (jul-19): Planner API y GSC son las fuentes
+# de mayor calidad; ambas reutilizan el MISMO cliente OAuth de Google (el de
+# YouTube). Ubersuggest/Apify quedo deprecado.
+
+_GSC_SCOPES = "https://www.googleapis.com/auth/webmasters.readonly"
+_GADS_SCOPES = "https://www.googleapis.com/auth/adwords"
+
+
+def _oauth_cliente_google():
+    cid = secretos.get("GADS_CLIENT_ID") or secretos.get("YT_OAUTH_CLIENT_ID")
+    cs = secretos.get("GADS_CLIENT_SECRET") or secretos.get("YT_OAUTH_CLIENT_SECRET")
+    return cid, cs
+
+
+def _oauth_redirect(ruta):
+    return _base_publica() + ruta
+
+
+def _oauth_google_start(k, scope, redirect):
+    clave = clave_actual()
+    cron = os.environ.get("CRON_KEY", "").strip()
+    if not clave or not (hmac.compare_digest(k or "", clave)
+                         or (cron and hmac.compare_digest(k or "", cron))):
+        return HTMLResponse("<h3>No autorizado</h3>", status_code=401)
+    cid, cs = _oauth_cliente_google()
+    if not (cid and cs):
+        return HTMLResponse(
+            "<div style='font-family:sans-serif;max-width:520px;margin:40px auto'>"
+            "<h3>Falta el cliente OAuth de Google</h3><p>Guarda YT_OAUTH_CLIENT_ID y "
+            "YT_OAUTH_CLIENT_SECRET (o GADS_CLIENT_ID/SECRET) en el CRM → Accesos. "
+            "Es el mismo cliente de Google para YouTube/GSC/Ads.</p></div>",
+            status_code=400)
+    import urllib.parse
+    params = {"client_id": cid, "redirect_uri": redirect, "response_type": "code",
+              "scope": scope, "access_type": "offline", "prompt": "consent",
+              "include_granted_scopes": "true"}
+    return RedirectResponse(
+        "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params))
+
+
+def _oauth_google_callback(code, error, redirect, clave_refresh, nombre):
+    if error or not code:
+        return HTMLResponse(f"<h3>No se pudo conectar: {error or 'sin code'}</h3>")
+    import requests as _rq
+    cid, cs = _oauth_cliente_google()
+    try:
+        tok = _rq.post("https://oauth2.googleapis.com/token", data={
+            "code": code, "client_id": cid, "client_secret": cs,
+            "redirect_uri": redirect, "grant_type": "authorization_code"},
+            timeout=30).json()
+        refresh = tok.get("refresh_token")
+        if not refresh:
+            return HTMLResponse("<h3>Google no devolvio refresh token. Revoca el "
+                                "acceso en tu cuenta Google y reintenta.</h3>")
+        secretos.set_(clave_refresh, refresh)
+        return HTMLResponse(f"<h2>{nombre} conectado ✓</h2>"
+                            "<p>Cierra esta ventana y vuelve al CRM.</p>")
+    except Exception as e:  # noqa: BLE001
+        return HTMLResponse(f"<h3>Error: {e}</h3>")
+
+
+def _google_access_token(clave_refresh):
+    import requests as _rq
+    refresh = secretos.get(clave_refresh)
+    cid, cs = _oauth_cliente_google()
+    if not (refresh and cid and cs):
+        return ""
+    try:
+        t = _rq.post("https://oauth2.googleapis.com/token", data={
+            "client_id": cid, "client_secret": cs, "refresh_token": refresh,
+            "grant_type": "refresh_token"}, timeout=30).json()
+        return t.get("access_token", "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+@app.get("/oauth/gsc/start")
+def gsc_oauth_start(k: str = ""):
+    return _oauth_google_start(k, _GSC_SCOPES, _oauth_redirect("/oauth/gsc/callback"))
+
+
+@app.get("/oauth/gsc/callback")
+def gsc_oauth_callback(code: str = "", error: str = ""):
+    return _oauth_google_callback(code, error, _oauth_redirect("/oauth/gsc/callback"),
+                                  "GSC_REFRESH", "Search Console")
+
+
+@app.get("/blog/gsc_estado")
+def blog_gsc_estado(authorization: str = Header(None)):
+    _auth(authorization)
+    return {"ok": True, "conectado": bool(secretos.get("GSC_REFRESH"))}
+
+
+@app.get("/blog/gsc_sitios")
+def blog_gsc_sitios(authorization: str = Header(None)):
+    """Propiedades de Search Console a las que la cuenta conectada tiene acceso."""
+    _auth(authorization)
+    import requests as _rq
+    tok = _google_access_token("GSC_REFRESH")
+    if not tok:
+        return {"ok": False, "error": "no_conectado"}
+    try:
+        r = _rq.get("https://searchconsole.googleapis.com/webmasters/v3/sites",
+                    headers={"Authorization": "Bearer " + tok}, timeout=20)
+        entries = r.json().get("siteEntry", [])
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "conexion", "detalle": str(e)[:150]}
+    sitios = [{"sitio": e.get("siteUrl"), "permiso": e.get("permissionLevel")}
+              for e in entries]
+    usables = [s for s in sitios
+               if s["permiso"] in ("siteOwner", "siteFullUser", "siteRestrictedUser")]
+    return {"ok": True, "sitios": sitios, "usables": usables}
+
+
+@app.post("/blog/gsc_actualizar")
+def blog_gsc_actualizar(req: dict = Body(None), authorization: str = Header(None)):
+    """Consultas reales de Search Console por API (90 dias, sin CSV)."""
+    _auth(authorization)
+    import urllib.parse
+    import requests as _rq
+    from datetime import date, timedelta
+    req = req or {}
+    tok = _google_access_token("GSC_REFRESH")
+    if not tok:
+        return {"ok": False, "error": "no_conectado", "nota": "Conecta Search Console primero."}
+    dominio = (req.get("dominio") or "atlantisglobalrealty.com").strip()
+    dominio = dominio.replace("https://", "").replace("http://", "").strip("/")
+    hoy = date.today()
+    body = {"startDate": (hoy - timedelta(days=90)).isoformat(),
+            "endDate": hoy.isoformat(), "dimensions": ["query"], "rowLimit": 200}
+    H = {"Authorization": "Bearer " + tok, "Content-Type": "application/json"}
+    elegido = (req.get("sitio") or "").strip()
+    sitios = [elegido] if elegido else [
+        f"sc-domain:{dominio}", f"https://{dominio}/", f"https://www.{dominio}/"]
+    rows, usado, err = [], "", ""
+    for site in sitios:
+        url = ("https://searchconsole.googleapis.com/webmasters/v3/sites/"
+               + urllib.parse.quote(site, safe="") + "/searchAnalytics/query")
+        try:
+            r = _rq.post(url, headers=H, json=body, timeout=30)
+            if r.status_code == 200:
+                rows = r.json().get("rows", [])
+                usado = site
+                break
+            err = f"{r.status_code}: {r.text[:120]}"
+        except Exception as e:  # noqa: BLE001
+            err = str(e)[:120]
+    if not usado:
+        return {"ok": False, "error": "sin_acceso", "detalle": err,
+                "nota": "El sitio no esta en esta cuenta de Search Console, o falta habilitar la API."}
+    consultas = [{"query": (rw.get("keys") or [""])[0],
+                  "clics": int(rw.get("clicks") or 0),
+                  "impresiones": int(rw.get("impressions") or 0),
+                  "ctr": round((rw.get("ctr") or 0) * 100, 2),
+                  "posicion": round(rw.get("position") or 0, 1)}
+                 for rw in rows if (rw.get("keys") or [""])[0]]
+    consultas.sort(key=lambda q: q["impresiones"], reverse=True)
+    return {"ok": True, "consultas": consultas, "total": len(consultas),
+            "sitio": usado, "fecha": str(hoy)}
+
+
+# geo/idioma para el Keyword Planner (constantes oficiales de Google Ads)
+_GADS_GEO = {"co": "2170", "mx": "2484", "us": "2840", "es": "2724", "ar": "2032",
+             "cl": "2152", "pe": "2604", "do": "2214", "pa": "2591", "cr": "2188",
+             "ec": "2218", "ae": "2784"}
+_GADS_LANG = {"es": "1003", "en": "1000"}
+
+
+@app.get("/oauth/gads/start")
+def gads_oauth_start(k: str = ""):
+    return _oauth_google_start(k, _GADS_SCOPES, _oauth_redirect("/oauth/gads/callback"))
+
+
+@app.get("/oauth/gads/callback")
+def gads_oauth_callback(code: str = "", error: str = ""):
+    return _oauth_google_callback(code, error, _oauth_redirect("/oauth/gads/callback"),
+                                  "GADS_REFRESH", "Google Ads (Keyword Planner)")
+
+
+@app.get("/keywords/google/estado")
+def keywords_google_estado(authorization: str = Header(None)):
+    _auth(authorization)
+    return {"ok": True,
+            "conectado": bool(secretos.get("GADS_REFRESH")),
+            "dev_token": bool(secretos.get("GOOGLE_ADS_DEV_TOKEN")),
+            "customer": bool(secretos.get("GOOGLE_ADS_CUSTOMER"))}
+
+
+@app.post("/keywords/google")
+def keywords_google(req: dict = Body(...), authorization: str = Header(None)):
+    """Keyword Planner por API (generateKeywordIdeas): keyword + volumen mensual
+    + competencia + cpc, el dato oficial de Google. Requiere developer token
+    aprobado (vive en el API Center de una cuenta MCC, no en cuentas normales)."""
+    _auth(authorization)
+    import requests as _rq
+    seed = (req.get("seed") or req.get("keyword") or "").strip()
+    url_seed = (req.get("url") or "").strip()
+    if not seed and not url_seed:
+        return {"ok": False, "error": "falta seed o url"}
+    pais = (req.get("pais") or "co").strip().lower()
+    idioma = (req.get("idioma") or "es").strip().lower()
+    tok = _google_access_token("GADS_REFRESH")
+    dev = secretos.get("GOOGLE_ADS_DEV_TOKEN")
+    customer = re.sub(r"\D", "", secretos.get("GOOGLE_ADS_CUSTOMER") or "")
+    if not tok:
+        return {"ok": False, "error": "no_conectado", "nota": "Pulsa 'Conectar (autorizar)' primero."}
+    if not dev or not customer:
+        return {"ok": False, "error": "sin_config",
+                "nota": "Faltan GOOGLE_ADS_DEV_TOKEN y/o GOOGLE_ADS_CUSTOMER (Accesos)."}
+    H = {"Authorization": "Bearer " + tok, "developer-token": dev,
+         "Content-Type": "application/json"}
+    mcc = re.sub(r"\D", "", secretos.get("GOOGLE_ADS_LOGIN_CUSTOMER") or "")
+    if mcc:
+        H["login-customer-id"] = mcc
+    body = {
+        "geoTargetConstants": [f"geoTargetConstants/{_GADS_GEO.get(pais, '2170')}"],
+        "language": f"languageConstants/{_GADS_LANG.get(idioma, '1003')}",
+        "includeAdultKeywords": False,
+        "pageSize": 100,
+    }
+    if seed and url_seed:
+        body["keywordAndUrlSeed"] = {"url": url_seed, "keywords": [seed]}
+    elif seed:
+        body["keywordSeed"] = {"keywords": [seed]}
+    else:
+        body["urlSeed"] = {"url": url_seed}
+    try:
+        r = _rq.post(
+            f"https://googleads.googleapis.com/v18/customers/{customer}:generateKeywordIdeas",
+            headers=H, json=body, timeout=40)
+        d = r.json()
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:200]}
+    if r.status_code != 200:
+        msg = ((d.get("error") or {}).get("message") or str(d))[:300]
+        nota = ""
+        if "developer token" in msg.lower() or "DEVELOPER_TOKEN" in str(d):
+            nota = ("El developer token aun no esta aprobado (acceso basico) o es de "
+                    "prueba. Se pide en el API Center de la cuenta MCC.")
+        return {"ok": False, "error": msg, "nota": nota}
+    filas = []
+    for res in d.get("results", []):
+        m = res.get("keywordIdeaMetrics") or {}
+        cpc_micros = int(m.get("highTopOfPageBidMicros") or m.get("lowTopOfPageBidMicros") or 0)
+        filas.append({
+            "keyword": res.get("text", ""),
+            "volumen": int(m.get("avgMonthlySearches") or 0),
+            "competencia": (m.get("competition") or "").lower(),
+            "cpc": round(cpc_micros / 1_000_000, 2) if cpc_micros else None,
+        })
+    filas = [f for f in filas if f["keyword"]]
+    filas.sort(key=lambda f: -(f["volumen"] or 0))
+    if req.get("filtrar", True) and len(filas) > 6:
+        filas = _filtrar_relevantes(filas)
+    return {"ok": True, "keywords": filas[:100], "total": len(filas),
+            "fuente": "google-ads-api", "fecha": time.strftime("%Y-%m-%d")}
 
 
 # ------------------------------------------- maquetador / web publica (F5)
