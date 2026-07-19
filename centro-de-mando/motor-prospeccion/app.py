@@ -533,6 +533,159 @@ def generar_contenido(body: dict = Body(...), authorization: str = Header(None))
     return {"ok": True, "pieza": pieza}
 
 
+# ------------------------------------------------------- asistente (ejecuta)
+
+def _mover_etapa_lead(slice_ws, lead, etapa):
+    config = slice_ws.get("config") or {}
+    if etapa not in (config.get("stages") or []):
+        return False
+    lead["etapa"] = etapa
+    dias = (config.get("cadenciaDias") or {}).get(etapa)
+    if dias:
+        lead["followUpDate"] = time.strftime(
+            "%Y-%m-%d", time.localtime(time.time() + int(dias) * 86400)
+        )
+    return True
+
+
+def _buscar_lead(slice_ws, referencia):
+    ref = str(referencia or "").strip().lower()
+    if not ref:
+        return None
+    return next(
+        (l for l in slice_ws.get("leads", [])
+         if str(l.get("email", "")).lower() == ref
+         or str(l.get("nombre", "")).lower() == ref),
+        None,
+    )
+
+
+def _aplicar_accion(data, ws, accion):
+    """Ejecuta UNA accion del asistente. Devuelve un resumen o None si no
+    aplico. Solo tipos de la allowlist; todo pasa por el mismo estado."""
+    slice_ws = data.setdefault(ws, {})
+    tipo = accion.get("tipo")
+
+    if tipo == "crear_lead":
+        email = str(accion.get("email", "")).strip().lower()
+        nombre = str(accion.get("nombre", "")).strip()
+        if not email and not nombre:
+            return None
+        if email and any(
+            str(l.get("email", "")).lower() == email for l in slice_ws.get("leads", [])
+        ):
+            return f"el lead {email} ya existia"
+        config = slice_ws.get("config") or {}
+        slice_ws.setdefault("leads", []).append({
+            "id": f"lead-{uuid.uuid4().hex[:10]}",
+            "nombre": nombre, "email": email,
+            "etapa": (config.get("stages") or ["Nuevo"])[0],
+            "fuente": "directo", "leadSource": "Asistente",
+            "creado": int(time.time()),
+        })
+        return f"lead creado: {nombre or email}"
+
+    if tipo == "mover_etapa":
+        lead = _buscar_lead(slice_ws, accion.get("lead"))
+        if lead and _mover_etapa_lead(slice_ws, lead, str(accion.get("etapa", ""))):
+            return f"{lead.get('nombre') or lead.get('email')} -> {accion['etapa']}"
+        return None
+
+    if tipo == "agendar_consulta":
+        lead = _buscar_lead(slice_ws, accion.get("lead"))
+        fecha = str(accion.get("fecha", "")).strip()
+        if not lead or not fecha:
+            return None
+        slice_ws.setdefault("consultas", []).append({
+            "id": f"con-{uuid.uuid4().hex[:10]}",
+            "leadId": lead["id"], "fecha": fecha, "estado": "agendada",
+        })
+        return f"consulta agendada con {lead.get('nombre') or lead.get('email')}"
+
+    if tipo == "definir_meta":
+        mes = str(accion.get("mes", "")).strip() or time.strftime("%Y-%m")
+        try:
+            valor = float(accion.get("valor"))
+        except (TypeError, ValueError):
+            return None
+        slice_ws.setdefault("metas", {})[mes] = valor
+        return f"meta de {mes}: {valor:g}"
+
+    if tipo == "capturar_prospecto":
+        nombre = str(accion.get("nombre", "")).strip()
+        email = str(accion.get("email", "")).strip().lower()
+        if not nombre and not email:
+            return None
+        slice_ws.setdefault("prospectos", []).append({
+            "id": f"pros-{uuid.uuid4().hex[:10]}",
+            "nombre": nombre, "email": email,
+            "lead_source": "Asistente", "estado": "nuevo",
+            "creado": int(time.time()),
+        })
+        return f"prospecto capturado: {nombre or email}"
+
+    return None
+
+
+@app.post("/asistente")
+def asistente(body: dict = Body(...), authorization: str = Header(None)):
+    """Chat que EJECUTA sobre el CRM. La IA propone acciones estructuradas y
+    el motor las valida y aplica (allowlist, mismo guardar_seguro)."""
+    _auth(authorization)
+    mensaje = str(body.get("mensaje", "")).strip()
+    if not mensaje:
+        raise HTTPException(400, "mensaje requerido")
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    slice_ws = data.get(ws) or {}
+    config = slice_ws.get("config") or {}
+    hoy = time.strftime("%Y-%m-%d")
+    vencidos = [
+        l for l in slice_ws.get("leads", [])
+        if l.get("followUpDate") and l["followUpDate"] < hoy
+        and l.get("etapa") not in ("Descartado", "Baja")
+    ]
+    contexto = (
+        f"Hoy es {hoy}. Workspace: {ws} ({config.get('nombre', '')}). "
+        f"Leads: {len(slice_ws.get('leads', []))} "
+        f"(etapas validas: {', '.join(config.get('stages') or [])}). "
+        f"Prospectos: {len(slice_ws.get('prospectos', []))}. "
+        f"Seguimientos vencidos: {len(vencidos)} "
+        f"({', '.join(str(l.get('nombre') or l.get('email')) for l in vencidos[:5])}). "
+        f"Leads recientes: "
+        + "; ".join(
+            f"{l.get('nombre') or ''} <{l.get('email') or ''}> etapa {l.get('etapa')}"
+            for l in slice_ws.get("leads", [])[-10:]
+        )
+    )
+    r = _claude_json(
+        "Eres el asistente operativo del Centro de Mando. Contexto del CRM:\n"
+        f"{contexto}\n\nPeticion de la usuaria: {mensaje}\n\n"
+        "Devuelve SOLO JSON: {\"respuesta\": str (breve, en espanol neutro), "
+        "\"acciones\": [ ... ]}. Acciones permitidas (usa solo las necesarias, "
+        "maximo 5):\n"
+        "- {\"tipo\": \"crear_lead\", \"nombre\": str, \"email\": str}\n"
+        "- {\"tipo\": \"mover_etapa\", \"lead\": str (email o nombre), \"etapa\": str}\n"
+        "- {\"tipo\": \"agendar_consulta\", \"lead\": str, \"fecha\": \"YYYY-MM-DDTHH:MM\"}\n"
+        "- {\"tipo\": \"definir_meta\", \"mes\": \"YYYY-MM\", \"valor\": number}\n"
+        "- {\"tipo\": \"capturar_prospecto\", \"nombre\": str, \"email\": str}\n"
+        "Si la peticion es solo una pregunta, devuelve acciones: [].",
+        max_tokens=4000,
+    )
+    respuesta = _sin_em_dash(str((r or {}).get("respuesta", "")))
+    aplicadas = []
+    for accion in ((r or {}).get("acciones") or [])[:5]:
+        try:
+            resultado = _aplicar_accion(data, ws, accion)
+            if resultado:
+                aplicadas.append(resultado)
+        except Exception:  # noqa: BLE001
+            continue
+    if aplicadas:
+        guardar_seguro(data)
+    return {"ok": True, "respuesta": respuesta, "aplicadas": aplicadas}
+
+
 # ------------------------------------------------------- buzones y correo
 
 @app.get("/buzones")
@@ -794,6 +947,101 @@ def nurturing_baja(ws: str = "", e: str = "", t: str = ""):
         "Listo</h2><p>No recibiras mas correos de esta serie.</p></div>"
         "</body></html>"
     )
+
+
+# ------------------------------------------------------- push web (VAPID)
+
+def _webpush_send(suscripcion, payload):
+    """Envio real de una notificacion. Best-effort; los tests lo reemplazan."""
+    from pywebpush import webpush
+    webpush(
+        subscription_info=suscripcion,
+        data=json.dumps(payload),
+        vapid_private_key=os.environ.get("VAPID_PRIVATE_KEY", ""),
+        vapid_claims={"sub": "mailto:hello@atlantisglobalrealty.com"},
+    )
+
+
+def _push_a_todos(data, ws, payload):
+    subs = (data.get(ws) or {}).get("pushSubs") or []
+    enviados, errores = 0, 0
+    for sub in subs:
+        try:
+            _webpush_send(sub, payload)
+            enviados += 1
+        except Exception:  # noqa: BLE001
+            errores += 1
+    return enviados, errores
+
+
+@app.get("/push/clave_publica")
+def push_clave_publica():
+    return {"clave": os.environ.get("VAPID_PUBLIC_KEY", "")}
+
+
+@app.post("/push/suscribir")
+def push_suscribir(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    sub = body.get("suscripcion")
+    if not isinstance(sub, dict) or not sub.get("endpoint"):
+        raise HTTPException(400, "suscripcion invalida")
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    subs = data.setdefault(ws, {}).setdefault("pushSubs", [])
+    if not any(s.get("endpoint") == sub["endpoint"] for s in subs):
+        subs.append(sub)
+    guardar_seguro(data)
+    return {"ok": True, "total": len(subs)}
+
+
+@app.post("/push/probar")
+def push_probar(body: dict = Body(None), authorization: str = Header(None)):
+    _auth(authorization)
+    if not os.environ.get("VAPID_PRIVATE_KEY"):
+        return {"ok": False, "motivo": "sin_config: define VAPID_PUBLIC_KEY/PRIVATE_KEY"}
+    ws = (body or {}).get("workspace")
+    ws = ws if ws in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {}
+    enviados, errores = _push_a_todos(data, ws, {
+        "title": "Centro de Mando", "body": "Notificaciones activas.", "url": "/",
+    })
+    return {"ok": True, "enviados": enviados, "errores": errores}
+
+
+@app.post("/push/recordatorios")
+def push_recordatorios(body: dict = Body(None), authorization: str = Header(None)):
+    """Cron diario: seguimientos vencidos/de hoy + consultas de hoy."""
+    _auth(authorization)
+    data = crm_store.leer() or {}
+    hoy = time.strftime("%Y-%m-%d")
+    resumen = {}
+    for ws in WORKSPACES:
+        slice_ws = data.get(ws) or {}
+        pendientes = [
+            l for l in slice_ws.get("leads", [])
+            if l.get("followUpDate") and l["followUpDate"] <= hoy
+            and l.get("etapa") not in ("Descartado", "Baja", "Cliente", "Comprador")
+        ]
+        consultas_hoy = [
+            c for c in slice_ws.get("consultas", [])
+            if str(c.get("fecha", "")).startswith(hoy) and c.get("estado") == "agendada"
+        ]
+        if not pendientes and not consultas_hoy:
+            resumen[ws] = {"enviados": 0, "pendientes": 0}
+            continue
+        partes = []
+        if pendientes:
+            partes.append(f"{len(pendientes)} seguimiento(s) pendiente(s)")
+        if consultas_hoy:
+            partes.append(f"{len(consultas_hoy)} consulta(s) hoy")
+        enviados, errores = _push_a_todos(data, ws, {
+            "title": "Centro de Mando · hoy",
+            "body": " y ".join(partes) + ".",
+            "url": "/#v=seguimiento",
+        })
+        resumen[ws] = {"enviados": enviados, "errores": errores,
+                       "pendientes": len(pendientes), "consultas": len(consultas_hoy)}
+    return {"ok": True, **resumen}
 
 
 # ------------------------------------------- compras / app usuarios (F3)

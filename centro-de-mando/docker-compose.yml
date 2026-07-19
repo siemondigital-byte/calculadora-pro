@@ -29,6 +29,10 @@ services:
       - TOKEN_SECRET=${TOKEN_SECRET:?definir en .env}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_MODEL=claude-sonnet-5
+      - MOTOR_URL=${MOTOR_URL:-https://motor.atlantisglobalrealty.com}
+      # push web: la privada es la RUTA al PEM dentro del volumen /data
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-/data/vapid_private.pem}
     volumes:
       - ./data:/data
 

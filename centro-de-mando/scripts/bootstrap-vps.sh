@@ -44,11 +44,18 @@ cd "$DIR_CM"
 if [ ! -f .env ]; then
   echo "-- Generando .env con claves nuevas..."
   CRM_PASSWORD="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"
+  # claves VAPID para push web (privada en PEM, publica en base64url cruda)
+  mkdir -p data
+  openssl ecparam -genkey -name prime256v1 -noout -out data/vapid_private.pem
+  chmod 600 data/vapid_private.pem
+  VAPID_PUB="$(openssl ec -in data/vapid_private.pem -pubout -outform DER 2>/dev/null | tail -c 65 | base64 | tr -d '=\n' | tr '+/' '-_')"
   {
     echo "CRM_PASSWORD=$CRM_PASSWORD"
     echo "CRON_KEY=$(openssl rand -hex 24)"
     echo "TOKEN_SECRET=$(openssl rand -hex 32)"
     echo "ANTHROPIC_API_KEY="
+    echo "VAPID_PUBLIC_KEY=$VAPID_PUB"
+    echo "VAPID_PRIVATE_KEY=/data/vapid_private.pem"
   } > .env
   chmod 600 .env
   echo

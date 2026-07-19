@@ -245,7 +245,157 @@ export default function App() {
       </aside>
 
       <main className="min-w-0 flex-1 p-5 md:p-8">{VISTAS[vista] || VISTAS.panel}</main>
+      <AsistenteFlotante ws={ws} recargar={recargar} />
     </div>
+  );
+}
+
+// ------------------------------------------------------ Push (campana)
+
+function base64aUint8(base64) {
+  const relleno = "=".repeat((4 - (base64.length % 4)) % 4);
+  const crudo = atob((base64 + relleno).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...crudo].map((c) => c.charCodeAt(0)));
+}
+
+function TarjetaPush() {
+  const [estado, setEstado] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+
+  const activar = async () => {
+    setOcupado(true);
+    setEstado("");
+    try {
+      const { clave } = await motorGet("/push/clave_publica");
+      if (!clave) {
+        setEstado("El motor no tiene VAPID configurado (variables VAPID_PUBLIC_KEY/PRIVATE_KEY).");
+        return;
+      }
+      const permiso = await Notification.requestPermission();
+      if (permiso !== "granted") {
+        setEstado("Permiso de notificaciones denegado en este navegador.");
+        return;
+      }
+      const registro = await navigator.serviceWorker.ready;
+      const suscripcion = await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64aUint8(clave),
+      });
+      await motorPost("/push/suscribir", { suscripcion: suscripcion.toJSON() });
+      const prueba = await motorPost("/push/probar", {});
+      setEstado(prueba.ok ? "Notificaciones activas en este dispositivo." : prueba.motivo);
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  return (
+    <div className="tarjeta mb-6 max-w-md space-y-3">
+      <div className="text-sm font-semibold">Notificaciones push</div>
+      <p className="text-xs text-gris/70">
+        Recordatorio diario de seguimientos pendientes y consultas del día. En
+        iPhone requiere instalar la app en pantalla de inicio (iOS 16.4+).
+      </p>
+      <button className="boton" disabled={ocupado} onClick={activar}>
+        {ocupado ? "Activando…" : "Activar en este dispositivo"}
+      </button>
+      {estado && <p className="text-xs text-gris">{estado}</p>}
+    </div>
+  );
+}
+
+// ------------------------------------------------------ Asistente flotante
+
+function AsistenteFlotante({ ws, recargar }) {
+  const [abierto, setAbierto] = useState(false);
+  const [mensajes, setMensajes] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const finRef = useRef(null);
+
+  useEffect(() => {
+    finRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [mensajes]);
+
+  const enviar = async (e) => {
+    e?.preventDefault();
+    const mensaje = texto.trim();
+    if (!mensaje || cargando) return;
+    setTexto("");
+    setMensajes((m) => [...m, { de: "yo", texto: mensaje }]);
+    setCargando(true);
+    try {
+      const r = await motorPost("/asistente", { mensaje, workspace: ws });
+      setMensajes((m) => [...m, { de: "ia", texto: r.respuesta, aplicadas: r.aplicadas }]);
+      if (r.aplicadas?.length) await recargar();
+    } catch (err) {
+      setMensajes((m) => [...m, { de: "ia", texto: `No pude procesarlo: ${err.message || err}` }]);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        aria-label="Abrir asistente"
+        onClick={() => setAbierto(!abierto)}
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-oro text-2xl text-negro shadow-lg transition hover:scale-105"
+      >
+        {abierto ? "×" : "◎"}
+      </button>
+
+      {abierto && (
+        <div className="fixed bottom-24 right-5 z-40 flex max-h-[70vh] w-[min(24rem,calc(100vw-2.5rem))] flex-col rounded-xl border border-gris/20 bg-negro shadow-2xl">
+          <div className="border-b border-gris/10 p-3">
+            <span className="font-display text-oro">Asistente</span>
+            <span className="ml-2 text-xs text-gris">ejecuta sobre el CRM</span>
+          </div>
+          <div className="min-h-40 flex-1 space-y-2 overflow-y-auto p-3">
+            {mensajes.length === 0 && (
+              <p className="text-xs text-gris">
+                Pídeme cosas: "crea el lead Ana ana@correo.com", "mueve a Ana a
+                Contactado", "agenda diagnóstico con Ana el viernes 10am", "pon la
+                meta del mes en 20000".
+              </p>
+            )}
+            {mensajes.map((m, i) => (
+              <div key={i} className={m.de === "yo" ? "text-right" : ""}>
+                <div
+                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    m.de === "yo" ? "bg-oro/15 text-crema" : "bg-navy/60 text-crema/90"
+                  }`}
+                >
+                  {m.texto}
+                  {m.aplicadas?.length > 0 && (
+                    <div className="mt-1 border-t border-gris/20 pt-1 text-xs text-oro">
+                      {m.aplicadas.map((a, j) => (
+                        <div key={j}>✓ {a}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {cargando && <div className="text-xs text-gris">Pensando…</div>}
+            <div ref={finRef} />
+          </div>
+          <form onSubmit={enviar} className="flex gap-2 border-t border-gris/10 p-3">
+            <input
+              className="campo"
+              placeholder="Escribe una orden…"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+            />
+            <button className="boton shrink-0 !px-3" disabled={cargando || !texto.trim()}>
+              →
+            </button>
+          </form>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1667,6 +1817,8 @@ function Accesos() {
           nunca se vuelve a mostrar.
         </p>
       </div>
+
+      <TarjetaPush />
 
       <div className="grid gap-3 md:grid-cols-2">
         {Object.entries(secretos).map(([clave, info]) => (

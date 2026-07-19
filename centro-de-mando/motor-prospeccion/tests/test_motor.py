@@ -59,7 +59,8 @@ check("login ok", c.post("/crm/login", json={"clave": "clave-atlantis-2026"}).js
 seed = {
     "workspace": "atlantis",
     "atlantis": {
-        "config": {"stages": ["Nuevo", "Contactado", "Cliente"], "moneda": "USD"},
+        "config": {"stages": ["Nuevo", "Contactado", "Cliente"], "moneda": "USD",
+                   "cadenciaDias": {"Nuevo": 2, "Contactado": 3}},
         "leads": [{"id": "lead-1", "email": "a@b.com", "etapa": "Nuevo"}],
         "prospectos": [{"id": "p1"}, {"id": "p2"}],
         "consultas": [{"id": "c1", "estado": "agendada"}],
@@ -428,6 +429,69 @@ r = c.post("/generar_mensaje", json={"email": "nutrido2@test.com",
     "workspace": "cicloderiqueza"}, headers=AUTH2)
 check("generar_mensaje devuelve borrador", r.json()["mensaje"]["asunto"].startswith("Re:"))
 check("borrador sin em dash", "—" not in json.dumps(r.json()))
+
+# ------------------------------------------------- asistente que ejecuta
+# 40. Acciones estructuradas validadas y aplicadas por el motor
+motor._claude_json = lambda *a, **k: {
+    "respuesta": "Hecho — creo el lead y agendo.",
+    "acciones": [
+        {"tipo": "crear_lead", "nombre": "Ana Inversionista", "email": "ana@inv.com"},
+        {"tipo": "mover_etapa", "lead": "ana@inv.com", "etapa": "Contactado"},
+        {"tipo": "agendar_consulta", "lead": "ana@inv.com", "fecha": "2026-07-25T10:00"},
+        {"tipo": "definir_meta", "mes": "2026-08", "valor": 30000},
+        {"tipo": "accion_maliciosa", "cmd": "borrar todo"},
+    ]}
+r = c.post("/asistente", json={"mensaje": "crea a Ana y agenda diagnostico",
+    "workspace": "atlantis"}, headers=AUTH2)
+j = r.json()
+check("asistente aplico 4 acciones (la invalida ignorada)", len(j["aplicadas"]) == 4, str(j))
+check("respuesta sin em dash", "—" not in j["respuesta"])
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+ana = next((l for l in d["atlantis"]["leads"] if l.get("email") == "ana@inv.com"), None)
+check("lead creado por asistente", ana is not None and ana["leadSource"] == "Asistente")
+check("etapa movida con followUp por cadencia", ana["etapa"] == "Contactado" and bool(ana.get("followUpDate")))
+check("consulta agendada", any(x.get("leadId") == ana["id"] for x in d["atlantis"]["consultas"]))
+check("meta definida", d["atlantis"]["metas"].get("2026-08") == 30000)
+
+# 41. Pregunta sin acciones no toca el estado
+antes = json.dumps(c.get("/crm/data", headers=AUTH2).json()["data"], sort_keys=True)
+motor._claude_json = lambda *a, **k: {"respuesta": "Tienes 2 vencidos.", "acciones": []}
+r = c.post("/asistente", json={"mensaje": "como va el pipeline?", "workspace": "atlantis"}, headers=AUTH2)
+despues = json.dumps(c.get("/crm/data", headers=AUTH2).json()["data"], sort_keys=True)
+check("pregunta: estado intacto", antes == despues and r.json()["aplicadas"] == [])
+
+# 42. mover_etapa a etapa inexistente no aplica
+motor._claude_json = lambda *a, **k: {"respuesta": "ok", "acciones": [
+    {"tipo": "mover_etapa", "lead": "ana@inv.com", "etapa": "EtapaFalsa"}]}
+r = c.post("/asistente", json={"mensaje": "mueve a ana", "workspace": "atlantis"}, headers=AUTH2)
+check("etapa invalida ignorada", r.json()["aplicadas"] == [])
+
+# ------------------------------------------------------- push web (VAPID)
+# 43. Sin config: clave publica vacia y probar informa sin_config
+check("clave publica vacia sin config", c.get("/push/clave_publica").json()["clave"] == "")
+r = c.post("/push/probar", headers=AUTH2)
+check("probar sin config -> sin_config", "sin_config" in (r.json().get("motivo") or ""))
+
+# 44. Suscribir con dedupe
+SUB = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "x", "auth": "y"}}
+r = c.post("/push/suscribir", json={"suscripcion": SUB, "workspace": "atlantis"}, headers=AUTH2)
+r = c.post("/push/suscribir", json={"suscripcion": SUB, "workspace": "atlantis"}, headers=AUTH2)
+check("suscripcion dedupe (1 total)", r.json()["total"] == 1, str(r.json()))
+
+# 45. Con config + envio simulado: probar y recordatorios
+os.environ["VAPID_PRIVATE_KEY"] = "/tmp/fake.pem"
+PUSHES = []
+motor._webpush_send = lambda sub, payload: PUSHES.append(payload)
+r = c.post("/push/probar", json={"workspace": "atlantis"}, headers=AUTH2)
+check("probar envia a la suscripcion", r.json()["enviados"] == 1 and len(PUSHES) == 1)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+ana2 = next(l for l in d["atlantis"]["leads"] if l.get("email") == "ana@inv.com")
+ana2["followUpDate"] = "2020-01-01"
+c.put("/crm/data", json={"data": d}, headers=AUTH2)
+PUSHES.clear()
+r = c.post("/push/recordatorios", headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("recordatorio diario enviado con pendientes",
+      r.json()["atlantis"]["enviados"] == 1 and "seguimiento" in PUSHES[0]["body"], str(r.json()))
 
 print()
 print("FALLOS:", fallos if fallos else "ninguno, F1/F3/F4/F5 verificadas")
