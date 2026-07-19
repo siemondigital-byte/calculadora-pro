@@ -256,6 +256,88 @@ export default function App() {
   );
 }
 
+// ------------------------------------------- Credenciales de portales (manual)
+
+function TarjetaPortales({ data, commit, ws }) {
+  const portales = data?.[ws]?.accesos || [];
+  const [nuevo, setNuevo] = useState({ nombre: "", url: "", usuario: "", clave: "", nota: "" });
+  const [visible, setVisible] = useState({});
+
+  const guardar = () => {
+    if (!nuevo.nombre) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].accesos = [
+      ...(siguiente[ws].accesos || []),
+      { id: uid("acc"), ...nuevo },
+    ];
+    commit(siguiente);
+    setNuevo({ nombre: "", url: "", usuario: "", clave: "", nota: "" });
+  };
+
+  const eliminar = (id) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].accesos = (siguiente[ws].accesos || []).filter((a) => a.id !== id);
+    commit(siguiente);
+  };
+
+  return (
+    <div className="tarjeta mb-6">
+      <div className="mb-1 text-sm font-semibold">Credenciales de portales (manual)</div>
+      <p className="mb-3 text-xs text-gris/70">
+        Tu bóveda de accesos: Hotmart, hPanel, Supabase, redes, lo que necesites.
+        Se guardan en tu CRM (protegidas por tu clave de acceso).
+      </p>
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-5">
+        <input className="campo" placeholder="Portal (ej. Hotmart)" value={nuevo.nombre}
+          onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+        <input className="campo" placeholder="URL" value={nuevo.url}
+          onChange={(e) => setNuevo({ ...nuevo, url: e.target.value })} />
+        <input className="campo" placeholder="Usuario / email" value={nuevo.usuario}
+          onChange={(e) => setNuevo({ ...nuevo, usuario: e.target.value })} autoComplete="off" />
+        <input className="campo" type="password" placeholder="Contraseña" value={nuevo.clave}
+          onChange={(e) => setNuevo({ ...nuevo, clave: e.target.value })} autoComplete="new-password" />
+        <button className="boton" disabled={!nuevo.nombre} onClick={guardar}>
+          Guardar
+        </button>
+      </div>
+
+      {portales.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center gap-3 border-b border-gris/10 py-2 text-sm last:border-0">
+          <span className="font-semibold">{a.nombre}</span>
+          {a.url && (
+            <a href={a.url.startsWith("http") ? a.url : `https://${a.url}`} target="_blank"
+              rel="noreferrer" className="text-xs text-oro hover:underline">
+              abrir
+            </a>
+          )}
+          {a.usuario && <span className="text-xs text-gris">{a.usuario}</span>}
+          {a.clave && (
+            <button className="text-xs text-gris hover:text-crema"
+              onClick={() => setVisible({ ...visible, [a.id]: !visible[a.id] })}>
+              {visible[a.id] ? a.clave : "••••••••"}
+            </button>
+          )}
+          {a.clave && (
+            <button className="boton-secundario !px-2 !py-0.5 text-xs"
+              onClick={() => navigator.clipboard?.writeText(a.clave)}>
+              copiar
+            </button>
+          )}
+          {a.nota && <span className="text-xs text-gris/60">{a.nota}</span>}
+          <button className="ml-auto text-xs text-red-400/70 hover:text-red-400"
+            onClick={() => eliminar(a.id)}>
+            eliminar
+          </button>
+        </div>
+      ))}
+      {portales.length === 0 && (
+        <p className="text-xs text-gris">Sin credenciales guardadas todavía.</p>
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------ Push (campana)
 
 function base64aUint8(base64) {
@@ -1728,7 +1810,7 @@ function Nurturing({ data, commit, ws, recargar }) {
 
 // ---------------------------------------------------------------- Accesos
 
-function Accesos() {
+function Accesos({ data, commit, ws }) {
   const [nuevaClave, setNuevaClave] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [secretos, setSecretos] = useState({});
@@ -1826,6 +1908,9 @@ function Accesos() {
 
       <TarjetaPush />
 
+      <TarjetaPortales data={data} commit={commit} ws={ws} />
+
+      <div className="mb-2 text-sm font-semibold">Claves de API (vault del servidor)</div>
       <div className="grid gap-3 md:grid-cols-2">
         {Object.entries(secretos).map(([clave, info]) => (
           <div key={clave} className="tarjeta !p-4">
