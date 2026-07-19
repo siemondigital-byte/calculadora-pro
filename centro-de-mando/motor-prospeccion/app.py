@@ -199,9 +199,10 @@ def _capi_config():
 
 
 def _capi_enviar(evento, email=None, telefono=None, valor=None, moneda="USD",
-                 event_id=None, test_code=None):
+                 event_id=None, test_code=None, ip=None, ua=None):
     """Envia un evento server-side a Meta. BEST-EFFORT: jamas rompe el flujo
-    que lo dispara. PII siempre hasheada con SHA-256."""
+    que lo dispara. PII siempre hasheada con SHA-256. ip/ua van EN CLARO (asi
+    lo exige Meta) y mejoran mucho el match rate (skill jul-19)."""
     import hashlib
     token, pixel = _capi_config()
     if not token or not pixel:
@@ -212,6 +213,10 @@ def _capi_enviar(evento, email=None, telefono=None, valor=None, moneda="USD",
     if telefono:
         tel = re.sub(r"\D", "", telefono)
         user_data["ph"] = [hashlib.sha256(tel.encode()).hexdigest()]
+    if ip:
+        user_data["client_ip_address"] = str(ip)
+    if ua:
+        user_data["client_user_agent"] = str(ua)
     cuerpo = {
         "data": [{
             "event_name": evento,
@@ -264,6 +269,8 @@ def capi_evento(body: dict = Body(...), authorization: str = Header(None)):
         valor=body.get("valor"),
         moneda=body.get("moneda", "USD"),
         event_id=body.get("event_id"),
+        ip=body.get("ip"),
+        ua=body.get("ua"),
     )
 
 
@@ -346,9 +353,12 @@ def crm_lead(body: dict = Body(...)):
         creado = True
     guardar_seguro(data)
     if creado:
-        # evento CAPI solo al CREAR (no en updates, para no duplicar); best-effort
+        # evento CAPI solo al CREAR (no en updates, para no duplicar); best-effort.
+        # ip/ua los pasa n8n en el body (x-forwarded-for + user-agent del form)
+        # para mejorar el match rate de Meta (skill jul-19).
         _capi_enviar("Lead", email=email, telefono=campos.get("telefono"),
-                     event_id=f"lead-{lead_id}")
+                     event_id=f"lead-{lead_id}",
+                     ip=body.get("ip"), ua=body.get("ua"))
     return {"ok": True, "id": lead_id, "creado": creado}
 
 

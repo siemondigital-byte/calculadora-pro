@@ -192,3 +192,9 @@ Regla de oro que atraviesa TODO este archivo: **verifica el efecto, no la intenc
 
 ### FB Conversions API necesita token Y Pixel ID
 - Un token de Ads no basta: CAPI requiere el **Pixel/Dataset ID** (15-16 dígitos). Sin él no se envían eventos. Leer ambos del vault de Accesos server-side; nunca mostrarlos.
+
+### Keywords: no depender de Ubersuggest ni de DataForSEO crudo (jul-19)
+- **Síntoma**: la búsqueda de keywords "no trae nada" (Ubersuggest) o trae mucho ruido irrelevante (DataForSEO).
+- **Causa**: el actor de Ubersuggest en Apify dejó de funcionar; DataForSEO devuelve variantes muy amplias.
+- **Prevención**: priorizar **Google Ads Keyword Planner por API** (dato oficial, limpio) y **Search Console** (lo que ya te buscan). Ambos OAuth REUTILIZAN el cliente de YouTube (un solo OAuth de Google). El único bloqueo real es la aprobación del **developer token** (MCC + acceso básico, días); todo lo demás queda construido y esperando las credenciales.
+- **Trampa**: el developer token NO está en cuentas de Ads normales, solo en el **API Center de una cuenta de Administrador (MCC)**. El App/Customer ID NO es el developer token.

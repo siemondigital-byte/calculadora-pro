@@ -163,3 +163,29 @@ La conexión CAPI ya dispara eventos reales, server-side:
 - **Purchase**: en `FacturacionView.marcarPagada()` → POST `/capi/evento` con `{event:"Purchase", email (del lead por leadId), valor:total, moneda, event_id:"purchase-<id>"}`.
 - Ambos best-effort (nunca rompen el flujo). Verificado: `/capi/test` y un Purchase de prueba devolvieron `events_received:1`.
 - Para adaptar a otro negocio: los mismos hooks sirven; cambia el evento (Lead/Purchase/Contact/Schedule) según el embudo.
+
+- CAPI matching fino HECHO: los webhooks n8n (guia/contacto/chat) pasan ip (x-forwarded-for) + ua (user-agent) al /crm/lead, y el evento Lead los envia a Meta como client_ip_address/client_user_agent. Patron a replicar en cualquier webhook de lead.
+
+---
+
+## SEO / Keywords — stack completo (jul-19)
+
+El módulo **Blog y SEO** (`BlogSeoView.jsx`) alimenta una **lista curada de keywords** (`data.siemon.blogKeywordsCuradas`) que a su vez nutre: el recorrido SEO de la home (`/seo/soluciones` con keyword), los artículos del blog y el plan de Ads. Función central: `fusionarCuradas(filas, fuente, zona)` deduplica y añade.
+
+### Fuentes de keywords (en orden de calidad, elegir según el negocio)
+1. **Google Ads Keyword Planner (API)** — LA MÁS CONFIABLE (dato de Google). Motor `/keywords/google` → `customers/{cid}:generateKeywordIdeas` (v18), geo/idioma por país (`_GADS_GEO`/`_GADS_LANG`), devuelve keyword + volumen mensual + competencia + cpc. OAuth `/oauth/gads/start|callback` **reutiliza el cliente de YouTube** (`GADS_CLIENT_ID` cae a `YT_OAUTH_CLIENT_ID`); guarda `GADS_REFRESH`. Estado: `/keywords/google/estado`. UI en BlogSeoView ("Keyword Planner · API automática": conectar + buscar por tema/URL; cae al CSV si no está conectado).
+2. **Google Search Console (API)** — las CONSULTAS REALES con las que ya llegan a la web (clics/impresiones/CTR/posición). OAuth `/oauth/gsc/start|callback` (scope `webmasters.readonly`, **mismo cliente de YouTube**). Endpoints `/blog/gsc_estado`, `/blog/gsc_sitios`, consulta de queries. Requiere la web verificada en Search Console. Gratis, sin trámite. Botón "Conectar Search Console" en BlogSeoView.
+3. **AnswerThePublic** (preguntas reales) — `/blog/atp_*`, secreto `ATP_TOKEN`.
+4. **DataForSEO** — variantes con volumen/dificultad; útil pero **trae ruido** (filtrar). Secretos `DATAFORSEO_LOGIN/PASSWORD`.
+5. **Apify/Ubersuggest** — **DEPRECADO** (dejó de funcionar); no depender de él.
+6. **Keyword Planner CSV** — importar el export manual (`/blog/kwplanner_importar`), fallback sin API.
+
+### Secretos SEO (allowlist): 
+`GOOGLE_ADS_DEV_TOKEN`, `GOOGLE_ADS_CUSTOMER`, `GOOGLE_ADS_LOGIN_CUSTOMER` (MCC), `GADS_CLIENT_ID/SECRET` (o reutiliza `YT_OAUTH_CLIENT_ID/SECRET`), `GADS_REFRESH`, `ATP_TOKEN`, `DATAFORSEO_LOGIN/PASSWORD`.
+
+### Setup por negocio (para el token de Google Ads)
+1. Crear **cuenta de Administrador (MCC)** en ads.google.com/home/tools/manager-accounts (gratis) — el **developer token** vive en su **API Center**, no en cuentas normales.
+2. Pedir **acceso básico** al developer token (formulario en API Center) → aprobación de Google en **1-3 días** (el acceso de prueba solo sirve con cuentas de test).
+3. Vincular la cuenta de anuncios normal a la MCC (Customer ID de esa cuenta = el `customer` a consultar; el ID de la MCC = `login-customer-id`).
+4. En **Google Cloud Console** (mismo proyecto del OAuth de YouTube): habilitar **Google Ads API** y **Google Search Console API**, y agregar los scopes `adwords` y `webmasters.readonly` a la pantalla de consentimiento.
+5. En el CRM: pegar developer token + Customer ID (+ MCC) → Guardar → "Conectar (autorizar)".

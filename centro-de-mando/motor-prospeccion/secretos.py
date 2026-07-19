@@ -34,6 +34,15 @@ _SECRETOS_PERMITIDOS = {
     "UNSPLASH_KEY",
     "PIXABAY_KEY",
     "COVERR_KEY",
+    # SEO / Google Ads Keyword Planner por API (skill jul-19: la fuente mas
+    # confiable; el OAuth reutiliza el cliente de YouTube)
+    "GOOGLE_ADS_DEV_TOKEN",
+    "GOOGLE_ADS_CUSTOMER",
+    "GOOGLE_ADS_LOGIN_CUSTOMER",
+    "GADS_CLIENT_ID",
+    "GADS_CLIENT_SECRET",
+    "GADS_REFRESH",
+    "GSC_REFRESH",
 }
 
 _lock = threading.Lock()
