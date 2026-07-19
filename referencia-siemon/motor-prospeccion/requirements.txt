@@ -1,0 +1,12 @@
+# Nucleo (corre en Python 3.9+; probado)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+requests>=2.31
+beautifulsoup4>=4.12
+
+# Colector Google Maps (requiere Python 3.10+ y `scrapling install`)
+scrapling[fetchers]>=0.2
+
+# Opcional: mensaje de outreach personalizado con Claude
+anthropic>=0.39
+pywebpush==2.0.0

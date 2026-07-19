@@ -1,0 +1,64 @@
+# Centro de Mando Siemon en el VPS (junto a n8n, mismo Traefik).
+# crm-web  -> https://crm.siemondigital.com  (frontend estatico, nginx)
+# motor    -> https://prospeccion.siemondigital.com (FastAPI + prospeccion)
+# HTTPS automatico con Let's Encrypt (certresolver mytlschallenge, ya existente).
+services:
+  crm-web:
+    image: nginx:alpine
+    container_name: siemon-crm-web
+    restart: unless-stopped
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    networks: [n8n_default]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crmsiemon.rule=Host(`crm.siemondigital.com`)"
+      - "traefik.http.routers.crmsiemon.entrypoints=web,websecure"
+      - "traefik.http.routers.crmsiemon.tls=true"
+      - "traefik.http.routers.crmsiemon.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.crmsiemon.loadbalancer.server.port=80"
+
+  motor:
+    build: ./motor
+    container_name: siemon-motor
+    restart: unless-stopped
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-}
+      - APIFY_TOKEN=${APIFY_TOKEN:-}
+      - BRAVE_API_KEY=${BRAVE_API_KEY:-}
+      - SERPER_API_KEY=${SERPER_API_KEY:-}
+      - CRM_PASSWORD=${CRM_PASSWORD:-}
+      - CRM_DATA=/data/crm.json
+      - POSTIZ_URL=${POSTIZ_URL:-https://publicar.themoneycommand.com/api}
+      - POSTIZ_API_KEY=${POSTIZ_API_KEY:-}
+      - PUBLICAR_KEY=${PUBLICAR_KEY:-}
+      - UMAMI_URL=${UMAMI_URL:-}
+      - UMAMI_USER=${UMAMI_USER:-}
+      - UMAMI_PASS=${UMAMI_PASS:-}
+      - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
+      - FTP_HOST=${FTP_HOST:-}
+      - FTP_USER=${FTP_USER:-}
+      - FTP_PASS=${FTP_PASS:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - CRON_KEY=${CRON_KEY:-}
+      - TOKEN_SECRET=${TOKEN_SECRET:-}
+      - BCC_OUTREACH=${BCC_OUTREACH:-}
+    volumes:
+      - siemon_crm_data:/data
+    networks: [n8n_default]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prospeccion.rule=Host(`prospeccion.siemondigital.com`)"
+      - "traefik.http.routers.prospeccion.entrypoints=web,websecure"
+      - "traefik.http.routers.prospeccion.tls=true"
+      - "traefik.http.routers.prospeccion.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.prospeccion.loadbalancer.server.port=8010"
+
+networks:
+  n8n_default:
+    external: true
+
+volumes:
+  siemon_crm_data:

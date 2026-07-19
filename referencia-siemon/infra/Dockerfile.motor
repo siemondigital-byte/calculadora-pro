@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+WORKDIR /app
+# Nucleo: 3 canales de prospeccion (directorios/OSM, scrapling, youtube-API) + API + asistente.
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" requests beautifulsoup4 anthropic
+# Scrapling (canal 'scrapling', fetcher estatico). Opcional: si el wheel no instala,
+# el canal cae a requests y el build NO falla. Los navegadores (DynamicFetcher) no se
+# instalan aqui para mantener la imagen liviana.
+RUN pip install --no-cache-dir scrapling || echo "scrapling no instalado; canal usa requests"
+COPY . .
+EXPOSE 8010
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8010"]

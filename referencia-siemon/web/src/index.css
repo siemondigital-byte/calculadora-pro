@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { margin: 0; background: #0A0B0D; }
+
+/* mata el fondo blanco/amarillo del autofill de Chrome (mantiene el tema oscuro) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #101116 inset !important;
+  -webkit-text-fill-color: #E9E5DD !important;
+  caret-color: #E9E5DD;
+  transition: background-color 9999s ease-in-out 0s;
+}
