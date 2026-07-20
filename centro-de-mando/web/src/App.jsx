@@ -186,7 +186,7 @@ export default function App() {
         >
           ☰
         </button>
-        <span className="text-sm font-light uppercase tracking-[0.3em] text-crema">Atlantis</span>
+        <span className="wordmark text-sm text-crema">Atlantis</span>
         <span className="text-sm text-gris">· {titulo}</span>
       </div>
 
@@ -205,10 +205,10 @@ export default function App() {
         <div className="mb-6 flex items-center gap-2.5">
           <img src="/icono.svg" alt="" className="h-9 w-9" />
           <div>
-            <div className="text-base font-light uppercase tracking-[0.3em] text-crema">
+            <div className="wordmark text-base text-crema">
               Atlantis
             </div>
-            <div className="text-[9px] uppercase tracking-[0.45em] text-oro">
+            <div className="wordmark mt-1 text-[9px] !tracking-[0.45em] text-oro">
               Global Realty
             </div>
           </div>

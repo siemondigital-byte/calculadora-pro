@@ -34,10 +34,10 @@ function Login() {
       <form onSubmit={entrar} className="tarjeta w-full max-w-sm space-y-5">
         <div className="text-center">
           <img src="/icono.svg" alt="" className="mx-auto mb-3 h-14 w-14" />
-          <div className="text-2xl font-light uppercase tracking-[0.35em] text-crema">
+          <div className="wordmark text-2xl text-crema">
             Atlantis
           </div>
-          <div className="mt-0.5 text-[10px] uppercase tracking-[0.5em] text-oro">
+          <div className="wordmark mt-1.5 text-[10px] !tracking-[0.5em] text-oro">
             Global Realty
           </div>
           <div className="mt-3 text-xs uppercase tracking-widest text-gris">
