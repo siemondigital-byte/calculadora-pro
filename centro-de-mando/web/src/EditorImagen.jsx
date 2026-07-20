@@ -1,14 +1,8 @@
+import { C, MONO, SANS } from "./tema.js";
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Sparkles, Check, X, Wand2, Type, Download } from "lucide-react";
 import { getToken } from "./db";
 
-const C = {
-  obsidian: "#0A0A0C", panel: "#101826", carbon: "#0F1B2D", line: "rgba(255,255,255,0.08)",
-  aether: "#E6C788", aether2: "#EFD9A7", aether500: "#B39355", aetherSoft: "rgba(230,199,136,0.14)",
-  aetherLine: "rgba(230,199,136,0.30)", cream: "#F4EFE6", mist: "#D7D7D9", ash: "#8B8D98", ok: "#7FB89B",
-};
-const SANS = "'Instrument Sans', system-ui, sans-serif";
-const MONO = "'JetBrains Mono', ui-monospace, monospace";
 const MOTOR = import.meta.env.VITE_MOTOR_URL || "https://motor.atlantisglobalrealty.com";
 const H = () => ({ "content-type": "application/json", Authorization: "Bearer " + getToken() });
 const inS = { background: "#0D1420", border: `1px solid ${C.line}`, color: C.cream, borderRadius: 10, padding: "9px 11px", width: "100%", fontFamily: SANS, fontSize: 13, outline: "none" };

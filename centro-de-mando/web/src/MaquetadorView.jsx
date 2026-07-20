@@ -1,15 +1,9 @@
+import { C, MONO } from "./tema.js";
 import React, { useState, useEffect } from "react";
 import { Paintbrush, UploadCloud, Wand2, History, RefreshCw, Check, AlertTriangle, ArrowRight } from "lucide-react";
 import { getToken } from "./db";
 
 // Paleta Atlantis (lujo oscuro editorial): oro champagne sobre negro/navy
-const C = {
-  obsidian: "#0A0A0C", panel: "#101826", carbon: "#0F1B2D", line: "rgba(255,255,255,0.08)",
-  aether: "#E6C788", aether2: "#EFD9A7", aether500: "#B39355", aetherSoft: "rgba(230,199,136,0.12)",
-  aetherLine: "rgba(230,199,136,0.30)", cream: "#F4EFE6", mist: "#D7D7D9", ash: "#8B8D98",
-  ok: "#7FB89B", warn: "#D8B673", danger: "#D08A8A",
-};
-const MONO = "ui-monospace, SFMono-Regular, monospace";
 const MOTOR = import.meta.env.VITE_MOTOR_URL || "https://motor.atlantisglobalrealty.com";
 const H = () => ({ "content-type": "application/json", Authorization: "Bearer " + getToken() });
 

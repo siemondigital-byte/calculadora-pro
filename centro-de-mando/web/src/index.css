@@ -2,6 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================ TEMA DE MARCA
+   Atlantis Global Realty — banca privada editorial. Para re-brandear el CRM
+   completo, SOLO se edita este bloque (las vistas leen estas variables). */
+:root {
+  /* tripletes RGB (para que Tailwind aplique opacidades tipo bg-oro/30) */
+  --marca-fondo-rgb: 10 10 12;
+  --marca-acento-rgb: 230 199 136;
+  --marca-carbon-rgb: 15 27 45;
+  --marca-texto-rgb: 244 239 230;
+  --marca-texto-suave-rgb: 215 215 217;
+  /* colores ya resueltos (para estilos inline de las vistas) */
+  --marca-fondo: rgb(var(--marca-fondo-rgb));
+  --marca-panel: #101826;
+  --marca-carbon: rgb(var(--marca-carbon-rgb));
+  --marca-linea: rgba(255, 255, 255, 0.08);
+  --marca-acento: rgb(var(--marca-acento-rgb));  /* oro champagne */
+  --marca-acento-claro: #EFD9A7;
+  --marca-acento-oscuro: #B39355;
+  --marca-acento-suave: rgb(var(--marca-acento-rgb) / 0.12);
+  --marca-acento-linea: rgb(var(--marca-acento-rgb) / 0.30);
+  --marca-texto: rgb(var(--marca-texto-rgb));    /* crema */
+  --marca-texto-suave: rgb(var(--marca-texto-suave-rgb));  /* gris */
+  --marca-texto-apagado: #8B8D98;
+  --marca-ok: #7FB89B;
+  --marca-aviso: #D8B673;
+  --marca-peligro: #D08A8A;
+  --marca-fuente-display: "Bodoni Moda", Georgia, serif;
+  --marca-fuente-sans: "Instrument Sans", system-ui, sans-serif;
+  --marca-fuente-mono: ui-monospace, SFMono-Regular, monospace;
+}
+
 @layer base {
   body {
     @apply bg-negro text-crema font-sans antialiased;

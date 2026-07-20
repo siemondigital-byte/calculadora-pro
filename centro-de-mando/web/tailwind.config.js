@@ -4,15 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        negro: "#0A0A0C",
-        navy: "#0F1B2D",
-        oro: "#E6C788",
-        crema: "#F4EFE6",
-        gris: "#D7D7D9",
+        negro: "rgb(var(--marca-fondo-rgb) / <alpha-value>)",
+        navy: "rgb(var(--marca-carbon-rgb) / <alpha-value>)",
+        oro: "rgb(var(--marca-acento-rgb) / <alpha-value>)",
+        crema: "rgb(var(--marca-texto-rgb) / <alpha-value>)",
+        gris: "rgb(var(--marca-texto-suave-rgb) / <alpha-value>)",
       },
       fontFamily: {
-        display: ['"Bodoni Moda"', "serif"],
-        sans: ['"Instrument Sans"', "system-ui", "sans-serif"],
+        display: ["var(--marca-fuente-display)"],
+        sans: ["var(--marca-fuente-sans)"],
       },
     },
   },
