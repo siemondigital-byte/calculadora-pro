@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nueva contraseña · Calculadora de Viabilidad Inmobiliaria Pro</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0A0C'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23E6C788' stroke-width='2' stroke-dasharray='50 14' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='6' r='2.2' fill='%23E6C788'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,600..800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Página "define tu nueva contraseña" (GitHub Pages, estático). El correo de
+  recuperación apunta aquí: /reset.html?token=XXX&lang=es
+  Marca Atlantis · usa auth-cliente.js al lado. Estructura tomada del kit
+  probado en producción (ojo 👁, requisitos en vivo, contador, ES/EN).
+-->
+<style>
+  :root{
+    --bg:#0A0A0C; --card:#111119; --line:rgba(230,199,136,0.18); --soft:#16161f;
+    --text:#F4EFE6; --muted:#9DA1A8; --hint:#6b6f76;
+    --accent:#E6C788; --accent-ink:#0A0A0C;
+    --danger:#d98b6a;
+    --serif:'Bodoni Moda',Georgia,serif;
+    --sans:'Instrument Sans',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#efece6; --card:#fff; --line:rgba(180,150,80,0.28); --soft:#f6f3ec;
+           --text:#1a1a1f; --muted:#55556a; --hint:#8a8a99; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       padding:20px;background:
+       radial-gradient(120% 90% at 50% 0%, #16263f 0%, #0F1B2D 42%, var(--bg) 100%);
+       color:var(--text);font-family:var(--sans)}
+  .card{width:100%;max-width:412px;background:var(--card);border:1px solid var(--line);
+        border-radius:18px;padding:30px 28px}
+  .orbit{display:block;margin:0 0 16px}
+  .eyebrow{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:2.4px;
+           text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  h1{font-family:var(--serif);font-weight:700;font-size:26px;line-height:1.12;margin:0 0 8px;color:var(--text)}
+  .sub{font-size:14px;color:var(--muted);line-height:1.55;margin:0 0 22px}
+  label{display:block;font-size:11px;font-weight:600;letter-spacing:1.4px;
+        text-transform:uppercase;color:var(--hint);margin:0 0 6px}
+  .campo{position:relative;margin-bottom:14px}
+  input{width:100%;background:var(--soft);border:1px solid var(--line);border-radius:12px;
+        padding:13px 46px 13px 14px;color:var(--text);font-family:var(--sans);font-size:15px}
+  input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(230,199,136,0.18)}
+  .ojo{position:absolute;right:6px;top:25px;background:none;border:0;cursor:pointer;
+       font-size:16px;padding:8px;line-height:1;color:var(--hint)}
+  .reqs{list-style:none;padding:0;margin:2px 0 18px;font-size:12.5px}
+  .reqs li{color:var(--hint);margin:6px 0;transition:color .2s}
+  .reqs li.ok{color:var(--accent)}
+  .reqs li::before{content:"○ ";}
+  .reqs li.ok::before{content:"● ";}
+  button.enviar{width:100%;padding:14px;border:0;border-radius:12px;background:var(--accent);
+                color:var(--accent-ink);font-weight:700;font-size:15px;font-family:var(--sans);cursor:pointer;
+                transition:filter .2s}
+  button.enviar:hover:not(:disabled){filter:brightness(1.06)}
+  button.enviar:disabled{opacity:.45;cursor:not-allowed}
+  .msg{margin-top:14px;font-size:13px;line-height:1.5;text-align:center}
+  .msg.err{color:var(--danger)} .msg.ok{color:var(--accent)}
+  .pie{margin-top:18px;text-align:center;font-size:11.5px;color:var(--hint)}
+  a{color:var(--accent);text-decoration:none}
+  .alliance{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+            text-align:center;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--hint)}
+</style>
+</head>
+<body>
+  <main class="card">
+    <span class="orbit" aria-hidden="true">
+      <svg viewBox="0 0 36 36" width="34" height="34">
+        <circle cx="18" cy="18" r="15" fill="none" stroke="#E6C788" stroke-width="1.5" stroke-dasharray="74 20" stroke-linecap="round"></circle>
+        <circle cx="18" cy="3" r="2.4" fill="#E6C788"></circle>
+      </svg>
+    </span>
+    <p class="eyebrow" id="eyebrow">Restablecer</p>
+    <h1 id="titulo">Define tu nueva contraseña</h1>
+    <p class="sub" id="sub">Elige una contraseña segura para tu cuenta.</p>
+
+    <form id="form" novalidate>
+      <div class="campo">
+        <label for="pw" id="lbl1">Nueva contraseña</label>
+        <input id="pw" type="password" autocomplete="new-password" required />
+        <button class="ojo" type="button" data-ver="pw" aria-label="Ver contraseña">👁</button>
+      </div>
+
+      <ul class="reqs">
+        <li id="r-largo">Al menos 8 caracteres</li>
+        <li id="r-mayus">Una mayúscula y una minúscula</li>
+        <li id="r-numero">Un número</li>
+        <li id="r-simbolo">Un símbolo (!?@#…)</li>
+      </ul>
+
+      <div class="campo">
+        <label for="pw2" id="lbl2">Confirmar contraseña</label>
+        <input id="pw2" type="password" autocomplete="new-password" required />
+        <button class="ojo" type="button" data-ver="pw2" aria-label="Ver contraseña">👁</button>
+      </div>
+
+      <button class="enviar" id="btn" type="submit">Guardar contraseña</button>
+      <p class="msg" id="msg"></p>
+    </form>
+
+    <p class="pie" id="pie"></p>
+    <div class="alliance">Atlantis Global Realty</div>
+  </main>
+
+<script type="module">
+import { confirmarReset, tokenDeLaUrl, requisitos, idioma } from './auth-cliente.js';
+
+const $ = (id) => document.getElementById(id);
+const token = tokenDeLaUrl();
+
+const TXT = {
+  es:{eyebrow:"Restablecer",titulo:"Define tu nueva contraseña",sub:"Elige una contraseña segura para tu cuenta.",
+      lbl1:"Nueva contraseña",lbl2:"Confirmar contraseña",btn:"Guardar contraseña",
+      r:["Al menos 8 caracteres","Una mayúscula y una minúscula","Un número","Un símbolo (!?@#…)"],
+      sinToken:"Enlace inválido. Pide un restablecimiento nuevo.",
+      vence:(m)=>`Este enlace vence en ${m} minutos.`, venc:"El enlace venció. Pide uno nuevo.",
+      guardando:"Guardando…", volver:"Ir a iniciar sesión"},
+  en:{eyebrow:"Reset",titulo:"Set your new password",sub:"Choose a strong password for your account.",
+      lbl1:"New password",lbl2:"Confirm password",btn:"Save password",
+      r:["At least 8 characters","One uppercase and one lowercase","One number","One symbol (!?@#…)"],
+      sinToken:"Invalid link. Request a new reset.",
+      vence:(m)=>`This link expires in ${m} minutes.`, venc:"The link expired. Request a new one.",
+      guardando:"Saving…", volver:"Go to sign in"},
+};
+const T = TXT[idioma()];
+document.documentElement.lang = idioma();
+["eyebrow","titulo","sub","lbl1","lbl2"].forEach(k => $(k).textContent = T[k]);
+$("btn").textContent = T.btn;
+["r-largo","r-mayus","r-numero","r-simbolo"].forEach((id,i) => $(id).textContent = T.r[i]);
+
+if (!token) {
+  $("form").style.display = "none";
+  $("msg").textContent = T.sinToken;
+  $("msg").className = "msg err";
+}
+
+document.querySelectorAll(".ojo").forEach(b => {
+  b.addEventListener("click", () => {
+    const i = $(b.dataset.ver);
+    i.type = i.type === "password" ? "text" : "password";
+    b.textContent = i.type === "password" ? "👁" : "🙈";
+  });
+});
+
+$("pw").addEventListener("input", () => {
+  const r = requisitos($("pw").value);
+  $("r-largo").classList.toggle("ok", r.largo);
+  $("r-mayus").classList.toggle("ok", r.mayus);
+  $("r-numero").classList.toggle("ok", r.numero);
+  $("r-simbolo").classList.toggle("ok", r.simbolo);
+});
+
+let restan = 60 * 60;
+const tick = setInterval(() => {
+  restan -= 1;
+  if (restan <= 0) {
+    clearInterval(tick);
+    $("pie").textContent = T.venc;
+    $("btn").disabled = true;
+    return;
+  }
+  $("pie").textContent = T.vence(Math.ceil(restan / 60));
+}, 1000);
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("btn").disabled = true;
+  $("msg").textContent = T.guardando;
+  $("msg").className = "msg";
+
+  const res = await confirmarReset(token, $("pw").value, $("pw2").value);
+  $("msg").textContent = res.mensaje;
+  $("msg").className = "msg " + (res.ok ? "ok" : "err");
+
+  if (res.ok) {
+    clearInterval(tick);
+    $("form").style.display = "none";
+    $("pie").innerHTML = '<a href="./index.html">' + T.volver + '</a>';
+  } else {
+    $("btn").disabled = false;
+  }
+});
+</script>
+</body>
+</html>

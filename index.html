@@ -452,5 +452,19 @@
   <script src="config.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>
+  <script type="module">
+    // Recuperación de contraseña (kit auth-cliente.js). El enlace "¿Olvidaste tu
+    // contraseña?" envía el correo de restablecimiento al correo escrito arriba.
+    // Requiere la URL de tu n8n en auth-cliente.js (CONFIG) y los workflows activos.
+    import { pedirReset } from './auth-cliente.js';
+    var link = document.querySelector('.login-help .link-muted');
+    if (link) link.addEventListener('click', async function (e) {
+      e.preventDefault();
+      var email = (document.getElementById('login-email') || {}).value || '';
+      var err = document.getElementById('login-error');
+      var r = await pedirReset(email);
+      if (err) { err.textContent = r.mensaje; err.hidden = false; err.style.color = r.ok ? '#E6C788' : ''; }
+    });
+  </script>
 </body>
 </html>
