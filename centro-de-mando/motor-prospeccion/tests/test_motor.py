@@ -308,6 +308,19 @@ check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
 check("generar_contenido sin tema ni base -> 400",
       c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
 
+# ------------------------------------------------------- estudio de YouTube
+motor._claude_texto = lambda *a, **k: "GUION — listo"
+r = c.post("/yt_studio", json={"accion": "guion", "tema": "preventa"}, headers=AUTH2)
+check("yt_studio devuelve contenido", r.json()["contenido"].startswith("GUION"))
+check("yt_studio limpia em dashes", "—" not in json.dumps(r.json()))
+# sin handle -> error claro (o sin_clave_youtube si el vault no tiene clave)
+check("canal_analitica sin handle -> error claro",
+      c.post("/canal_analitica", json={}, headers=AUTH2).json()["error"]
+      in ("falta el canal", "sin_clave_youtube"))
+check("canal_analitica_privada sin oauth -> no_conectado",
+      c.post("/canal_analitica_privada", json={}, headers=AUTH2).json()["error"]
+      == "no_conectado")
+
 # ------------------------------------------------------------- ads (pauta)
 # 26a. Config vacia, plan con IA simulada y crear sin credenciales
 r = c.get("/ads/config", headers=AUTH2)

@@ -2630,6 +2630,197 @@ def _google_access_token(clave_refresh):
         return ""
 
 
+# --------------------------- Estudio de YouTube (canal propio, institucional)
+
+_YT_SCOPES = ("https://www.googleapis.com/auth/yt-analytics.readonly "
+              "https://www.googleapis.com/auth/youtube.readonly")
+
+
+@app.get("/oauth/youtube/start")
+def yt_oauth_start(k: str = ""):
+    return _oauth_google_start(k, _YT_SCOPES, _oauth_redirect("/oauth/youtube/callback"))
+
+
+@app.get("/oauth/youtube/callback")
+def yt_oauth_callback(code: str = "", error: str = ""):
+    return _oauth_google_callback(code, error, _oauth_redirect("/oauth/youtube/callback"),
+                                  "YT_ANALYTICS_REFRESH", "YouTube Analytics")
+
+
+@app.post("/canal_analitica")
+def canal_analitica(body: dict = Body(...), authorization: str = Header(None)):
+    """Analitica PUBLICA del canal (YouTube Data API, sin OAuth): subs, vistas
+    y rendimiento de cada video vs el promedio del canal."""
+    _auth(authorization)
+    key = secretos.get("YOUTUBE_API_KEY") or os.environ.get("YOUTUBE_API_KEY", "")
+    if not key:
+        return {"ok": False, "error": "sin_clave_youtube"}
+    handle = (body.get("handle") or body.get("url") or "").strip()
+    h = handle.split("/")[-1].split("?")[0].lstrip("@") if handle else ""
+    if not h:
+        return {"ok": False, "error": "falta el canal"}
+    API = "https://www.googleapis.com/youtube/v3"
+    try:
+        ch = httpx.get(API + "/channels", params={
+            "part": "snippet,statistics,contentDetails", "forHandle": h,
+            "key": key}, timeout=25).json()
+        items = ch.get("items") or []
+        if not items:
+            ch = httpx.get(API + "/channels", params={
+                "part": "snippet,statistics,contentDetails", "forUsername": h,
+                "key": key}, timeout=25).json()
+            items = ch.get("items") or []
+        if not items:
+            return {"ok": False, "error": "no encontre ese canal (revisa el handle)"}
+        c = items[0]
+        st = c.get("statistics", {})
+        uploads = c["contentDetails"]["relatedPlaylists"]["uploads"]
+        pl = httpx.get(API + "/playlistItems", params={
+            "part": "contentDetails", "playlistId": uploads, "maxResults": 25,
+            "key": key}, timeout=25).json()
+        vids = [it["contentDetails"]["videoId"] for it in pl.get("items", [])
+                if it.get("contentDetails")]
+        videos = []
+        for i in range(0, len(vids), 50):
+            d = httpx.get(API + "/videos", params={
+                "part": "snippet,statistics", "id": ",".join(vids[i:i + 50]),
+                "key": key}, timeout=25).json()
+            for it in d.get("items", []):
+                sv = it.get("statistics", {})
+                videos.append({
+                    "id": it["id"], "titulo": it["snippet"]["title"],
+                    "publicado": it["snippet"]["publishedAt"][:10],
+                    "vistas": int(sv.get("viewCount", 0) or 0),
+                    "likes": int(sv.get("likeCount", 0) or 0),
+                    "comentarios": int(sv.get("commentCount", 0) or 0),
+                    "url": "https://youtube.com/watch?v=" + it["id"]})
+        prom = (sum(v["vistas"] for v in videos) / len(videos)) if videos else 0
+        for v in videos:
+            v["vs_promedio"] = round((v["vistas"] / prom) * 100) if prom else 100
+        videos.sort(key=lambda x: x["vistas"], reverse=True)
+        canal = {"nombre": c["snippet"]["title"],
+                 "subs": int(st.get("subscriberCount", 0) or 0),
+                 "vistas_totales": int(st.get("viewCount", 0) or 0),
+                 "videos": int(st.get("videoCount", 0) or 0),
+                 "promedio_vistas": round(prom)}
+        return {"ok": True, "canal": canal, "videos": videos, "nota_privado":
+                ("Retencion, CTR y fuentes de trafico requieren conectar tu "
+                 "canal (OAuth de YouTube Analytics).")}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:200]}
+
+
+@app.post("/canal_analitica_privada")
+def canal_analitica_privada(body: dict = Body(None), authorization: str = Header(None)):
+    """Metricas PRIVADAS del canal conectado por OAuth (90 dias): vistas,
+    retencion, minutos y fuentes de trafico."""
+    _auth(authorization)
+    from datetime import date, timedelta
+    tok = _google_access_token("YT_ANALYTICS_REFRESH")
+    if not tok:
+        return {"ok": False, "error": "no_conectado"}
+    hoy = date.today()
+    ini = (hoy - timedelta(days=90)).isoformat()
+    fin = hoy.isoformat()
+    base = "https://youtubeanalytics.googleapis.com/v2/reports"
+    H2 = {"Authorization": "Bearer " + tok}
+    out = {"ok": True, "desde": ini, "hasta": fin}
+    try:
+        ov = httpx.get(base, headers=H2, params={
+            "ids": "channel==MINE", "startDate": ini, "endDate": fin,
+            "metrics": ("views,estimatedMinutesWatched,averageViewDuration,"
+                        "averageViewPercentage,subscribersGained")},
+            timeout=30).json()
+        cols = [c["name"] for c in ov.get("columnHeaders", [])]
+        row = (ov.get("rows") or [[0] * len(cols)])[0]
+        out["resumen"] = dict(zip(cols, row))
+    except Exception as e:  # noqa: BLE001
+        out["resumen_error"] = str(e)[:150]
+    try:
+        tr = httpx.get(base, headers=H2, params={
+            "ids": "channel==MINE", "startDate": ini, "endDate": fin,
+            "dimensions": "insightTrafficSourceType", "metrics": "views",
+            "sort": "-views", "maxResults": 8}, timeout=30).json()
+        out["trafico"] = [{"fuente": r[0], "vistas": r[1]} for r in (tr.get("rows") or [])]
+    except Exception as e:  # noqa: BLE001
+        out["trafico_error"] = str(e)[:150]
+    return out
+
+
+# Productor del canal institucional (CLAUDE.md: sin nombres propios de persona)
+_YT_STUDIO_SYSTEM = (
+    "Eres el productor del canal de YouTube institucional de Atlantis Global "
+    "Realty ('arquitectos de patrimonio') y su metodo Ciclo de Riqueza "
+    "Inmobiliaria (libro-metodo a 44 USD). Canal bilingue ES/EN. Promesa: "
+    "construir patrimonio inmobiliario con estructura (preventa, "
+    "apalancamiento con la constructora, rotacion por ciclos), no con suerte. "
+    "Pilares: 1) invertir en bienes raices sobre planos (casos y metodo), "
+    "2) finanzas personales y patrimonio (NSE, capacidad de endeudamiento), "
+    "3) libertad financiera con estructura (anti-guru, sin humo). "
+    "Voz: banca privada sobria, tuteo neutro latinoamericano, autoridad "
+    "serena; firma institucional, NUNCA nombres propios de persona; CERO em "
+    "dashes (comas o 'a' para rangos). Reglas: contenido ORIGINAL (modela "
+    "patrones, nunca copies guiones/titulos/miniaturas de otros). Titulos "
+    "honestos, sin clickbait. Nunca prometas retornos; los rendimientos "
+    "proyectados son del constructor. Nada de metricas inventadas. En piezas "
+    "con cifras del metodo cierra con: 'Contenido educativo. No es asesoria "
+    "financiera, legal ni tributaria.' El precio se escribe '44 USD'.")
+
+
+@app.post("/yt_studio")
+def yt_studio(body: dict = Body(...), authorization: str = Header(None)):
+    """Guiones con retencion, titulos, briefs de miniatura, repurpose y
+    calendario editorial del canal, en la voz de la marca."""
+    _auth(authorization)
+    accion = (body.get("accion") or "guion").lower()
+    tema = body.get("tema") or ""
+    pilar = body.get("pilar") or ""
+    idioma = body.get("idioma") or "es"
+    ctx = (f"Tema del video: {tema or '(elige uno relevante al canal)'}."
+           + (f" Pilar: {pilar}." if pilar else ""))
+    guia = {
+        "guion": ("Escribe el GUION COMPLETO de un video de YouTube con "
+                  "estructura de retencion:\n- HOOK (0-30s): identifica al "
+                  "espectador, muestra la oportunidad que esta perdiendo, "
+                  "promete el resultado y adelanta lo visual.\n- CUERPO por "
+                  "capitulos con re-hooks entre secciones y un payoff claro.\n"
+                  "- CTA final alineado al embudo (el libro-metodo a 44 USD o "
+                  "la consulta de diagnostico).\nMarca los tiempos aproximados "
+                  "y las notas de lo que se ve en pantalla."),
+        "titulos": ("Genera 7 variantes de TITULO orientadas a CTR HONESTO "
+                    "(curiosidad real, numero, transformacion, contraste), sin "
+                    "clickbait. Una por linea, y al lado por que funciona en "
+                    "4 a 5 palabras."),
+        "miniatura": ("Crea 3 BRIEFS de MINIATURA originales (no copies "
+                      "miniaturas ajenas). Por cada uno: concepto, foco "
+                      "visual, TEXTO de 3 a 4 palabras para la miniatura, "
+                      "emocion que transmite y colores (estetica Atlantis: "
+                      "oscuro calido y champagne, banca privada editorial)."),
+        "repurpose": ("A partir del tema/video, crea el REPURPOSE multicanal: "
+                      "6 posts de LinkedIn (6 angulos distintos), 3 ideas de "
+                      "cortes para Shorts/Reels/TikTok, un hilo de X (5 a 7 "
+                      "tweets), un correo corto para nurturing y un borrador "
+                      "de blog (titulo + esquema). Todo en voz de marca."),
+        "calendario": ("Crea un CALENDARIO editorial de 4 semanas para el "
+                       "canal, equilibrando los 3 pilares. Por semana: 1 video "
+                       "largo (tema + angulo + gancho) y 2 a 3 shorts (idea + "
+                       "gancho). Tabla simple."),
+        "x": ("A partir del tema/video, crea el texto para X (Twitter) LISTO "
+              "para copiar. Elige el mejor formato: un TWEET unico potente "
+              "(maximo 280 caracteres) O un HILO de 4 a 7 tweets numerados "
+              "(1/, 2/...). Primer tweet con gancho fuerte, valor real en el "
+              "cuerpo, cierre con CTA suave. Escribe arriba si es TWEET o HILO."),
+    }.get(accion, "Contenido para el canal de YouTube.")
+    prompt = (f"Idioma: {'espanol neutro latinoamericano' if idioma == 'es' else 'ingles'}. "
+              f"{ctx}\n\n{guia}\nDevuelve solo el contenido, listo para usar, "
+              "sin preambulos.")
+    try:
+        txt = _claude_texto(prompt, max_tokens=1800, system=_YT_STUDIO_SYSTEM)
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)[:200]}
+    return {"contenido": _sin_em_dash(txt)}
+
+
 @app.get("/oauth/gsc/start")
 def gsc_oauth_start(k: str = ""):
     return _oauth_google_start(k, _GSC_SCOPES, _oauth_redirect("/oauth/gsc/callback"))

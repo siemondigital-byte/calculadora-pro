@@ -6,6 +6,7 @@ import EstudioUnificado from "./EstudioUnificado.jsx";
 import CalendarioView from "./CalendarioView.jsx";
 import AnaliticaView from "./AnaliticaView.jsx";
 import AdsView from "./AdsView.jsx";
+import EstudioYtView from "./EstudioYtView.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -54,6 +55,7 @@ const NAV = {
       sec: "Contenido",
       items: [
         ["contenido", "Contenido"],
+        ["estudioyt", "Estudio YouTube"],
         ["calendario", "Calendario"],
         ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
@@ -84,6 +86,7 @@ const NAV = {
       sec: "Contenido",
       items: [
         ["contenido", "Contenido"],
+        ["estudioyt", "Estudio YouTube"],
         ["calendario", "Calendario"],
         ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
@@ -178,6 +181,7 @@ export default function App() {
     calendario: <CalendarioView {...props} />,
     analitica: <AnaliticaView {...props} />,
     ads: <AdsView {...props} />,
+    estudioyt: <EstudioYtView {...props} />,
     nurturing: <Nurturing {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
