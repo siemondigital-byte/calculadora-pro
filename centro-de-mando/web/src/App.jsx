@@ -7,6 +7,8 @@ import CalendarioView from "./CalendarioView.jsx";
 import AnaliticaView from "./AnaliticaView.jsx";
 import AdsView from "./AdsView.jsx";
 import EstudioYtView from "./EstudioYtView.jsx";
+import NegociosView from "./NegociosView.jsx";
+import PrototiposView from "./PrototiposView.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -47,6 +49,8 @@ const NAV = {
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
         ["consultas", "Consultas"],
+        ["negocios", "Negocios (comisiones)"],
+        ["prototipos", "Prototipos"],
         ["mercado", "Estudio de mercado"],
         ["fuentes", "Fuentes / UTM"],
       ],
@@ -182,6 +186,8 @@ export default function App() {
     analitica: <AnaliticaView {...props} />,
     ads: <AdsView {...props} />,
     estudioyt: <EstudioYtView {...props} />,
+    negocios: <NegociosView {...props} />,
+    prototipos: <PrototiposView {...props} />,
     nurturing: <Nurturing {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,

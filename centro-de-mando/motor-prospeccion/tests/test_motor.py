@@ -308,6 +308,48 @@ check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
 check("generar_contenido sin tema ni base -> 400",
       c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
 
+# --------------------------------------- negocios (comisiones) + prototipos
+NEG = {"numero": "CC-001", "fecha": "2026-07-20", "aliado": "Constructora X",
+       "proyecto": "Torre Mar", "unidad": "804", "valorInmueble": 120000,
+       "comisionPct": 3, "total": 3600, "moneda": "USD"}
+r = c.post("/negocios/pdf", json={"negocio": NEG, "workspace": "atlantis"}, headers=AUTH2)
+check("negocios/pdf devuelve un PDF",
+      r.status_code == 200 and r.headers["content-type"] == "application/pdf"
+      and r.content[:4] == b"%PDF")
+motor._claude_texto = lambda *a, **k: "Hola, adjunto — la cuenta de cobro."
+r = c.post("/negocios/mensaje", json={"negocio": NEG}, headers=AUTH2)
+check("negocios/mensaje genera texto", r.json()["ok"] and "cuenta de cobro" in r.json()["mensaje"])
+check("negocios/mensaje limpia em dashes", "—" not in r.json()["mensaje"])
+check("negocios/enviar sin email -> error",
+      c.post("/negocios/enviar", json={"negocio": {}}, headers=AUTH2).json()["ok"] is False)
+ADJUNTOS_FAKE = []
+motor._enviar_con_adjunto = lambda bz, para, asunto, html, pdf, nom: ADJUNTOS_FAKE.append(
+    {"para": para, "asunto": asunto, "pdf": len(pdf), "nombre": nom})
+import buzones as _buz_mod  # noqa: E402
+_bz_orig = _buz_mod.listar_interno
+_buz_mod.listar_interno = lambda: [{"email": "hello@atlantis.com", "password": "x",
+                                    "host": "smtp.x.com", "puerto": 465}]
+r = c.post("/negocios/enviar", json={"negocio": {**NEG, "emailAliado": "pagos@constructora.com"},
+    "workspace": "atlantis"}, headers=AUTH2)
+check("negocios/enviar adjunta el PDF y envia",
+      r.json()["ok"] and ADJUNTOS_FAKE[0]["para"] == "pagos@constructora.com"
+      and ADJUNTOS_FAKE[0]["pdf"] > 500 and "CC-001" in ADJUNTOS_FAKE[0]["asunto"])
+_buz_mod.listar_interno = _bz_orig
+
+motor._claude_texto = lambda *a, **k: "<!DOCTYPE html><html><body>Plan</body></html>"
+r = c.post("/proto/generar", json={"nombre": "Laura", "perfil": "profesional 38, ahorra sin plan"}, headers=AUTH2)
+check("proto/generar devuelve html y slug",
+      r.json()["ok"] and r.json()["html"].startswith("<!DOCTYPE") and r.json()["slug"] == "laura")
+import web_pub as _wp_mod  # noqa: E402
+_wp_orig = _wp_mod.publicar_html
+_wp_mod.publicar_html = lambda remoto, html: {"ok": True, "url": "https://atlantisglobalrealty.com/" + remoto}
+r = c.post("/proto/publicar", json={"slug": "laura", "html": "<html>x</html>"}, headers=AUTH2)
+check("proto/publicar publica en /plan/",
+      r.json()["ok"] and r.json()["url"].endswith("plan/laura.html"))
+_wp_mod.publicar_html = _wp_orig
+check("proto/generar sin datos -> error",
+      c.post("/proto/generar", json={}, headers=AUTH2).json()["ok"] is False)
+
 # ------------------------------------------------------- estudio de YouTube
 motor._claude_texto = lambda *a, **k: "GUION — listo"
 r = c.post("/yt_studio", json={"accion": "guion", "tema": "preventa"}, headers=AUTH2)

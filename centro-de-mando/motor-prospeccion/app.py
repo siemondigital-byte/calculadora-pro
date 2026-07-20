@@ -937,6 +937,284 @@ def ads_crear(body: dict = Body(...), authorization: str = Header(None)):
     return {"ok": False, "error": "plataforma_desconocida"}
 
 
+# -------------------- negocios (comisiones) + cuenta de cobro (PDF) --------
+# Atlantis opera POR COMISION sobre venta y conexion (CLAUDE.md §2): el CRM
+# registra negocios inmobiliarios y genera la cuenta de cobro de la comision.
+
+def _negocio_pdf(neg, config):
+    """Cuenta de cobro de una comision, con la marca Atlantis (limpia,
+    imprimible). neg: {numero, fecha, aliado, nit, cliente, proyecto, unidad,
+    valorInmueble, comisionPct, total, moneda, notas, vencimiento}."""
+    from fpdf import FPDF
+    ORO = (198, 168, 127)
+    GRIS = (110, 108, 100)
+    NEGRO = (24, 22, 18)
+
+    def latin(s):
+        return str(s or "").encode("latin-1", "replace").decode("latin-1")
+
+    nombre_marca = (config or {}).get("nombre") or "Atlantis Global Realty"
+    moneda = neg.get("moneda") or (config or {}).get("moneda") or "USD"
+    total = float(neg.get("total") or 0)
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=18)
+    # cabecera de marca
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(*NEGRO)
+    pdf.cell(0, 8, latin(nombre_marca.upper()), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*GRIS)
+    pdf.cell(0, 5, latin("Arquitectos de patrimonio - atlantisglobalrealty.com"),
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.set_draw_color(*ORO)
+    pdf.set_line_width(0.8)
+    pdf.line(10, pdf.get_y() + 3, 64, pdf.get_y() + 3)
+    pdf.ln(10)
+    # titulo + numero
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*NEGRO)
+    pdf.cell(0, 7, latin(f"CUENTA DE COBRO {neg.get('numero') or ''}"),
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*GRIS)
+    pdf.cell(0, 6, latin(f"Fecha: {neg.get('fecha') or ''}"
+                         + (f"   Vence: {neg.get('vencimiento')}" if neg.get("vencimiento") else "")),
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+    # a quien se cobra
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(*NEGRO)
+    pdf.cell(0, 6, latin("Dirigida a:"), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, latin((neg.get("aliado") or "")
+                         + (f"  ({neg.get('nit')})" if neg.get("nit") else "")),
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+    # detalle
+    pdf.set_fill_color(246, 242, 234)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.cell(120, 8, latin("Concepto"), border=1, fill=True)
+    pdf.cell(0, 8, latin(f"Valor ({moneda})"), border=1, fill=True,
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 9)
+    concepto = (f"Comision por gestion comercial - proyecto "
+                f"{neg.get('proyecto') or ''}"
+                + (f", unidad {neg.get('unidad')}" if neg.get("unidad") else "")
+                + (f" (cliente: {neg.get('cliente')})" if neg.get("cliente") else ""))
+    pdf.cell(120, 8, latin(concepto[:88]), border=1)
+    pdf.cell(0, 8, latin(f"{total:,.2f}"), border=1, new_x="LMARGIN", new_y="NEXT")
+    if neg.get("valorInmueble"):
+        pdf.set_text_color(*GRIS)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.cell(0, 6, latin(
+            f"Base: valor del inmueble {float(neg.get('valorInmueble') or 0):,.2f} {moneda}"
+            + (f" x comision {neg.get('comisionPct')}%" if neg.get("comisionPct") else "")),
+            new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*NEGRO)
+    pdf.cell(0, 8, latin(f"TOTAL: {total:,.2f} {moneda}"), new_x="LMARGIN", new_y="NEXT")
+    if neg.get("notas"):
+        pdf.ln(3)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*GRIS)
+        pdf.multi_cell(0, 5, latin(str(neg.get("notas"))[:600]))
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*GRIS)
+    pdf.cell(0, 5, latin("Documento generado por el Centro de Mando de "
+                         + nombre_marca + "."), new_x="LMARGIN", new_y="NEXT")
+    out = pdf.output()
+    return bytes(out)
+
+
+def _enviar_con_adjunto(bz, para, asunto, cuerpo_html, adjunto, nombre_adjunto):
+    """Envia un correo HTML con un PDF adjunto desde un buzon configurado.
+    Los tests inyectan un reemplazo de esta funcion."""
+    import smtplib
+    from email.mime.application import MIMEApplication
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.utils import formataddr
+    msg = MIMEMultipart()
+    msg["Subject"] = asunto
+    msg["From"] = formataddr(("Atlantis Global Realty", bz["email"]))
+    msg["To"] = para
+    msg.attach(MIMEText(cuerpo_html, "html", "utf-8"))
+    adj = MIMEApplication(adjunto, _subtype="pdf")
+    adj.add_header("Content-Disposition", "attachment", filename=nombre_adjunto)
+    msg.attach(adj)
+    with smtplib.SMTP_SSL(bz["host"], bz["puerto"], timeout=20) as smtp:
+        smtp.login(bz["email"], bz["password"])
+        smtp.sendmail(bz["email"], [para], msg.as_string())
+    return True
+
+
+@app.post("/negocios/mensaje")
+def negocios_mensaje(body: dict = Body(...), authorization: str = Header(None)):
+    """Texto breve del correo de la cuenta de cobro (personalizado, haiku)."""
+    _auth(authorization)
+    neg = body.get("negocio") or {}
+    total = float(neg.get("total") or 0)
+    prompt = (
+        "Escribe el CUERPO de un correo breve y sobrio para enviar la cuenta "
+        "de cobro de una comision inmobiliaria a un aliado (constructora o "
+        "partner). Solo el texto (sin asunto, sin firma). Empieza con 'Hola,'. "
+        "2 a 4 frases, tono de banca privada, firma institucional (nada de "
+        "nombres de persona). Cero em dashes.\n\n"
+        f"ALIADO: {neg.get('aliado') or ''}\n"
+        f"PROYECTO: {neg.get('proyecto') or ''} unidad {neg.get('unidad') or ''}\n"
+        f"CLIENTE REFERIDO: {neg.get('cliente') or ''}\n"
+        f"MONTO: {total:,.2f} {neg.get('moneda') or 'USD'}\n"
+        f"VENCIMIENTO: {neg.get('vencimiento') or 'contra entrega'}\n\n"
+        "Menciona que la cuenta de cobro va adjunta en PDF. Devuelve SOLO el "
+        "texto (sin comillas, sin JSON).")
+    try:
+        txt = _claude_texto(prompt, max_tokens=500, system=_VOZ_MARCA)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:120]}
+    return {"ok": True, "mensaje": _sin_em_dash(txt)}
+
+
+@app.post("/negocios/pdf")
+def negocios_pdf(body: dict = Body(...), authorization: str = Header(None)):
+    """PDF de la cuenta de cobro para verla antes de enviarla."""
+    _auth(authorization)
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {}
+    try:
+        pdf = _negocio_pdf(body.get("negocio") or {},
+                           (data.get(ws) or {}).get("config") or {})
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(500, "pdf: " + str(e)[:120])
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": "inline; filename=cuenta-cobro.pdf"})
+
+
+@app.post("/negocios/enviar")
+def negocios_enviar(body: dict = Body(...), authorization: str = Header(None)):
+    """Genera el PDF de la cuenta de cobro y lo envia al aliado por correo."""
+    import html as _html
+    _auth(authorization)
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    neg = body.get("negocio") or {}
+    para = (neg.get("emailAliado") or body.get("to") or "").strip()
+    if not para:
+        return {"ok": False, "error": "el negocio no tiene email del aliado"}
+    data = crm_store.leer() or {}
+    config = (data.get(ws) or {}).get("config") or {}
+    try:
+        pdf = _negocio_pdf(neg, config)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "pdf: " + str(e)[:120]}
+    bz = next((b for b in buzones.listar_interno() if b.get("password")), None)
+    if not bz:
+        return {"ok": False, "error": "sin buzon configurado (Correo -> Buzones)"}
+    numero = neg.get("numero") or str(neg.get("id") or "")[:8].upper()
+    total = float(neg.get("total") or 0)
+    msg_custom = (body.get("mensaje") or "").strip()
+    if msg_custom:
+        cuerpo_html = "".join(
+            f"<p style='color:#D1CDC7;font-size:14px;line-height:1.65;margin:0 0 12px'>{_html.escape(p)}</p>"
+            for p in msg_custom.split("\n\n") if p.strip())
+    else:
+        cuerpo_html = (
+            "<div style='color:#F5F2EC;font-size:15px;line-height:1.6'>Hola,</div>"
+            f"<div style='color:#D1CDC7;font-size:14px;line-height:1.65;margin-top:10px'>"
+            f"Compartimos la cuenta de cobro <b style='color:#F5F2EC'>{_html.escape(str(numero))}</b> "
+            f"por <b style='color:#F5F2EC'>{total:,.2f} {_html.escape(neg.get('moneda') or 'USD')}</b>, "
+            "correspondiente a la comision del proyecto "
+            f"{_html.escape(neg.get('proyecto') or '')}. Va adjunta en PDF.</div>")
+    cuerpo = (
+        "<div style='background:#0B0A08;padding:28px 18px;font-family:Arial,Helvetica,sans-serif'>"
+        "<div style='max-width:560px;margin:0 auto'>"
+        "<div style='font-size:15px;letter-spacing:5px;color:#F5F2EC;text-transform:uppercase'>Atlantis</div>"
+        "<div style='font-size:10px;letter-spacing:4px;color:#C6A87F;text-transform:uppercase;margin-bottom:6px'>Global Realty</div>"
+        "<div style='height:2px;background:#C6A87F;width:44px;margin-bottom:22px'></div>"
+        + cuerpo_html +
+        "<div style='border-top:1px solid #2e2a24;margin-top:26px;padding-top:14px;color:#D1CDC7;font-size:13px'>"
+        "Cualquier duda, responde este correo.<br><b style='color:#F5F2EC'>Atlantis Global Realty</b>"
+        "<br><span style='color:#C6A87F;font-size:12px'>Arquitectos de patrimonio</span></div>"
+        "</div></div>")
+    try:
+        _enviar_con_adjunto(bz, para, f"Cuenta de cobro {numero} - Atlantis Global Realty",
+                            cuerpo, pdf, f"cuenta-cobro-{numero}-atlantis.pdf")
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:150]}
+    return {"ok": True, "enviada_a": para}
+
+
+# ---------------- prototipos: pagina "plan patrimonial" personalizada -------
+
+@app.post("/proto/generar")
+def proto_generar(body: dict = Body(...), authorization: str = Header(None)):
+    """Genera una pagina personalizada para un prospecto ('tu plan
+    patrimonial'): landing con la estetica de Atlantis, hecha a la medida de
+    SU situacion, con CTA a la consulta de diagnostico."""
+    _auth(authorization)
+    nombre = (body.get("nombre") or "").strip()
+    perfil = (body.get("perfil") or "").strip()
+    notas = (body.get("notas") or "").strip()
+    idioma = (body.get("idioma") or "es").strip()
+    if not nombre and not perfil:
+        return {"ok": False, "error": "falta nombre o perfil"}
+    slug = _slug_blog(body.get("slug") or nombre or perfil)
+    prompt = (
+        "Eres el disenador y estratega de Atlantis Global Realty. Genera una "
+        "PAGINA WEB (un solo archivo HTML autocontenido, CSS embebido, sin "
+        "dependencias externas ni JS obligatorio) que sea un PLAN PATRIMONIAL "
+        "PERSONALIZADO de cortesia para un prospecto: 'asi podria verse tu "
+        "camino patrimonial con estructura'. Es una MUESTRA educativa a la "
+        "medida, no una propuesta con cifras de retorno.\n\n"
+        f"PROSPECTO: nombre='{nombre}', perfil/situacion='{perfil}'.\n"
+        f"NOTAS/CONTEXTO (datos reales; nunca inventes cifras ni testimonios): "
+        f"{notas or '(sin notas)'}\nIDIOMA: {idioma}\n\n"
+        "ESTETICA ATLANTIS (obligatoria): fondo oscuro calido (#0B0A08 a "
+        "#1E1912, degradado sutil), acento champagne #C6A87F, texto crema "
+        "#F5F2EC y gris #8B8D98, tipografia sans moderna (Inter o similar del "
+        "sistema), wordmark 'ATLANTIS GLOBAL REALTY' en caps espaciadas. "
+        "Diseno premium de banca privada editorial, responsive, con: hero "
+        "personalizado que hable directo al prospecto y su situacion; una "
+        "seccion 'lo que podriamos estructurar contigo' con 3 a 4 ideas "
+        "CONCRETAS a la medida (basadas en el metodo: preventa, apalancamiento "
+        "con la constructora, rotacion por ciclos, Numero de Seguridad "
+        "Economica); una seccion breve del metodo (diagnostico, estructura, "
+        "acompanamiento); y un cierre con CTA claro a agendar la consulta de "
+        "diagnostico gratuita en https://atlantisglobalrealty.com/. "
+        "REGLAS DURAS: nunca prometas retornos ni presentes a Atlantis como "
+        "vehiculo de inversion; incluye visible el texto 'Contenido educativo. "
+        "No es asesoria financiera, legal ni tributaria.'; sin nombres propios "
+        "de persona (firma institucional); cero em dashes. Pie: 'Atlantis "
+        "Global Realty - atlantisglobalrealty.com'.\n\n"
+        "Devuelve UNICAMENTE el HTML completo (empieza con <!DOCTYPE html>), "
+        "sin explicaciones ni ```.")
+    try:
+        html = _claude_texto(prompt, max_tokens=8000, system=_VOZ_MARCA)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:150]}
+    if "<" not in html:
+        return {"ok": False, "error": "sin_html"}
+    i = html.find("<!DOCTYPE")
+    if i == -1:
+        i = html.find("<html")
+    if i > 0:
+        html = html[i:]
+    html = html.replace("```html", "").replace("```", "").strip()
+    return {"ok": True, "html": html, "slug": slug}
+
+
+@app.post("/proto/publicar")
+def proto_publicar(body: dict = Body(...), authorization: str = Header(None)):
+    """Publica la pagina en atlantisglobalrealty.com/plan/{slug}.html (FTP)."""
+    _auth(authorization)
+    slug = _slug_blog(body.get("slug") or "")
+    html = body.get("html") or ""
+    if not slug or "<" not in html:
+        return {"ok": False, "error": "falta slug o html"}
+    return web_pub.publicar_html(f"plan/{slug}.html", html)
+
+
 # ---------------------- competencia + auditoria de negocio + analitica ------
 
 def _limpiar_scrapeado(txt):
