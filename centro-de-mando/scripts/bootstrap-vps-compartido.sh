@@ -163,6 +163,10 @@ cat >> compose.compartido.yml <<YML
       - WEBHOOK_URL=https://$DOMINIO_HOOKS/
       - GENERIC_TIMEZONE=America/Bogota
       - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+      # Supabase de la Calculadora Pro (los flujos los leen como \$env.*).
+      # Valores en el .env de esta carpeta; la service_role NUNCA va al navegador.
+      - SUPABASE_URL=\${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_KEY=\${SUPABASE_SERVICE_KEY:-}
     volumes:
       - ./n8n-data:/home/node/.n8n
     networks: [proxy]
