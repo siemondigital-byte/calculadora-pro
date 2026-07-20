@@ -3,6 +3,8 @@ import MaquetadorView from "./MaquetadorView.jsx";
 import MercadoView from "./MercadoView.jsx";
 import BlogSeoView from "./BlogSeoView.jsx";
 import EstudioUnificado from "./EstudioUnificado.jsx";
+import CalendarioView from "./CalendarioView.jsx";
+import AnaliticaView from "./AnaliticaView.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -51,9 +53,11 @@ const NAV = {
       sec: "Contenido",
       items: [
         ["contenido", "Contenido"],
+        ["calendario", "Calendario"],
         ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
         ["maquetador", "Maquetador (mi web)"],
+        ["analitica", "Analítica"],
       ],
     },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
@@ -78,8 +82,10 @@ const NAV = {
       sec: "Contenido",
       items: [
         ["contenido", "Contenido"],
+        ["calendario", "Calendario"],
         ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
+        ["analitica", "Analítica"],
       ],
     },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
@@ -166,6 +172,8 @@ export default function App() {
     afiliados: <Afiliados {...props} />,
     appusuarios: <AppUsuarios {...props} />,
     contenido: <EstudioUnificado {...props} />,
+    calendario: <CalendarioView {...props} />,
+    analitica: <AnaliticaView {...props} />,
     nurturing: <Nurturing {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
