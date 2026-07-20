@@ -186,7 +186,7 @@ export default function App() {
         >
           ☰
         </button>
-        <span className="font-display text-lg text-oro">Atlantis</span>
+        <span className="text-sm font-light uppercase tracking-[0.3em] text-crema">Atlantis</span>
         <span className="text-sm text-gris">· {titulo}</span>
       </div>
 
@@ -202,10 +202,15 @@ export default function App() {
           navAbierto ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="mb-6">
-          <div className="font-display text-2xl text-oro">Atlantis</div>
-          <div className="text-xs uppercase tracking-widest text-gris">
-            Centro de Mando
+        <div className="mb-6 flex items-center gap-2.5">
+          <img src="/icono.svg" alt="" className="h-9 w-9" />
+          <div>
+            <div className="text-base font-light uppercase tracking-[0.3em] text-crema">
+              Atlantis
+            </div>
+            <div className="text-[9px] uppercase tracking-[0.45em] text-oro">
+              Global Realty
+            </div>
           </div>
         </div>
 

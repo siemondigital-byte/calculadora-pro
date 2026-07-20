@@ -7,19 +7,21 @@
    completo, SOLO se edita este bloque (las vistas leen estas variables). */
 :root {
   /* tripletes RGB (para que Tailwind aplique opacidades tipo bg-oro/30) */
-  --marca-fondo-rgb: 10 10 12;
-  --marca-acento-rgb: 230 199 136;
-  --marca-carbon-rgb: 15 27 45;
-  --marca-texto-rgb: 244 239 230;
-  --marca-texto-suave-rgb: 215 215 217;
+  /* Paleta tomada del sitio vivo atlantisglobalrealty.com: oscuro CALIDO
+     (marron/carbon, no navy) + acento champagne/tan mate de los botones */
+  --marca-fondo-rgb: 11 10 8;
+  --marca-acento-rgb: 198 168 127;
+  --marca-carbon-rgb: 30 25 18;
+  --marca-texto-rgb: 245 242 236;
+  --marca-texto-suave-rgb: 209 205 199;
   /* colores ya resueltos (para estilos inline de las vistas) */
   --marca-fondo: rgb(var(--marca-fondo-rgb));
-  --marca-panel: #101826;
+  --marca-panel: #171410;
   --marca-carbon: rgb(var(--marca-carbon-rgb));
   --marca-linea: rgba(255, 255, 255, 0.08);
-  --marca-acento: rgb(var(--marca-acento-rgb));  /* oro champagne */
-  --marca-acento-claro: #EFD9A7;
-  --marca-acento-oscuro: #B39355;
+  --marca-acento: rgb(var(--marca-acento-rgb));  /* champagne/tan del sitio */
+  --marca-acento-claro: #DEC7A0;
+  --marca-acento-oscuro: #96784F;
   --marca-acento-suave: rgb(var(--marca-acento-rgb) / 0.12);
   --marca-acento-linea: rgb(var(--marca-acento-rgb) / 0.30);
   --marca-texto: rgb(var(--marca-texto-rgb));    /* crema */
@@ -28,7 +30,7 @@
   --marca-ok: #7FB89B;
   --marca-aviso: #D8B673;
   --marca-peligro: #D08A8A;
-  --marca-fuente-display: "Bodoni Moda", Georgia, serif;
+  --marca-fuente-display: "Instrument Sans", system-ui, sans-serif;  /* el sitio es todo sans */
   --marca-fuente-sans: "Instrument Sans", system-ui, sans-serif;
   --marca-fuente-mono: ui-monospace, SFMono-Regular, monospace;
 }
