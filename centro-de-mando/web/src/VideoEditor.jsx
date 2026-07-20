@@ -8,27 +8,10 @@ const H = () => ({ "content-type": "application/json", Authorization: "Bearer " 
 const fmt = (s) => { s = Math.max(0, s || 0); const m = Math.floor(s / 60); const r = Math.floor(s % 60); return `${m}:${String(r).padStart(2, "0")}`; };
 const ORO = "rgb(198,168,127)";   // champagne de marca
 
-// Logo oficial (vórtice de puntos en espiral + triángulo "A") en coordenadas de
-// un lienzo 128x128 — la misma geometría del icono del CRM, para el watermark.
-const LOGO_VB = { w: 128, h: 128 };
-const LOGO_DOTS = (() => {
-  const dots = [];
-  const CX = 64, CY = 64, BRAZOS = 3, N = 19, R0 = 14.5, RMAX = 46, VUELTAS = 0.78;
-  for (let b = 0; b < BRAZOS; b++) {
-    const fase = (b * 2 * Math.PI) / BRAZOS;
-    for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      const r = R0 + (RMAX - R0) * Math.pow(t, 1.18);
-      const ang = fase + t * VUELTAS * 2 * Math.PI;
-      dots.push({ x: CX + r * Math.cos(ang), y: CY + r * Math.sin(ang), r: 2.05 - 1.35 * t, a: 0.95 - 0.68 * t });
-    }
-  }
-  return dots;
-})();
-const LOGO_TRI = (() => {
-  const CX = 64, CY = 64, LADO = 21, h = (LADO * Math.sqrt(3)) / 2;
-  return [[CX, CY - (2 * h) / 3], [CX + LADO / 2, CY + h / 3], [CX - LADO / 2, CY + h / 3]];
-})();
+// Logo oficial para la marca de agua: la imagen real de la marca (vórtice de
+// puntos + triángulo "A") con fondo transparente, servida por la propia web.
+const _logoImg = typeof Image !== "undefined" ? new Image() : null;
+if (_logoImg) _logoImg.src = "/logo-marca.png";
 
 // carga videos remotos vía proxy same-origin (para poder exportar sin "canvas tainted")
 const viaProxy = (url) => (/^https?:\/\//.test(url) ? `${MOTOR}/gc/proxy?k=${encodeURIComponent(getToken())}&url=${encodeURIComponent(url)}` : url);
@@ -297,33 +280,20 @@ export default function VideoEditor({ data, ws, flash, editorSrc, onPublicar }) 
   }
 
   function drawLogo(ctx, w, h) {
-    if (!logoOn) return;
+    if (!logoOn || !_logoImg || !_logoImg.complete || !_logoImg.naturalWidth) return;
     const centro = logoPos === "centro";
     const size = centro ? w * 0.4 : w * 0.16;
-    const scale = size / LOGO_VB.w, lw = size, lh = size, m = w * 0.03;
+    const m = w * 0.03;
     let x, y;
-    if (centro) { x = (w - lw) / 2; y = (h - lh) / 2; }
+    if (centro) { x = (w - size) / 2; y = (h - size) / 2; }
     else if (logoPos === "tl") { x = m; y = m; }
-    else if (logoPos === "tr") { x = w - lw - m; y = m; }
-    else if (logoPos === "bl") { x = m; y = h - lh - m; }
-    else { x = w - lw - m; y = h - lh - m; }
+    else if (logoPos === "tr") { x = w - size - m; y = m; }
+    else if (logoPos === "bl") { x = m; y = h - size - m; }
+    else { x = w - size - m; y = h - size - m; }
     ctx.save();
-    ctx.globalAlpha = centro ? 0.22 : 0.9;
-    ctx.translate(x, y); ctx.scale(scale, scale);
-    ctx.shadowColor = "rgba(8,7,5,0.4)"; ctx.shadowBlur = Math.round(size * 0.08);
-    // vórtice de puntos + triángulo "A" (logo oficial)
-    LOGO_DOTS.forEach((d) => {
-      ctx.globalAlpha = (centro ? 0.22 : 0.9) * d.a;
-      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fillStyle = "#C6A87F"; ctx.fill();
-    });
-    ctx.globalAlpha = centro ? 0.22 : 0.9;
-    ctx.beginPath();
-    ctx.moveTo(LOGO_TRI[0][0], LOGO_TRI[0][1]);
-    ctx.lineTo(LOGO_TRI[1][0], LOGO_TRI[1][1]);
-    ctx.lineTo(LOGO_TRI[2][0], LOGO_TRI[2][1]);
-    ctx.closePath();
-    ctx.fillStyle = "#C6A87F"; ctx.fill();
+    ctx.globalAlpha = centro ? 0.25 : 0.9;
+    ctx.shadowColor = "rgba(8,7,5,0.4)"; ctx.shadowBlur = Math.round(size * 0.06);
+    ctx.drawImage(_logoImg, x, y, size, size);
     ctx.restore();
   }
 

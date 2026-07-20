@@ -33,7 +33,7 @@ function Login() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={entrar} className="tarjeta w-full max-w-sm space-y-5">
         <div className="text-center">
-          <img src="/icono.svg" alt="" className="mx-auto mb-3 h-14 w-14" />
+          <img src="/icono.png" alt="" className="mx-auto mb-3 h-16 w-16 rounded-2xl" />
           <div className="wordmark text-2xl text-crema">
             Atlantis
           </div>

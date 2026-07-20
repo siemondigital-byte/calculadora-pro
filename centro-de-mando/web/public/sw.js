@@ -3,7 +3,7 @@
    Estrategia: network-first para navegacion y API (nunca cachear /crm/);
    cache-first para assets hasheados. skipWaiting + clients.claim para que el
    SW nuevo tome control apenas se reabra la app. */
-const CACHE = "atlantis-cm-v13";
+const CACHE = "atlantis-cm-v14";
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -69,7 +69,7 @@ self.addEventListener("push", (e) => {
   e.waitUntil(
     self.registration.showNotification(datos.title || "Centro de Mando", {
       body: datos.body || "",
-      icon: "/icono.svg",
+      icon: "/icono.png",
       data: { url: datos.url || "/" },
     })
   );

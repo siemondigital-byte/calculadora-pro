@@ -204,7 +204,7 @@ export default function App() {
         }`}
       >
         <div className="mb-6 flex items-center gap-2.5">
-          <img src="/icono.svg" alt="" className="h-9 w-9" />
+          <img src="/icono.png" alt="" className="h-9 w-9 rounded-lg" />
           <div>
             <div className="wordmark text-base text-crema">
               Atlantis

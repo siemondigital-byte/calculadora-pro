@@ -308,6 +308,63 @@ check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
 check("generar_contenido sin tema ni base -> 400",
       c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
 
+# --------------------------------------- competencia + auditoria + analitica
+# 26b. Precalificar con haiku simulado (una llamada por lote) y ordenado
+motor._claude_json = lambda *a, **k: [
+    {"url": "https://compa.com", "tipo": "agencia", "nicho": "preventa — MX",
+     "tamano": "similar", "score": 82, "razon": "solapa oferta"},
+    {"url": "https://portal.com", "tipo": "portal", "nicho": "listados",
+     "tamano": "corporativo", "score": 10, "razon": "portal"}]
+r = c.post("/mercado/precalificar", json={"candidatos": [
+    {"url": "https://portal.com", "titulo": "t", "snippet": "s"},
+    {"url": "https://compa.com", "titulo": "t2", "snippet": "s2"}]}, headers=AUTH2)
+check("precalificar ordena por score", r.json()["candidatos"][0]["url"] == "https://compa.com"
+      and r.json()["candidatos"][0]["scorePrevio"] == 82)
+check("precalificar limpia em dashes", "—" not in json.dumps(r.json()))
+check("precalificar sin candidatos -> error",
+      c.post("/mercado/precalificar", json={}, headers=AUTH2).json()["ok"] is False)
+
+# 26c. Auditoria de negocio: persiste en <ws>.auditoriaNegocio (merge seguro)
+motor._senales_web = lambda url: {"url": url, "title": "t", "extracto": "e"}
+motor._claude_json = lambda *a, **k: {
+    "puntuaciones": {"claridad_propuesta": 80}, "global": 63, "resumen": "r",
+    "incoherencias": [], "quick_wins": ["w1"],
+    "hallazgos_para_ads": {"publico_dolor": "d", "angulos": ["a"],
+                           "objeciones": ["o"], "competencia_mensaje": "m"}}
+r = c.post("/auditoria/negocio", json={"workspace": "atlantis",
+    "web": "https://atlantisglobalrealty.com/"}, headers=AUTH2)
+check("auditoria negocio ok", r.json()["ok"] and r.json()["auditoria"]["global"] == 63)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("auditoria persistida en el workspace",
+      d["atlantis"]["auditoriaNegocio"]["global"] == 63
+      and d["atlantis"]["auditoriaNegocio"]["hallazgos_para_ads"]["publico_dolor"] == "d")
+
+# 26d. Descubrir sin Serper -> error claro; analitica sin Umami -> error claro
+check("descubrir sin serper -> sin_serper",
+      c.post("/mercado/descubrir", json={}, headers=AUTH2).json()["error"] == "sin_serper")
+check("analitica sin umami -> umami_sin_configurar",
+      c.get("/analitica/resumen", headers=AUTH2).json()["error"] == "umami_sin_configurar")
+check("analitica/enlaces sin umami -> umami_sin_configurar",
+      c.post("/analitica/enlaces", json={"enlaces": []}, headers=AUTH2).json()["error"]
+      == "umami_sin_configurar")
+
+# 26e. Monitorear: re-audita propia + competidores por workspace (seo simulado)
+import seo as _seo_mod  # noqa: E402
+_seo_mod.auditar = lambda url, kw="": {"ok": True, "url": url, "global": 77,
+    "categorias": [{"nombre": "Tecnico", "puntos": 8}], "top_fixes": []}
+dprev = c.get("/crm/data", headers=AUTH2).json()["data"]
+dprev["atlantis"]["competidores"] = [{"id": "comp-1", "nombre": "compa.com",
+                                     "url": "https://compa.com"}]
+c.put("/crm/data", json={"data": dprev}, headers=AUTH2)
+r = c.post("/mercado/monitorear", headers=AUTH2)
+check("monitorear audita propia y competidores",
+      r.json()["ok"] and r.json()["propias"].get("atlantis") == 77
+      and r.json()["competidores"] == 1)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("monitorear guarda historial del competidor",
+      d["atlantis"]["competidores"][0]["seo"] == 77
+      and len(d["atlantis"]["competidores"][0]["historial"]) == 1)
+
 # -------------------------------------------------- buzones + nurturing (F4)
 import buzones  # noqa: E402
 
