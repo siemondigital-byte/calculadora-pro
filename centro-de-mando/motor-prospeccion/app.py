@@ -493,56 +493,200 @@ def prospectos_descartar(body: dict = Body(...), authorization: str = Header(Non
 
 # ------------------------------------------------------- contenido IA (F5)
 
+# Nichos AMPLIOS por defecto para las ideas virales (dolores del avatar §3;
+# las redes son para entretener: amplio primero, conectable al metodo al final)
+_VIRAL_NICHOS = [
+    "depender del sueldo para todo (si dejas de producir, se acaba)",
+    "juntar dinero sin saber que hacer con el",
+    "creer que invertir en inmuebles es solo para quien ya tiene mucho capital",
+]
+
+
 @app.post("/viral/ideas")
 def viral_ideas(body: dict = Body(...), authorization: str = Header(None)):
-    """Lote de ideas de video corto sobre los dolores del avatar
-    (Schwartz 1-2: despertar el problema). Requiere ANTHROPIC_API_KEY."""
+    """Lote de ideas de video corto PUNTUADAS con los 7 criterios del filtro
+    viral (skill contenido-viral). Schwartz 1-2: despertar el problema.
+    Requiere ANTHROPIC_API_KEY."""
     _auth(authorization)
-    tema = body.get("tema") or "construir patrimonio sin depender del sueldo"
-    idioma = body.get("idioma") or "es"
-    n = min(20, int(body.get("n") or 10))
+    n = min(40, int(body.get("n") or 20))
+    tema = (body.get("tema") or "").strip()
+    ctx = (body.get("contexto_mercado") or "").strip()
+    nichos = body.get("nichos") or _VIRAL_NICHOS
+    # preguntas reales de la audiencia (lista curada del modulo Blog/SEO)
+    curadas = body.get("curadas") or []
+    reales = [c.get("keyword") for c in curadas if isinstance(c, dict)
+              and c.get("keyword")]
+    bloque_real = ""
+    if reales:
+        bloque_real = (
+            "BUSQUEDAS REALES de la audiencia (usalas como materia prima de "
+            "ideas y ganchos, traducidas a algo amplio y entretenido, nunca "
+            "copiando la frase tecnica):\n- " + "\n- ".join(reales[:25]) + "\n\n")
     prompt = (
-        f"Genera {n} ideas de video corto (Reels/TikTok/Shorts) en "
-        f"{'espanol neutro' if idioma == 'es' else 'ingles'} sobre: {tema}. "
-        "El publico NO es consciente del problema (Schwartz 1-2): cada idea "
-        "debe DESPERTAR el problema, no vender inversion directamente. Dolores "
-        "del avatar: 'todo depende de que yo siga produciendo', 'junto dinero "
-        "sin saber que hacer con el', 'creo que invertir en inmuebles es solo "
-        "para quien ya tiene mucho capital'. Devuelve SOLO un array JSON, cada "
-        "item: {\"gancho\": str (primeras 3 seg), \"desarrollo\": str, "
-        "\"cta\": str, \"nivel_conciencia\": 1|2, \"formato\": str, "
-        "\"puntaje\": 1-10}."
-    )
+        f"Genera {n} IDEAS de video corto (Reel/TikTok/Short) sobre estos "
+        f"nichos AMPLIOS (no tecnicos): {', '.join(nichos)}."
+        + (f" Enfocate en: {tema}." if tema else "") + "\n\n" + bloque_real
+        + "Regla central: las redes son para ENTRETENER; la idea debe ser "
+        "amplia y entretenida primero, y conectable al final con el metodo "
+        "(construir patrimonio inmobiliario con estructura). El publico NO es "
+        "consciente del problema (Schwartz 1-2): despierta el problema, no "
+        "vendas inversion de entrada.\n\n"
+        + (("ESTUDIO DE MERCADO (usalo para el angulo):\n" + ctx + "\n\n")
+           if ctx else "")
+        + "Para CADA idea evalua el FILTRO (0 a 10 por criterio): amplia, "
+        "aplicable (conecta con el metodo), polemica_contracorriente, "
+        "formato_viral, congruente_con_la_marca, gancho_fuerte, "
+        "facil_de_grabar. score = promedio (1 decimal).\n"
+        "nivel = nivel de conciencia al que habla (0-1 amplio, 2-3 ensenanza, "
+        "4 oferta). La mayoria debe ser 0-1.\n"
+        "formato sugerido: POV, Camara, Personajes, Blog.\n\n"
+        'Devuelve SOLO un array JSON: [{"idea":"...","gancho":"afirmacion '
+        'audaz de 4 a 7s","formato":"POV","nivel":"0-1","score":8.4,'
+        '"criterios":{"amplia":9,"aplicable":8,"polemica":7,"formato_viral":9,'
+        '"congruente":8,"gancho":9,"facil":9}}] ordenado por score desc.')
     ideas = _claude_json(prompt, max_tokens=6000, system=_VOZ_MARCA)
-    if isinstance(ideas, list):
-        for idea in ideas:
-            for campo in ("gancho", "desarrollo", "cta"):
-                if isinstance(idea.get(campo), str):
-                    idea[campo] = _sin_em_dash(idea[campo])
-    return {"ok": True, "ideas": ideas}
+    if not isinstance(ideas, list):
+        return {"ok": False, "error": "sin_json"}
+    for idea in ideas:
+        if isinstance(idea, dict):
+            for campo, valor in list(idea.items()):
+                if isinstance(valor, str):
+                    idea[campo] = _sin_em_dash(valor)
+    return {"ok": True, "ideas": ideas[:n]}
+
+
+@app.post("/viral/guion")
+def viral_guion(body: dict = Body(...), authorization: str = Header(None)):
+    """Guion viral de 5 partes para una idea aprobada (viral-que-vende)."""
+    _auth(authorization)
+    idea = (body.get("idea") or "").strip()
+    gancho = (body.get("gancho") or "").strip()
+    formato = (body.get("formato") or "Camara").strip()
+    nivel = (body.get("nivel") or "0-1").strip()
+    if not idea:
+        return {"ok": False, "error": "falta la idea"}
+    prompt = (
+        "Escribe el GUION VIRAL de 5 partes para este video corto (30 a 60s).\n"
+        f"IDEA: {idea}\nGANCHO base: {gancho or '(propone uno)'}\n"
+        f"FORMATO: {formato}\nNIVEL de conciencia del espectador: {nivel}\n\n"
+        "Estructura obligatoria (viral-que-vende, un solo video):\n"
+        "1) gancho (4 a 7s): afirmacion audaz, contracorriente o intrigante. "
+        "NO menciona lo que vende.\n"
+        "2) contexto: desarrolla sin soltar la solucion de golpe (retencion).\n"
+        "3) moraleja: la ensenanza util que posiciona autoridad.\n"
+        "4) filtrado: la condicion que conecta con el metodo ('si todo tu "
+        "ingreso depende de que tu sigas produciendo...').\n"
+        "5) cta: UNA sola accion: 'Comenta PATRIMONIO y te escribo' o llevar "
+        "a la pagina del metodo. Sin promesas de retornos.\n\n"
+        "Ademas: texto_pantalla (el texto grande del video, 5 a 9 palabras) e "
+        "indicaciones_grabacion (2 a 3 lineas practicas para grabar con el "
+        "celular en el formato elegido).\n\n"
+        'Devuelve SOLO JSON: {"gancho":"...","contexto":"...","moraleja":"...",'
+        '"filtrado":"...","cta":"...","texto_pantalla":"...",'
+        '"indicaciones_grabacion":"..."}')
+    d = _claude_json(prompt, max_tokens=1600, system=_VOZ_MARCA)
+    if not isinstance(d, dict):
+        return {"ok": False, "error": "sin_json"}
+    return {"ok": True, "guion": {k: _sin_em_dash(str(v)) for k, v in d.items()}}
+
+
+def _claude_texto(prompt, max_tokens=1500, system=None):
+    """Texto libre de Claude (sin extraer JSON). Mismo patron anti-thinking."""
+    import anthropic
+
+    cliente = anthropic.Anthropic()
+    model = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
+    respuesta = cliente.messages.create(
+        model=model, max_tokens=max(1500, int(max_tokens)),
+        thinking={"type": "disabled"},
+        system=system or _VOZ_MARCA,
+        messages=[{"role": "user", "content": prompt}])
+    return "".join(
+        b.text for b in respuesta.content if getattr(b, "type", "") == "text"
+    ).strip()
 
 
 @app.post("/generar_contenido")
 def generar_contenido(body: dict = Body(...), authorization: str = Header(None)):
-    """Post/correo/anuncio en la voz de marca. Requiere ANTHROPIC_API_KEY."""
+    """Contenido nativo por red y tipo, en la voz de marca. Devuelve texto
+    listo para pegar ({contenido}). Requiere ANTHROPIC_API_KEY."""
     _auth(authorization)
-    tipo = body.get("tipo") or "post"
+    red = (body.get("red") or "instagram").lower()
+    tipo = (body.get("tipo") or "post").lower()
     tema = body.get("tema") or ""
     idioma = body.get("idioma") or "es"
-    if not tema:
+    redes_multi = body.get("redes") or []
+    base_texto = body.get("base") or ""
+    if not tema and not base_texto:
         raise HTTPException(400, "tema requerido")
+    lista_redes = (", ".join(redes_multi) if redes_multi
+                   else "Instagram, LinkedIn, Facebook, X, TikTok, YouTube")
+    guia = {
+        "copys_redes": (
+            f"Adapta {'este contenido base' if base_texto else 'el tema'} a un "
+            f"copy NATIVO para CADA una de estas redes: {lista_redes}. Respeta "
+            "el formato y cultura de cada una (LinkedIn profesional con espacio "
+            "en blanco, Instagram cercano con hashtags al final, X corto y "
+            "punzante, TikTok hablado, Facebook conversacional, YouTube "
+            "descripcion). Encabeza cada bloque con el NOMBRE DE LA RED en "
+            "mayusculas. Cada copy listo para pegar."
+            + (f"\n\nCONTENIDO BASE:\n{base_texto}" if base_texto else "")),
+        "ad_variaciones": (
+            "Variaciones de ANUNCIO para " + red + " sobre el tema, "
+            "organizadas EXACTAMENTE asi:\n"
+            "## COPY CORTO (1 a 2 lineas, awareness/retargeting)\n"
+            "## COPY MEDIO (4 a 6 lineas, problema-solucion-CTA)\n"
+            "## COPY LARGO (10 a 14 lineas, storytelling honesto con CTA)\n"
+            "## TITULARES (5 variaciones, ~40 caracteres, angulos distintos)\n"
+            "## TRIGGERS (5 ganchos psicologicos honestos con la frase lista)\n"
+            "Sin clickbait, sin promesas de retornos, sin escasez artificial."),
+        "post": (f"Un post para {red}: gancho fuerte, cuerpo con valor, cierre "
+                 "con llamada a la accion y hashtags relevantes al final. "
+                 "Listo para copiar."),
+        "guion": (f"Un guion de video corto (reel/short) para {red}: hook en "
+                  "los primeros 3 segundos, desarrollo en beats claros y CTA. "
+                  "Marca las escenas."),
+        "carrusel": (f"Un carrusel para {red}: titulo por lamina (5 a 7) + el "
+                     "texto de cada lamina, y el caption final con CTA."),
+        "calendario": (f"Un calendario de contenido de 7 dias para {red}: por "
+                       "dia, el tema, el formato y un gancho. Tabla simple."),
+        "ideas": (f"10 ideas de contenido para {red} sobre el tema, cada una "
+                  "con un angulo distinto y un gancho."),
+        "x": ("Texto para X (Twitter) LISTO para copiar, a partir del "
+              "contenido/idea base. Elige el mejor formato: un TWEET unico "
+              "potente (max 280 caracteres) O un HILO de 4 a 7 tweets "
+              "numerados (1/, 2/...). Primer tweet con gancho, valor real, "
+              "cierre con CTA suave. Escribe arriba si es TWEET o HILO."),
+        "anuncio": (f"Un anuncio pagado para {red}: 3 variaciones (A/B/C), "
+                    "cada una con TEXTO PRINCIPAL, TITULAR (~40 caracteres), "
+                    "DESCRIPCION breve y BOTON/CTA. Conversion honesta, sin "
+                    "clickbait ni promesas de retornos."),
+        "campana": (f"Un brief de campana de ads para {red}, listo para "
+                    "montar: 1) OBJETIVO. 2) PUBLICO sugerido (edad, "
+                    "ubicacion, intereses, lookalike/retargeting). "
+                    "3) PRESUPUESTO diario y DURACION. 4) UBICACIONES. "
+                    "5) 3 VARIACIONES de anuncio. 6) Que medir."),
+    }.get(tipo, f"Contenido para {red}.")
+    # limites reales por red para que la plataforma no rechace el post
+    tope = {"bluesky": 300, "x": 280, "twitter": 280, "threads": 500}.get(red)
+    tope_nota = ""
+    if tope and tipo == "post":
+        tope_nota = (f" LIMITE ESTRICTO: el texto completo (con hashtags) "
+                     f"debe caber en {tope} caracteres. Breve y potente, 1 o "
+                     "2 hashtags maximo.")
     prompt = (
-        f"Escribe un {tipo} en {'espanol neutro latinoamericano' if idioma == 'es' else 'ingles'} "
-        f"sobre: {tema}. Devuelve SOLO JSON: {{\"titulo\": str, \"texto\": str, "
-        "\"cta\": str}}. Si mencionas el precio del producto es '44 USD'. "
-        "Si usas cifras del metodo, cierra con el disclaimer educativo."
-    )
-    pieza = _claude_json(prompt, max_tokens=4000, system=_VOZ_MARCA)
-    if isinstance(pieza, dict):
-        for campo in ("titulo", "texto", "cta"):
-            if isinstance(pieza.get(campo), str):
-                pieza[campo] = _sin_em_dash(pieza[campo])
-    return {"ok": True, "pieza": pieza}
+        f"Crea contenido en {'espanol neutro latinoamericano' if idioma == 'es' else 'ingles'}. "
+        f"Red: {red}. Tipo: {tipo}. Tema: {tema or '(deducelo del contenido base)'}.\n"
+        f"{guia}{tope_nota}\n"
+        "Devuelve SOLO el contenido, listo para usar, sin preambulos.")
+    try:
+        txt = _claude_texto(
+            prompt,
+            max_tokens=3000 if tipo in ("copys_redes", "ad_variaciones") else 1500,
+            system=_VOZ_MARCA)
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)[:200]}
+    return {"contenido": _sin_em_dash(txt)}
 
 
 # ------------------------------------------------- estudio de mercado / SEO

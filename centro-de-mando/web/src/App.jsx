@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import MaquetadorView from "./MaquetadorView.jsx";
 import MercadoView from "./MercadoView.jsx";
 import BlogSeoView from "./BlogSeoView.jsx";
+import EstudioUnificado from "./EstudioUnificado.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -164,7 +165,7 @@ export default function App() {
     compradores: <Compradores {...props} />,
     afiliados: <Afiliados {...props} />,
     appusuarios: <AppUsuarios {...props} />,
-    contenido: <Contenido {...props} />,
+    contenido: <EstudioUnificado {...props} />,
     nurturing: <Nurturing {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
@@ -1560,143 +1561,7 @@ function AppUsuarios({ data, ws }) {
   );
 }
 
-// ---------------------------------------------------------------- Contenido
-
-function Contenido({ data, commit, ws }) {
-  const [tema, setTema] = useState("");
-  const [ideas, setIdeas] = useState([]);
-  const [temaPost, setTemaPost] = useState("");
-  const [tipo, setTipo] = useState("post");
-  const [pieza, setPieza] = useState(null);
-  const [estado, setEstado] = useState("");
-  const [cargando, setCargando] = useState(false);
-
-  const generarIdeas = async () => {
-    setCargando(true);
-    setEstado("");
-    try {
-      const r = await motorPost("/viral/ideas", { tema, n: 10 });
-      setIdeas(r.ideas || []);
-    } catch (e) {
-      setEstado(String(e.message || e));
-    } finally {
-      setCargando(false);
-    }
-  };
-
-  const generarPieza = async () => {
-    setCargando(true);
-    setEstado("");
-    try {
-      const r = await motorPost("/generar_contenido", { tipo, tema: temaPost });
-      setPieza(r.pieza);
-    } catch (e) {
-      setEstado(String(e.message || e));
-    } finally {
-      setCargando(false);
-    }
-  };
-
-  const guardarIdea = (idea) => {
-    const siguiente = structuredClone(data);
-    siguiente[ws].viralIdeas = [
-      ...(siguiente[ws].viralIdeas || []),
-      { id: uid("idea"), ...idea, estado: "backlog", creado: Math.floor(Date.now() / 1000) },
-    ];
-    commit(siguiente);
-  };
-
-  const backlog = data[ws]?.viralIdeas || [];
-
-  return (
-    <div>
-      <Encabezado
-        titulo="Contenido"
-        sub="Ideas que despiertan el problema (Schwartz 1-2) · voz de marca inyectada"
-      />
-      {estado && <p className="mb-4 text-sm text-red-400">{estado}</p>}
-
-      <div className="tarjeta mb-6">
-        <div className="mb-3 text-sm font-semibold">Ideas de video corto</div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            className="campo"
-            placeholder="Tema (ej: depender del sueldo, juntar dinero sin plan)"
-            value={tema}
-            onChange={(e) => setTema(e.target.value)}
-          />
-          <button className="boton shrink-0" disabled={cargando || !tema} onClick={generarIdeas}>
-            {cargando ? "Generando..." : "Generar 10 ideas"}
-          </button>
-        </div>
-        {ideas.map((idea, i) => (
-          <div key={i} className="mt-3 rounded-lg border border-gris/10 bg-negro/40 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm text-oro">{idea.gancho}</div>
-                <div className="mt-1 text-sm text-crema/90">{idea.desarrollo}</div>
-                <div className="mt-1 text-xs text-gris">
-                  CTA: {idea.cta} · conciencia {idea.nivel_conciencia} · {idea.formato} ·
-                  puntaje {idea.puntaje}/10
-                </div>
-              </div>
-              <button className="boton-secundario shrink-0 !px-2 !py-1 text-xs" onClick={() => guardarIdea(idea)}>
-                Al backlog
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="tarjeta mb-6">
-        <div className="mb-3 text-sm font-semibold">Generar pieza</div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <select className="campo sm:!w-40" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            {["post", "anuncio", "correo", "guion corto"].map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
-          <input
-            className="campo"
-            placeholder="Tema de la pieza"
-            value={temaPost}
-            onChange={(e) => setTemaPost(e.target.value)}
-          />
-          <button className="boton shrink-0" disabled={cargando || !temaPost} onClick={generarPieza}>
-            Generar
-          </button>
-        </div>
-        {pieza && (
-          <div className="mt-4 rounded-lg border border-gris/10 bg-negro/40 p-4">
-            <div className="font-display text-lg text-oro">{pieza.titulo}</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-crema/90">{pieza.texto}</p>
-            <div className="mt-2 text-xs text-gris">CTA: {pieza.cta}</div>
-            <button
-              className="boton-secundario mt-3 !px-2 !py-1 text-xs"
-              onClick={() =>
-                navigator.clipboard?.writeText(`${pieza.titulo}\n\n${pieza.texto}\n\n${pieza.cta}`)
-              }
-            >
-              Copiar
-            </button>
-          </div>
-        )}
-      </div>
-
-      {backlog.length > 0 && (
-        <div className="tarjeta">
-          <div className="mb-2 text-sm font-semibold">Backlog de ideas ({backlog.length})</div>
-          {backlog.map((idea) => (
-            <div key={idea.id} className="border-b border-gris/10 py-2 text-sm last:border-0">
-              <span className="text-oro">{idea.gancho}</span>{" "}
-              <span className="text-xs text-gris">· {idea.estado}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// Contenido: reemplazado por el Estudio unificado (EstudioUnificado.jsx)
 
 // ---------------------------------------------------------------- Nurturing
 

@@ -277,19 +277,35 @@ check("capi estado con mascaras", r.json()["token"]["valido"] is False)
 #  configurar: el best-effort no rompe nada)
 
 # ------------------------------------------------------- contenido IA (F5)
-# 26. Generadores con _claude_json simulado: estructura + limpieza de em dashes
+# 26. Generadores con _claude_json/_claude_texto simulados: estructura +
+#     limpieza de em dashes (formas de la interfaz completa del Estudio)
 motor._claude_json = lambda *a, **k: [
-    {"gancho": "Tu sueldo — no es un plan", "desarrollo": "d", "cta": "c",
-     "nivel_conciencia": 1, "formato": "hablar a camara", "puntaje": 8}]
+    {"idea": "Tu sueldo — no es un plan", "gancho": "g", "formato": "POV",
+     "nivel": "0-1", "score": 8.4,
+     "criterios": {"amplia": 9, "aplicable": 8, "polemica": 7,
+                   "formato_viral": 9, "congruente": 8, "gancho": 9, "facil": 9}}]
 r = c.post("/viral/ideas", json={"tema": "depender del sueldo"}, headers=AUTH2)
-check("viral/ideas devuelve ideas", len(r.json()["ideas"]) == 1)
+check("viral/ideas devuelve ideas puntuadas",
+      r.json()["ok"] and r.json()["ideas"][0]["score"] == 8.4)
 check("viral/ideas limpia em dashes", "—" not in json.dumps(r.json()))
 
-motor._claude_json = lambda *a, **k: {"titulo": "t — t", "texto": "x", "cta": "c"}
-r = c.post("/generar_contenido", json={"tipo": "post", "tema": "el ciclo"}, headers=AUTH2)
-check("generar_contenido devuelve pieza", r.json()["pieza"]["texto"] == "x")
+motor._claude_json = lambda *a, **k: {
+    "gancho": "g — g", "contexto": "c", "moraleja": "m", "filtrado": "f",
+    "cta": "cta", "texto_pantalla": "t", "indicaciones_grabacion": "i"}
+r = c.post("/viral/guion", json={"idea": "una idea"}, headers=AUTH2)
+check("viral/guion devuelve guion de 5 partes",
+      r.json()["ok"] and r.json()["guion"]["moraleja"] == "m")
+check("viral/guion limpia em dashes", "—" not in json.dumps(r.json()))
+check("viral/guion sin idea -> error",
+      c.post("/viral/guion", json={}, headers=AUTH2).json()["ok"] is False)
+
+motor._claude_texto = lambda *a, **k: "post listo — para pegar"
+r = c.post("/generar_contenido", json={"red": "instagram", "tipo": "post",
+    "tema": "el ciclo"}, headers=AUTH2)
+check("generar_contenido devuelve texto nativo",
+      r.json()["contenido"].startswith("post listo"))
 check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
-check("generar_contenido sin tema -> 400",
+check("generar_contenido sin tema ni base -> 400",
       c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
 
 # -------------------------------------------------- buzones + nurturing (F4)
