@@ -55,19 +55,29 @@ if [ -z "$LISTA" ] && ! docker exec -u node "$CONT" n8n list:workflow >/dev/null
   echo "   Reintenta en un minuto: bash $0" >&2
   exit 1
 fi
-if echo "$LISTA" | grep -q "Compra confirmada"; then
-  echo "   ya estaban importados; no se duplican."
-else
-  rm -rf n8n-data/flujos-atlantis
-  mkdir -p n8n-data/flujos-atlantis
-  for f in n8n/*.json; do
-    sed "s/REEMPLAZAR_CRON_KEY/$CRON_KEY/g" "$f" > "n8n-data/flujos-atlantis/$(basename "$f")"
-  done
+# idempotencia POR FLUJO: importa solo los que faltan (por nombre), asi se
+# pueden agregar flujos nuevos al repo sin duplicar los ya instalados
+rm -rf n8n-data/flujos-atlantis
+mkdir -p n8n-data/flujos-atlantis
+NUEVOS=0
+for f in n8n/*.json; do
+  NOMBRE=$(sed -n 's/.*"name": "\([^"]*\)".*/\1/p' "$f" | head -1)
+  if [ -n "$NOMBRE" ] && echo "$LISTA" | grep -qF "$NOMBRE"; then
+    echo "   ya existe: $NOMBRE"
+    continue
+  fi
+  sed "s/REEMPLAZAR_CRON_KEY/$CRON_KEY/g" "$f" > "n8n-data/flujos-atlantis/$(basename "$f")"
+  NUEVOS=$((NUEVOS + 1))
+done
+if [ "$NUEVOS" -gt 0 ]; then
   chown -R 1000:1000 n8n-data/flujos-atlantis
   docker exec -u node "$CONT" n8n import:workflow --separate \
     --input=/home/node/.n8n/flujos-atlantis
-  rm -rf n8n-data/flujos-atlantis
+  echo "   importados $NUEVOS flujo(s) nuevo(s)."
+else
+  echo "   todos los flujos ya estaban; no se duplica nada."
 fi
+rm -rf n8n-data/flujos-atlantis
 
 echo "== 3/4 Activando (publish) y registrando webhooks =="
 # n8n v2: se publica POR ID (update:workflow --all quedo deprecado)

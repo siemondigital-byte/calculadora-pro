@@ -24,6 +24,12 @@ _SECRETOS_PERMITIDOS = {
     "DATAFORSEO_LOGIN",
     "DATAFORSEO_PASSWORD",
     "SERPER_API_KEY",
+    # Ads: crear campanas (Meta real, siempre en pausa) y estado de conexion
+    "META_ADS_TOKEN",
+    "META_ADS_ACCOUNT",
+    "LINKEDIN_ADS_TOKEN",
+    "LINKEDIN_ADS_ACCOUNT",
+    "GOOGLE_ADS_TOKEN",
     "YOUTUBE_API_KEY",
     "YT_OAUTH_CLIENT_ID",
     "YT_OAUTH_CLIENT_SECRET",

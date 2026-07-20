@@ -800,6 +800,143 @@ def seo_soluciones(body: dict = Body(...), authorization: str = Header(None)):
             "fecha": limpio["fecha"]}
 
 
+# ------------------------------------------------- ads (pauta pagada)
+
+# Oferta por defecto del plan de pauta, por workspace
+_ADS_OFERTA_DEF = {
+    "atlantis": "agenda la consulta de diagnostico con Atlantis Global Realty",
+    "cicloderiqueza": ("el libro-metodo Ciclo de Riqueza Inmobiliaria a 44 USD "
+                       "(incluye la Calculadora Pro y dos bonos)"),
+}
+
+_ADS_KEYS = {
+    "meta": ["META_ADS_TOKEN", "META_ADS_ACCOUNT"],
+    "linkedin": ["LINKEDIN_ADS_TOKEN", "LINKEDIN_ADS_ACCOUNT"],
+    "google": ["GOOGLE_ADS_DEV_TOKEN", "GOOGLE_ADS_TOKEN", "GOOGLE_ADS_CUSTOMER"],
+}
+
+
+@app.post("/ads/plan")
+def ads_plan(body: dict = Body(...), authorization: str = Header(None)):
+    """Plan de lanzamiento de pauta (skill ads): testeo un-interes-por-conjunto
+    + awareness amplio, creativos por temperatura, presupuesto con tope y
+    checklist de cumplimiento."""
+    _auth(authorization)
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    oferta = (body.get("oferta") or _ADS_OFERTA_DEF[ws]).strip()
+    presupuesto = float(body.get("presupuesto_test") or 5)
+    mercados = body.get("mercados") or ["CO", "MX", "PA", "US"]
+    plataforma = (body.get("plataforma") or "Meta").strip()
+    estudio = body.get("estudio") or None   # hallazgos_para_ads de la auditoria
+    bloque_estudio = (
+        "\n\nESTUDIO DE MERCADO (auditoria digital real, USALO como fundamento "
+        f"de la segmentacion y los creativos):\n{json.dumps(estudio, ensure_ascii=False)}\n"
+        if estudio else "")
+    prompt = (
+        f"{bloque_estudio}\n"
+        f"Disena el PLAN DE LANZAMIENTO de pauta en {plataforma} para la "
+        f"oferta: {oferta}. Mercados: {', '.join(mercados)}. Presupuesto de "
+        f"testeo: {presupuesto} USD/dia POR CONJUNTO.\n\n"
+        "Metodologia (obligatoria):\n"
+        "A) CAMPANA DE TESTEO (control): objetivo Leads; 4 a 6 conjuntos con "
+        "UN SOLO interes por conjunto (intereses relevantes al avatar: "
+        "profesionales de 25 a 52 que ganan bien pero no invierten, sin "
+        "apilar); placements feeds+stories; sin fecha de fin.\n"
+        "B) CAMPANA DE AWARENESS (descubrimiento) en paralelo: objetivo "
+        "alcance/reconocimiento; publico AMPLIO (Advantage+/broad); el "
+        "creativo NOMBRA EL PROBLEMA para subir del nivel 0-1 a quien no sabe "
+        "describir lo que le pasa (Schwartz 1-2).\n"
+        "C) CREATIVOS por temperatura, estructura viral (gancho 4-7s, estilo "
+        "nativo/UGC, NO 'anuncio'): frio = nombra el problema; templado = "
+        "ensenanza/caso + lead magnet; caliente = oferta directa para "
+        "retargeting. Para cada creativo: gancho + resumen del video + texto "
+        "principal + titular (~40 chars) + CTA.\n"
+        "D) ESCALADO: regla 80/20 (matar lo que no rinde, escalar ganadores); "
+        "horizontal y vertical gradual. Metricas guia: hook rate, hold rate, "
+        "CTR, CPL.\n"
+        "E) CHECKLIST de cumplimiento previa al lanzamiento: pixel + evento "
+        "de conversion verificado (CAPI), UTMs por creativo, revision de "
+        "politicas (sin claims de retornos ni promesas de ingresos, "
+        "disclaimer educativo visible si hay cifras del metodo), landing "
+        "coherente, tope de gasto, no lanzar en la tarde-noche.\n\n"
+        "SE CONCISO: cada campo en 1 a 2 frases; 4 conjuntos de testeo; 3 "
+        "creativos (uno por temperatura); 4 items de escalado; 6 de checklist.\n"
+        'Devuelve SOLO JSON valido y COMPLETO: {"testeo":{"objetivo":"...",'
+        '"conjuntos":[{"interes":"...","por_que":"...","presupuesto_dia":5}],'
+        '"placements":"..."},"awareness":{"objetivo":"...","publico":"...",'
+        '"por_que":"..."},"creativos":[{"temperatura":"frio","gancho":"...",'
+        '"video":"...","texto_principal":"...","titular":"...","cta":"..."}],'
+        '"escalado":["..."],"checklist":["..."],"presupuesto_total_dia":30}')
+    d = _claude_json(prompt, max_tokens=7000, system=_VOZ_MARCA)
+    if not isinstance(d, dict):
+        return {"ok": False, "error": "sin_json"}
+    return {"ok": True, "plan": d}
+
+
+@app.get("/ads/config")
+def ads_config(authorization: str = Header(None)):
+    _auth(authorization)
+
+    def st(ks):
+        return all(bool(secretos.get(k)) for k in ks)
+    return {
+        "meta": st(_ADS_KEYS["meta"]), "linkedin": st(_ADS_KEYS["linkedin"]),
+        "google": st(_ADS_KEYS["google"]),
+        "meta_account": secretos.mascara(secretos.get("META_ADS_ACCOUNT") or ""),
+        "linkedin_account": secretos.mascara(secretos.get("LINKEDIN_ADS_ACCOUNT") or ""),
+        "google_customer": secretos.mascara(secretos.get("GOOGLE_ADS_CUSTOMER") or ""),
+    }
+
+
+@app.post("/ads/config")
+def ads_config_set(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    permitidas = {k for ks in _ADS_KEYS.values() for k in ks}
+    for k, v in (body.get("valores") or {}).items():
+        if k in permitidas and (v or "").strip():
+            secretos.set_(k, v.strip())
+    return {"ok": True}
+
+
+@app.post("/ads/crear")
+def ads_crear(body: dict = Body(...), authorization: str = Header(None)):
+    """Crea una campana. Meta: real via Marketing API, SIEMPRE en PAUSA (no
+    gasta hasta que la actives tu)."""
+    _auth(authorization)
+    plat = (body.get("plataforma") or "").lower()
+    if plat == "meta":
+        tok = secretos.get("META_ADS_TOKEN")
+        acct = secretos.get("META_ADS_ACCOUNT")
+        if not (tok and acct):
+            return {"ok": False, "error": "sin_credenciales"}
+        acct2 = acct if str(acct).startswith("act_") else "act_" + str(acct)
+        obj = body.get("objetivo") or "OUTCOME_TRAFFIC"
+        try:
+            r = httpx.post(
+                f"https://graph.facebook.com/v21.0/{acct2}/campaigns",
+                data={"name": body.get("nombre") or "Campana Atlantis",
+                      "objective": obj, "status": "PAUSED",
+                      "special_ad_categories": "[]", "access_token": tok},
+                timeout=30).json()
+            if r.get("id"):
+                return {"ok": True, "id": r["id"], "estado": "PAUSED",
+                        "nota": ("Campana creada EN PAUSA en tu cuenta de Meta "
+                                 "Ads. Revisa creativo/presupuesto y activala "
+                                 "tu desde el Administrador de Anuncios.")}
+            return {"ok": False,
+                    "error": ((r.get("error") or {}).get("message")) or "error de Meta"}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": str(e)[:200]}
+    if plat in ("linkedin", "google"):
+        return {"ok": False, "error": "pendiente_api",
+                "nota": ("LinkedIn Ads requiere acceso al Marketing Developer "
+                         "Platform (solicitud + aprobacion de LinkedIn)."
+                         if plat == "linkedin" else
+                         "Google Ads requiere developer token aprobado + OAuth "
+                         "+ customer id.")}
+    return {"ok": False, "error": "plataforma_desconocida"}
+
+
 # ---------------------- competencia + auditoria de negocio + analitica ------
 
 def _limpiar_scrapeado(txt):

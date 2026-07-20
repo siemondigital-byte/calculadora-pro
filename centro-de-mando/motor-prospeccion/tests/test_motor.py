@@ -308,6 +308,28 @@ check("generar_contenido limpia em dashes", "—" not in json.dumps(r.json()))
 check("generar_contenido sin tema ni base -> 400",
       c.post("/generar_contenido", json={"tipo": "post"}, headers=AUTH2).status_code == 400)
 
+# ------------------------------------------------------------- ads (pauta)
+# 26a. Config vacia, plan con IA simulada y crear sin credenciales
+r = c.get("/ads/config", headers=AUTH2)
+check("ads/config sin conectar", r.json()["meta"] is False and r.json()["google"] is False)
+motor._claude_json = lambda *a, **k: {
+    "testeo": {"objetivo": "Leads", "conjuntos": [
+        {"interes": "bienes raices", "por_que": "p", "presupuesto_dia": 5}],
+        "placements": "feeds+stories"},
+    "awareness": {"objetivo": "alcance", "publico": "amplio", "por_que": "p"},
+    "creativos": [{"temperatura": "frio", "gancho": "g", "video": "v",
+                   "texto_principal": "t", "titular": "ti", "cta": "cta"}],
+    "escalado": ["e1"], "checklist": ["c1"], "presupuesto_total_dia": 30}
+r = c.post("/ads/plan", json={"workspace": "cicloderiqueza"}, headers=AUTH2)
+check("ads/plan devuelve plan completo",
+      r.json()["ok"] and r.json()["plan"]["testeo"]["conjuntos"][0]["presupuesto_dia"] == 5)
+check("ads/crear meta sin credenciales -> error",
+      c.post("/ads/crear", json={"plataforma": "meta"}, headers=AUTH2).json()["error"]
+      == "sin_credenciales")
+check("ads/crear linkedin -> pendiente_api",
+      c.post("/ads/crear", json={"plataforma": "linkedin"}, headers=AUTH2).json()["error"]
+      == "pendiente_api")
+
 # --------------------------------------- competencia + auditoria + analitica
 # 26b. Precalificar con haiku simulado (una llamada por lote) y ordenado
 motor._claude_json = lambda *a, **k: [

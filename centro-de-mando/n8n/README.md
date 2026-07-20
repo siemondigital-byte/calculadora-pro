@@ -9,6 +9,7 @@ CRON_KEY estable, no la clave de login: rotar la clave no los rompe).
 |---|---|---|
 | Compra confirmada | `compra-confirmada.json` | Webhook de Hotmart/ClickBank/ThriveCart → `/compra/registrar` → correo de bienvenida con credenciales de la Calculadora Pro |
 | Reembolso | `reembolso.json` | Webhook de reembolso → `/compra/reembolso` (revoca app y bonos) |
+| Monitoreo de mercado | `monitoreo-mercado.json` | Cron lunes 8:11am → `/mercado/monitorear` (re-audita tu web y todos los competidores seguidos; actualiza históricos) |
 
 ## Integración con la Calculadora Pro (Supabase)
 
