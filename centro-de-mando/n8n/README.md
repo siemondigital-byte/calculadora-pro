@@ -10,6 +10,20 @@ CRON_KEY estable, no la clave de login: rotar la clave no los rompe).
 | Compra confirmada | `compra-confirmada.json` | Webhook de Hotmart/ClickBank/ThriveCart → `/compra/registrar` → correo de bienvenida con credenciales de la Calculadora Pro |
 | Reembolso | `reembolso.json` | Webhook de reembolso → `/compra/reembolso` (revoca app y bonos) |
 | Monitoreo de mercado | `monitoreo-mercado.json` | Cron lunes 8:11am → `/mercado/monitorear` (re-audita tu web y todos los competidores seguidos; actualiza históricos) |
+| Formulario web → lead | `formulario-web.json` | Webhooks `/webhook/formulario-atlantis` y `/webhook/formulario-cicloderiqueza` → `/crm/lead` (con utm_source como fuente, ip/ua para CAPI). Apunta los formularios de las webs a esas URLs |
+| Respaldo diario del CRM | `respaldo-crm.json` | Cron 3:17am → `GET /crm/data` → copia íntegra de `crm.json` en el volumen de n8n (`/home/node/.n8n/respaldos/crm-<día>.json`, 7 rotativos, uno por día de la semana) |
+
+## Restaurar un respaldo del CRM
+
+Los respaldos diarios viven en el volumen de n8n del VPS
+(`/root/atlantis/n8n-data/respaldos/crm-<día>.json`). Para restaurar:
+
+```bash
+cd /root/atlantis
+docker compose -f compose.compartido.yml stop motor-atlantis
+cp n8n-data/respaldos/crm-lunes.json data/crm.json   # el día que quieras
+docker compose -f compose.compartido.yml start motor-atlantis
+```
 
 ## Integración con la Calculadora Pro (Supabase)
 

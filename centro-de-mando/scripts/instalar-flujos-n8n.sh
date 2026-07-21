@@ -55,6 +55,11 @@ if [ -z "$LISTA" ] && ! docker exec -u node "$CONT" n8n list:workflow >/dev/null
   echo "   Reintenta en un minuto: bash $0" >&2
   exit 1
 fi
+# carpeta de respaldos del flujo "Respaldo diario del CRM" (volumen de n8n,
+# distinto al del motor; el nodo de escritura no crea directorios)
+mkdir -p n8n-data/respaldos
+chown 1000:1000 n8n-data/respaldos
+
 # idempotencia POR FLUJO: importa solo los que faltan (por nombre), asi se
 # pueden agregar flujos nuevos al repo sin duplicar los ya instalados
 rm -rf n8n-data/flujos-atlantis
@@ -108,7 +113,7 @@ for i in $(seq 1 8); do
   sleep 8
 done
 echo "[$([ "$code" = "200" ] && echo x || echo ' ')] https://$DOMINIO -> $code (esperado 200)"
-for path in compra-cicloderiqueza reembolso-cicloderiqueza; do
+for path in compra-cicloderiqueza reembolso-cicloderiqueza formulario-atlantis formulario-cicloderiqueza; do
   wcode=000
   for i in $(seq 1 4); do
     wcode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
