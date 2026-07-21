@@ -11,13 +11,15 @@
 // Configuración — pon la URL de TU n8n (reemplaza TU-N8N). El resto queda igual.
 // ---------------------------------------------------------------------------
 export const CONFIG = {
-  RESET_REQUEST_URL: "https://TU-N8N.example.com/webhook/crd-reset-solicitar",
-  RESET_CONFIRM_URL: "https://TU-N8N.example.com/webhook/crd-reset-confirmar",
+  RESET_REQUEST_URL: "https://hooks.atlantisglobalrealty.com/webhook/password-reset-request",
+  RESET_CONFIRM_URL: "https://hooks.atlantisglobalrealty.com/webhook/password-reset-confirm",
   APP: "calculadora",
 };
 
 /** Idioma del navegador, limitado a los que tenemos traducidos. */
 export function idioma() {
+  const q = new URLSearchParams(location.search).get("lang");
+  if (q === "en" || q === "es") return q;
   return (navigator.language || "es").toLowerCase().startsWith("en") ? "en" : "es";
 }
 
