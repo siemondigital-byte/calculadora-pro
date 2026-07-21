@@ -11,7 +11,10 @@
       "name": "Webhook compra",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "compra-cicloderiqueza"
     },
     {
@@ -21,7 +24,10 @@
       "name": "Normalizar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        460,
+        300
+      ]
     },
     {
       "parameters": {
@@ -44,7 +50,10 @@
       "name": "Motor: registrar compra",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [680, 300]
+      "position": [
+        680,
+        300
+      ]
     },
     {
       "parameters": {
@@ -60,11 +69,14 @@
       "name": "¿Credencial nueva?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [900, 300]
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
-        "fromEmail": "hello@atlantisglobalrealty.com",
+        "fromEmail": "={{ $('Normalizar').first().json.idioma === 'en' ? 'The Real Estate Wealth Cycle <wealthcycle@atlantisglobalrealty.com>' : 'Ciclo de Riqueza Inmobiliaria <cicloderiqueza@atlantisglobalrealty.com>' }}",
         "toEmail": "={{ $('Normalizar').first().json.email }}",
         "subject": "Tu acceso al Ciclo de Riqueza Inmobiliaria",
         "text": "=Hola {{ $('Normalizar').first().json.nombre || 'inversionista' }},\n\nTu compra esta confirmada. Estos son tus accesos:\n\nArea de miembros: {{ $vars.membersUrl || 'https://cicloderiqueza.atlantisglobalrealty.com/miembros' }}\nCalculadora de Viabilidad Inmobiliaria Pro: {{ $vars.appUrl || 'https://app.atlantisglobalrealty.com' }}\nUsuario: {{ $('Normalizar').first().json.email }}\nContrasena: {{ $('Motor: registrar compra').first().json.password }}\n\nDescargas y bonos: {{ $vars.downloadsUrl || 'https://cicloderiqueza.atlantisglobalrealty.com/descargas' }}\n\nRecuerda: tienes garantia de 7 dias. Si pides devolucion, el acceso vitalicio a la app y los bonos se revocan.\n\nContenido educativo. No es asesoria financiera, legal ni tributaria.\n\nEquipo Atlantis Global Realty",
@@ -73,14 +85,58 @@
       "name": "Correo de bienvenida",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2,
-      "position": [1120, 200]
+      "position": [
+        1120,
+        200
+      ]
     }
   ],
   "connections": {
-    "Webhook compra": { "main": [[{ "node": "Normalizar", "type": "main", "index": 0 }]] },
-    "Normalizar": { "main": [[{ "node": "Motor: registrar compra", "type": "main", "index": 0 }]] },
-    "Motor: registrar compra": { "main": [[{ "node": "¿Credencial nueva?", "type": "main", "index": 0 }]] },
-    "¿Credencial nueva?": { "main": [[{ "node": "Correo de bienvenida", "type": "main", "index": 0 }], []] }
+    "Webhook compra": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Motor: registrar compra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Motor: registrar compra": {
+      "main": [
+        [
+          {
+            "node": "¿Credencial nueva?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Credencial nueva?": {
+      "main": [
+        [
+          {
+            "node": "Correo de bienvenida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
   },
   "settings": {},
   "active": false

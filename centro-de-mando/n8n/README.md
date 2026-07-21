@@ -35,6 +35,12 @@ wordmark). Decisiones clave:
   credencial Postgres en n8n**.
 - **Contraseñas y tokens con `crypto`** (no `Math.random`): el compose ya trae
   `NODE_FUNCTION_ALLOW_BUILTIN=crypto`.
+- **Remitente por idioma (convención de CLAUDE.md §7)**: los correos del
+  producto salen como `cicloderiqueza@atlantisglobalrealty.com` (ES) o
+  `wealthcycle@atlantisglobalrealty.com` (EN); el nodo "Armar correo" elige y
+  el nodo de envío usa `{{ $json.from }}`. `contact@` queda reservado para la
+  agencia (llamadas/asesoría). Ambos alias deben existir en Hostinger y estar
+  verificados como "Send mail as" en el Gmail que envía.
 - **El alta NO es pública**: exige `?k=<CRON_KEY>` (el instalador la deja
   puesta). Los dos webhooks de reset sí son públicos por diseño: el de
   solicitar solo dispara un correo al dueño de la cuenta y en el de confirmar

@@ -194,6 +194,19 @@ Verifica siempre contra estas fuentes vivas (son la verdad de producción):
 Convención bilingüe: **`cicloderiqueza`** = español, **`wealthcycle`** = inglés,
 ambos bajo `atlantisglobalrealty.com`.
 
+### Remitentes de correo (convención)
+
+- **Producto** (Ciclo de Riqueza / Calculadora Pro: credenciales, reset,
+  bienvenida, nurturing del infoproducto): ES →
+  `cicloderiqueza@atlantisglobalrealty.com` · EN →
+  `wealthcycle@atlantisglobalrealty.com`.
+- **Agencia Atlantis** (agendar llamada de diagnóstico, clientes interesados en
+  invertir, asesoría): `contact@atlantisglobalrealty.com`.
+- El único buzón real es `andrea@atlantisglobalrealty.com`; los demás son alias
+  de Hostinger. El envío sale por Gmail (`atlantisglobalrealty@gmail.com`) con
+  cada alias verificado como "Send mail as" (SMTP `smtp.hostinger.com:465` SSL,
+  autenticando como `andrea@`). No uses `hola@` ni `hello@`: no existen.
+
 ---
 
 ## 8 · Guardarraíles (no los cruces nunca)
