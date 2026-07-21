@@ -23,6 +23,12 @@
       loginTitle: 'Calculadora de Viabilidad Inmobiliaria Pro',
       loginSub: 'Tu instrumento de criterio. Entra con las credenciales que recibiste por correo.',
       emailLabel: 'Correo', pwLabel: 'Contraseña', loginBtn: 'Iniciar sesión', loginHelp: '¿Olvidaste tu contraseña?',
+      forgotEyebrow: 'Recuperar · Acceso',
+      forgotTitle: 'Recupera tu acceso',
+      forgotSub: 'Escribe tu correo y te enviamos un enlace para restablecer tu contraseña.',
+      forgotBtn: 'Enviar enlace',
+      forgotBack: '← Volver a iniciar sesión',
+      forgotSending: 'Enviando…',
       allianceLabel: 'En alianza con', demoNote: 'Demo de revisión · cualquier dato te deja entrar',
       headerSub: 'Sesión de ejemplo', logout: 'Salir',
       projectsTitle: 'Proyectos', addProject: 'Nuevo proyecto', deleteProject: 'Eliminar proyecto', duplicateProject: 'Duplicar',
@@ -99,6 +105,12 @@
       loginTitle: 'Real Estate Viability Pro Calculator',
       loginSub: 'Your instrument of judgment. Sign in with the credentials we emailed you.',
       emailLabel: 'Email', pwLabel: 'Password', loginBtn: 'Sign in', loginHelp: 'Forgot your password?',
+      forgotEyebrow: 'Recover · Access',
+      forgotTitle: 'Recover your access',
+      forgotSub: "Enter your email and we'll send you a link to reset your password.",
+      forgotBtn: 'Send link',
+      forgotBack: '← Back to sign in',
+      forgotSending: 'Sending…',
       allianceLabel: 'In partnership with', demoNote: 'Review demo · any input lets you in',
       headerSub: 'Sample session', logout: 'Log out',
       projectsTitle: 'Projects', addProject: 'New project', deleteProject: 'Delete project', duplicateProject: 'Duplicate',
@@ -626,6 +638,7 @@
     for (var j = 0; j < langBtns.length; j++) {
       langBtns[j].classList.toggle('active', langBtns[j].getAttribute('data-lang') === state.lang);
     }
+    window.__forgotTr = { sending: L.forgotSending };
   }
 
   function commit() { saveState(); render(); }

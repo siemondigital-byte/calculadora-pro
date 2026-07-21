@@ -1,0 +1,295 @@
+{
+  "updatedAt": "2026-07-16T22:16:21.000Z",
+  "createdAt": "2026-07-05T15:59:09.400Z",
+  "name": "CRD · Recuperación — confirmar (Calculadora)",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crd-reset-confirmar",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://siemondigital-byte.github.io"
+        }
+      },
+      "id": "pc-wh000-0000-4000-8000-0000000e2002",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH t AS ( SELECT email, app, lang FROM password_resets WHERE token=$1 AND usado=false AND expira_en > now() LIMIT 1 ), u AS ( UPDATE password_resets SET usado=true WHERE token=$1 AND usado=false AND expira_en > now() RETURNING email ) SELECT (SELECT email FROM t) AS email, (SELECT app FROM t) AS app, (SELECT lang FROM t) AS lang;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.token || '' ] }}"
+        }
+      },
+      "id": "pc-pg000-0000-4000-8000-0000000e2002",
+      "name": "Validar token",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "REEMPLAZAR",
+          "name": "<credencial postgres de tu n8n>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "pc-if000-0000-4000-8000-0000000e2002",
+      "name": "¿Token válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://siemondigital-byte.github.io"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pc-ok000-0000-4000-8000-0000000e2002",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"enlace no válido o vencido\" } }}",
+        "options": {
+          "responseCode": 403,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://siemondigital-byte.github.io"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pc-er000-0000-4000-8000-0000000e2002",
+      "name": "Respond error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://qezbkxhwctxllyrtnvqu.supabase.co/auth/v1/admin/users?per_page=1000",
+        "authentication": "predefinedCredentialType",
+        "options": {
+          "allowUnauthorizedCerts": true
+        },
+        "nodeCredentialType": "supabaseApi"
+      },
+      "id": "pc-sb100-0000-4000-8000-0000000e2002",
+      "name": "Buscar usuarios Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        260
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REEMPLAZA_AL_IMPORTAR",
+          "name": "Supabase Atlantis (service)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email=($('Validar token').first().json.email||'').toLowerCase();\nconst users=($input.first().json.users)||[];\nconst u=users.find(x=>(x.email||'').toLowerCase()===email);\nreturn u ? [{json:{id:u.id}}] : [];"
+      },
+      "id": "pc-sb200-0000-4000-8000-0000000e2002",
+      "name": "Extraer id Supabase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://qezbkxhwctxllyrtnvqu.supabase.co/auth/v1/admin/users/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"password\": \"{{ $('Webhook').item.json.body.password }}\" }",
+        "options": {
+          "allowUnauthorizedCerts": true
+        },
+        "nodeCredentialType": "supabaseApi"
+      },
+      "id": "pc-sb300-0000-4000-8000-0000000e2002",
+      "name": "Actualizar pass Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        260
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REEMPLAZA_AL_IMPORTAR",
+          "name": "Supabase Atlantis (service)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validar token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar token": {
+      "main": [
+        [
+          {
+            "node": "¿Token válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Token válido?": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar usuarios Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Buscar usuarios Supabase": {
+      "main": [
+        [
+          {
+            "node": "Extraer id Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer id Supabase": {
+      "main": [
+        [
+          {
+            "node": "Actualizar pass Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "activeVersionId": "ee189a7b-1482-44cd-b5d8-1aa7fad92698",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-07-05T15:59:09.402Z",
+      "createdAt": "2026-07-05T15:59:09.402Z",
+      "role": "workflow:owner",
+      "workflowId": "zt2f5CTRFaYuQ2OT",
+      "projectId": "Rm0SZ3z7gLbdbFUP",
+      "project": {
+        "updatedAt": "2025-12-17T20:25:31.815Z",
+        "createdAt": "2025-12-17T20:23:57.256Z",
+        "id": "Rm0SZ3z7gLbdbFUP",
+        "name": "ANDREA SIEMON <siemondigital@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "123717f8-240a-4bbe-9e2b-e78220ea4586"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

@@ -61,6 +61,34 @@
         <button type="button" class="lang-btn" data-lang="en">EN</button>
       </div>
     </div>
+
+    <!-- Vista dedicada de recuperacion (misma tarjeta, distinto contenido) -->
+    <div class="login-card" id="forgot-card" hidden>
+      <div class="brand-row">
+        <span class="orbit orbit-36" aria-hidden="true">
+          <svg viewBox="0 0 36 36" width="36" height="36">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="#E6C788" stroke-width="1.5" stroke-dasharray="74 20" stroke-linecap="round"></circle>
+            <circle cx="18" cy="3" r="2.4" fill="#E6C788"></circle>
+          </svg>
+        </span>
+        <span class="eyebrow eyebrow-brand" data-i18n="forgotEyebrow"></span>
+      </div>
+      <h1 class="login-title" id="forgot-title" data-i18n="forgotTitle"></h1>
+      <p class="login-sub" id="forgot-sub" data-i18n="forgotSub"></p>
+
+      <form id="forgot-form" novalidate>
+        <div class="field">
+          <label class="field-label" for="forgot-email" data-i18n="emailLabel"></label>
+          <input id="forgot-email" class="text-input" type="email" autocomplete="email" placeholder="tu@correo.com">
+        </div>
+        <button type="submit" id="forgot-btn" class="btn-primary" data-i18n="forgotBtn"></button>
+      </form>
+      <p class="login-error" id="forgot-msg" hidden></p>
+
+      <div class="login-help">
+        <a href="#" id="forgot-back" class="link-muted" data-i18n="forgotBack"></a>
+      </div>
+    </div>
   </section>
 
   <!-- ============================================================= APP -->
@@ -451,5 +479,41 @@
   <script src="config.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>
+  <script type="module">
+    // Recuperación de contraseña: el enlace "¿Olvidaste tu contraseña?" alterna
+    // a una vista dedicada (misma tarjeta) con su propio campo de correo, botón
+    // "Enviar enlace" y estado "Revisa tu correo". "Volver" regresa al login.
+    import { pedirReset } from './auth-cliente.js';
+    var $ = function (id) { return document.getElementById(id); };
+    var loginCard = document.querySelector('#login .login-card');
+    var forgotCard = $('forgot-card');
+    function mostrar(vista) {
+      var esForgot = vista === 'forgot';
+      loginCard.hidden = esForgot;
+      forgotCard.hidden = !esForgot;
+      $('forgot-msg').hidden = true;
+      if (esForgot) {
+        var v = ($('login-email') || {}).value || '';
+        $('forgot-email').value = /@/.test(v) ? v : '';
+        setTimeout(function () { $('forgot-email').focus(); }, 40);
+      }
+    }
+    var link = document.querySelector('#login .login-help .link-muted');
+    if (link) link.addEventListener('click', function (e) { e.preventDefault(); mostrar('forgot'); });
+    $('forgot-back').addEventListener('click', function (e) { e.preventDefault(); mostrar('login'); });
+    $('forgot-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var btn = $('forgot-btn'), msg = $('forgot-msg');
+      var email = $('forgot-email').value || '';
+      btn.disabled = true;
+      msg.hidden = false;
+      msg.style.color = '#E6C788';
+      msg.textContent = (window.__forgotTr && window.__forgotTr.sending) || 'Enviando…';
+      var r = await pedirReset(email);
+      btn.disabled = false;
+      msg.textContent = r.mensaje;
+      msg.style.color = r.ok ? '#E6C788' : '';
+    });
+  </script>
 </body>
 </html>
