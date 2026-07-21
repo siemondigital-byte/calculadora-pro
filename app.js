@@ -237,7 +237,8 @@
 
   function loadState() {
     var base = {
-      lang: 'es', screen: 'login', mobileTab: 'datos',
+      lang: (function () { try { return /^en/i.test(navigator.language || navigator.userLanguage || '') ? 'en' : 'es'; } catch (e) { return 'es'; } })(),
+      screen: 'login', mobileTab: 'datos',
       ingreso: 6000, gasto: 2800, deudas: 400, capital: 35000, horizonte: 10, inflacion: 3,
       projects: null, activeId: null
     };

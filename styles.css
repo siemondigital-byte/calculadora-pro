@@ -46,10 +46,11 @@ a { color: inherit; }
 
 @keyframes orbita { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-.orbit svg { display: block; animation: orbita 30s linear infinite; }
+.orbit svg { display: block; animation: orbita 30s linear infinite; transform-origin: 50% 50%; }
+.alliance svg { animation: orbita 24s linear infinite; transform-origin: 50% 50%; }
 
 @media (prefers-reduced-motion: reduce) {
-  .orbit svg { animation: none; }
+  .orbit svg, .alliance svg { animation: none; }
   * { scroll-behavior: auto !important; }
 }
 
