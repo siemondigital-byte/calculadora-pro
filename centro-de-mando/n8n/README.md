@@ -61,7 +61,7 @@ Pasos para activarlos:
    nombres). Cuando el dominio final de la app esté fijo, restringe el CORS de
    esos dos webhooks (nodo Webhook → Options → Allowed Origins) y ponle rate
    limit en Traefik si quieres endurecerlo.
-5. El enlace del correo apunta a `https://app.atlantisglobalrealty.com/reset.html`;
+5. El enlace del correo apunta a `https://wealthcycle-app.atlantisglobalrealty.com/reset.html`;
    si la app vive en otra URL, cámbiala en el nodo "Armar correo" del flujo de
    solicitar.
 
