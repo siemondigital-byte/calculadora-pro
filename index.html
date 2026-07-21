@@ -80,7 +80,7 @@
       <form id="forgot-form" novalidate>
         <div class="field">
           <label class="field-label" for="forgot-email" data-i18n="emailLabel"></label>
-          <input id="forgot-email" class="text-input" type="email" autocomplete="email" placeholder="tu@correo.com">
+          <input id="forgot-email" class="text-input" type="email" autocomplete="email">
         </div>
         <button type="submit" id="forgot-btn" class="btn-primary" data-i18n="forgotBtn"></button>
       </form>
@@ -496,6 +496,7 @@
       if (esForgot) {
         var v = ($('login-email') || {}).value || '';
         $('forgot-email').value = /@/.test(v) ? v : '';
+        $('forgot-email').placeholder = (window.__forgotTr && window.__forgotTr.placeholder) || 'your@email.com';
         setTimeout(function () { $('forgot-email').focus(); }, 40);
       }
     }
