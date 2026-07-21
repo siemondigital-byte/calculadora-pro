@@ -4037,7 +4037,25 @@ def compra_reembolso(body: dict = Body(...), authorization: str = Header(None)):
     )
     if not comprador:
         raise HTTPException(404, "compra no encontrada")
-    comprador.update({"reembolsado": True, "accesoApp": False, "bonos": False})
+    cuando = time.strftime("%Y-%m-%d %H:%M")
+    comprador.update({"reembolsado": True, "accesoApp": False, "bonos": False,
+                      "reembolsadoEn": cuando})
+    # registro del evento para trazabilidad (idempotente por transaccion):
+    # quien pidio el reembolso, cuando, por que plataforma y el motivo que
+    # mando el webhook. Se consulta en /crm/data -> cicloderiqueza.reembolsos
+    reembolsos = slice_ws.setdefault("reembolsos", [])
+    tx = transaccion or comprador.get("transaccion") or ""
+    if not any(r.get("transaccion") == tx and tx for r in reembolsos):
+        reembolsos.append({
+            "email": comprador.get("email", ""),
+            "nombre": comprador.get("nombre", ""),
+            "transaccion": tx,
+            "plataforma": str(body.get("plataforma", "")
+                              or comprador.get("plataforma", "")),
+            "motivo": str(body.get("motivo", "")).strip(),
+            "fecha": cuando,
+            "fechaCompra": comprador.get("fecha", ""),
+        })
     usuario = next(
         (u for u in slice_ws.get("app_usuarios", [])
          if str(u.get("email", "")).lower() == str(comprador["email"]).lower()),

@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const b = $input.first().json.body || $input.first().json;\nconst email = b?.data?.buyer?.email || b?.customer?.email || b?.email || '';\nconst transaccion = b?.data?.purchase?.transaction || b?.receipt || b?.order_id || b?.transaction_id || '';\nreturn [{ json: { email, transaccion } }];"
+        "jsCode": "const b = $input.first().json.body || $input.first().json;\nconst email = b?.data?.buyer?.email || b?.customer?.email || b?.email || '';\nconst transaccion = b?.data?.purchase?.transaction || b?.receipt || b?.order_id || b?.transaction_id || '';\n// plataforma y motivo: alimentan el registro de reembolsos del CRM\n// (trazabilidad). Cada plataforma manda el motivo en un campo distinto.\nconst plataforma = b?.data?.purchase ? 'Hotmart' : (b?.receipt ? 'ClickBank' : (b?.order_id ? 'ThriveCart' : (b?.plataforma || '')));\nconst motivo = b?.data?.purchase?.refund_reason || b?.refund_reason || b?.reason || b?.motivo || '';\nreturn [{ json: { email, transaccion, plataforma, motivo } }];"
       },
       "name": "Normalizar",
       "type": "n8n-nodes-base.code",

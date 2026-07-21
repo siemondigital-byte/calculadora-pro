@@ -191,7 +191,8 @@ check("app rechaza password mala",
       c.post("/app/validar", json={"email": "compra1@test.com", "password": "otra"}).status_code == 401)
 
 # 17. Reembolso revoca app + bonos + etapa, y la app deja de validar
-r = c.post("/compra/reembolso", json={"transaccion": "HP-001"}, headers=CRON)
+r = c.post("/compra/reembolso", json={"transaccion": "HP-001", "plataforma": "Hotmart",
+                                      "motivo": "no era lo esperado"}, headers=CRON)
 check("reembolso ok", r.json().get("ok") is True)
 d = c.get("/crm/data", headers=AUTH2).json()["data"]
 comp = next(x for x in d["cicloderiqueza"]["compradores"] if x["email"] == "compra1@test.com")
@@ -201,6 +202,16 @@ check("reembolso revoca todo", comp["reembolsado"] and not comp["accesoApp"]
       and not comp["bonos"] and usu["revocado"] and lead["etapa"] == "Reembolsado")
 check("app revocada ya no valida",
       c.post("/app/validar", json={"email": "compra1@test.com", "password": pass1}).status_code == 401)
+
+# 17b. Trazabilidad: el reembolso queda registrado (y sin duplicar si repite)
+c.post("/compra/reembolso", json={"transaccion": "HP-001"}, headers=CRON)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+regs = [x for x in d["cicloderiqueza"].get("reembolsos", []) if x["transaccion"] == "HP-001"]
+check("reembolso registrado con trazabilidad",
+      len(regs) == 1 and regs[0]["email"] == "compra1@test.com"
+      and regs[0]["plataforma"] == "Hotmart"
+      and regs[0]["motivo"] == "no era lo esperado" and bool(regs[0]["fecha"]))
+check("comprador guarda cuando fue reembolsado", bool(comp.get("reembolsadoEn")))
 
 # 18. Recompra tras reembolso reactiva con credencial NUEVA
 r = c.post("/compra/registrar", json={"email": "compra1@test.com", "transaccion": "HP-004"}, headers=CRON)
