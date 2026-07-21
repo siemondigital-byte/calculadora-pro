@@ -12,6 +12,52 @@ CRON_KEY estable, no la clave de login: rotar la clave no los rompe).
 | Monitoreo de mercado | `monitoreo-mercado.json` | Cron lunes 8:11am → `/mercado/monitorear` (re-audita tu web y todos los competidores seguidos; actualiza históricos) |
 | Formulario web → lead | `formulario-web.json` | Webhooks `/webhook/formulario-atlantis` y `/webhook/formulario-cicloderiqueza` → `/crm/lead` (con utm_source como fuente, ip/ua para CAPI). Apunta los formularios de las webs a esas URLs |
 | Respaldo diario del CRM | `respaldo-crm.json` | Cron 3:17am → `GET /crm/data` → copia íntegra de `crm.json` en el volumen de n8n (`/home/node/.n8n/respaldos/crm-<día>.json`, 7 rotativos, uno por día de la semana) |
+| Acceso app · alta | `acceso-app-alta.json` | `POST /webhook/alta-calculadora?k=<CRON_KEY>` → genera contraseña segura (crypto), crea el usuario en Supabase (`email_confirm:true`) y envía el correo de credenciales con la marca |
+| Acceso app · reset (solicitar) | `acceso-app-reset-solicitar.json` | `POST /webhook/password-reset-request` `{email, lang}` → token propio de 60 min en `password_resets` → correo con el enlace `app…/reset.html?token=…`. Responde siempre `{ok:true}` (anti-enumeración) |
+| Acceso app · reset (confirmar) | `acceso-app-reset-confirmar.json` | `POST /webhook/password-reset-confirm` `{token, password}` → consume el token (un solo uso, atómico), cambia la contraseña por la Admin API y envía el aviso de seguridad |
+
+## Acceso a la Calculadora Pro (alta + recuperación de contraseña)
+
+Los tres flujos `acceso-app-*` reproducen el sistema de correos transaccionales
+del handoff de Supabase, con la marca Atlantis (acento champagne, Inter,
+wordmark). Decisiones clave:
+
+- **Sin correos de Supabase Auth**: n8n envía todo por SMTP; Supabase es solo la
+  base de usuarios (Admin API con la service_role). No actives el SMTP de
+  Supabase ni sus plantillas (duplicaría correos).
+- **Token propio en vez del reset PKCE de Supabase**: el enlace funciona en
+  cualquier navegador/dispositivo (el PKCE falla con `Auth session missing!` al
+  abrir el correo en otro equipo).
+- **Supabase por variables de entorno**: los nodos leen `$env.SUPABASE_URL` y
+  `$env.SUPABASE_SERVICE_KEY`, que el compose del bootstrap ya pasa al
+  contenedor `n8n-atlantis` (defínelas en el `.env` del VPS). La tabla
+  `password_resets` se accede por el REST de Supabase → **no hace falta
+  credencial Postgres en n8n**.
+- **Contraseñas y tokens con `crypto`** (no `Math.random`): el compose ya trae
+  `NODE_FUNCTION_ALLOW_BUILTIN=crypto`.
+- **El alta NO es pública**: exige `?k=<CRON_KEY>` (el instalador la deja
+  puesta). Los dos webhooks de reset sí son públicos por diseño: el de
+  solicitar solo dispara un correo al dueño de la cuenta y en el de confirmar
+  el token ES la credencial.
+
+Pasos para activarlos:
+
+1. Corre `n8n/sql-password-resets.sql` en Supabase → SQL Editor (crea la tabla
+   con RLS activo).
+2. Verifica que el `.env` del VPS tenga `SUPABASE_URL` y `SUPABASE_SERVICE_KEY`
+   (los del proyecto de la Calculadora) y corre el instalador de flujos.
+3. En n8n, asigna la credencial **SMTP** a los tres nodos de correo (la misma
+   de los demás flujos). Consejo del handoff: usa **Brevo** o **Resend** con el
+   dominio verificado (SPF/DKIM); el SMTP del hosting acepta y no entrega, y
+   Gmail topa en ~500/día.
+4. La app llama a `password-reset-request` / `password-reset-confirm` (el
+   cliente `auth-cliente.js` + `reset.html` del handoff ya apuntan a esos
+   nombres). Cuando el dominio final de la app esté fijo, restringe el CORS de
+   esos dos webhooks (nodo Webhook → Options → Allowed Origins) y ponle rate
+   limit en Traefik si quieres endurecerlo.
+5. El enlace del correo apunta a `https://app.atlantisglobalrealty.com/reset.html`;
+   si la app vive en otra URL, cámbiala en el nodo "Armar correo" del flujo de
+   solicitar.
 
 ## Restaurar un respaldo del CRM
 
