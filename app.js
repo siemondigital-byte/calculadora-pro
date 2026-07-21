@@ -29,6 +29,7 @@
       forgotBtn: 'Enviar enlace',
       forgotBack: '← Volver a iniciar sesión',
       forgotSending: 'Enviando…',
+      forgotPlaceholder: 'tu@correo.com',
       allianceLabel: 'En alianza con', demoNote: 'Demo de revisión · cualquier dato te deja entrar',
       headerSub: 'Sesión de ejemplo', logout: 'Salir',
       projectsTitle: 'Proyectos', addProject: 'Nuevo proyecto', deleteProject: 'Eliminar proyecto', duplicateProject: 'Duplicar',
@@ -111,6 +112,7 @@
       forgotBtn: 'Send link',
       forgotBack: '← Back to sign in',
       forgotSending: 'Sending…',
+      forgotPlaceholder: 'your@email.com',
       allianceLabel: 'In partnership with', demoNote: 'Review demo · any input lets you in',
       headerSub: 'Sample session', logout: 'Log out',
       projectsTitle: 'Projects', addProject: 'New project', deleteProject: 'Delete project', duplicateProject: 'Duplicate',
@@ -638,7 +640,9 @@
     for (var j = 0; j < langBtns.length; j++) {
       langBtns[j].classList.toggle('active', langBtns[j].getAttribute('data-lang') === state.lang);
     }
-    window.__forgotTr = { sending: L.forgotSending };
+    window.__forgotTr = { sending: L.forgotSending, placeholder: L.forgotPlaceholder };
+    var fe = document.getElementById('forgot-email');
+    if (fe) fe.placeholder = L.forgotPlaceholder;
   }
 
   function commit() { saveState(); render(); }
