@@ -163,6 +163,9 @@ cat >> compose.compartido.yml <<YML
       - WEBHOOK_URL=https://$DOMINIO_HOOKS/
       - GENERIC_TIMEZONE=America/Bogota
       - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+      # n8n >= 2.x bloquea \$env.* en los flujos por defecto; los flujos de
+      # acceso leen SUPABASE_URL/SUPABASE_SERVICE_KEY con \$env, asi que se abre.
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       # Supabase de la Calculadora Pro (los flujos los leen como \$env.*).
       # Valores en el .env de esta carpeta; la service_role NUNCA va al navegador.
       - SUPABASE_URL=\${SUPABASE_URL:-}

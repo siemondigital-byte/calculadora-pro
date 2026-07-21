@@ -31,6 +31,16 @@ else
   echo "   inyectadas al servicio n8n-atlantis."
 fi
 
+echo "== 1b/5 Permitir \$env.* en los flujos (n8n 2.x lo bloquea) =="
+if grep -q 'N8N_BLOCK_ENV_ACCESS_IN_NODE' compose.compartido.yml; then
+  echo "   ya estaba permitido."
+else
+  sed -i '/NODE_FUNCTION_ALLOW_BUILTIN=crypto/a\      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false' compose.compartido.yml
+  grep -q 'N8N_BLOCK_ENV_ACCESS_IN_NODE' compose.compartido.yml \
+    || { echo "ERROR: no pude inyectar N8N_BLOCK_ENV_ACCESS_IN_NODE" >&2; exit 1; }
+  echo "   inyectado N8N_BLOCK_ENV_ACCESS_IN_NODE=false."
+fi
+
 echo "== 2/5 Valores reales en el .env =="
 for var in SUPABASE_URL SUPABASE_SERVICE_KEY; do
   val=$(grep "^$var=" .env | cut -d= -f2- || true)
@@ -71,6 +81,22 @@ code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
   -X POST "https://$DOMINIO/webhook/alta-calculadora" \
   -H 'Content-Type: application/json' -d '{"ping":true}' || true)
 echo "[$([ "$code" = "401" ] && echo x || echo ' ')] webhook /alta-calculadora sin clave -> $code (esperado 401)"
+
+# prueba real de punta a punta: si responde {"ok":true} es que el flujo llego
+# hasta el envio (token -> Supabase -> correo); el correo debe aterrizar en la
+# bandeja del correo de prueba en ~1 min. Se puede pasar otro correo: bash $0 otro@x.com
+CORREO_PRUEBA="${1:-siemondigital@gmail.com}"
+echo
+echo "== Prueba real: correo de recuperacion a $CORREO_PRUEBA =="
+RESP=$(curl -s --max-time 30 -X POST "https://$DOMINIO/webhook/password-reset-request" \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$CORREO_PRUEBA\",\"lang\":\"es\"}" || true)
+if echo "$RESP" | grep -q '"ok"'; then
+  echo "[x] el flujo completo funciono ($RESP). Revisa la bandeja de $CORREO_PRUEBA (y spam)."
+else
+  echo "[ ] el flujo NO completo (respuesta: '$RESP')."
+  echo "    Mira la ejecucion roja en https://$DOMINIO -> Overview -> Executions."
+fi
 echo
 echo "PENDIENTE MANUAL (una vez): en https://$DOMINIO abre cada uno de los 3"
 echo "flujos 'Acceso app ...', y en su nodo de correo asigna la credencial SMTP"
