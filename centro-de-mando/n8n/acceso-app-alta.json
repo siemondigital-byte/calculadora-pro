@@ -118,13 +118,7 @@
       "position": [
         1320,
         220
-      ],
-      "credentials": {
-        "smtp": {
-          "id": "REEMPLAZAR",
-          "name": "<credencial SMTP de n8n>"
-        }
-      }
+      ]
     },
     {
       "parameters": {

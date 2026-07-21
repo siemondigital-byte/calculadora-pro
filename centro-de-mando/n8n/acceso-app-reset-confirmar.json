@@ -249,13 +249,7 @@
       "position": [
         2160,
         140
-      ],
-      "credentials": {
-        "smtp": {
-          "id": "REEMPLAZAR",
-          "name": "<credencial SMTP de n8n>"
-        }
-      }
+      ]
     },
     {
       "parameters": {

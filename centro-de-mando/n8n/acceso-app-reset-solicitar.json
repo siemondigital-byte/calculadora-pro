@@ -93,13 +93,7 @@
       "position": [
         1120,
         300
-      ],
-      "credentials": {
-        "smtp": {
-          "id": "REEMPLAZAR",
-          "name": "<credencial SMTP de n8n>"
-        }
-      }
+      ]
     },
     {
       "parameters": {
