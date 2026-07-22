@@ -1,0 +1,49 @@
+{
+  "_nota": "Config REAL de Atlantis Global Realty (lado agencia, convencion CLAUDE.md par.7: el producto usa cicloderiqueza@/wealthcycle@; la agencia usa contact@). Las CLAVES (SMTP/IMAP/DKIM) NO van aqui: van en el vault de secretos del motor.",
+
+  "marca": {
+    "nombre": "Atlantis Global Realty",
+    "dominio": "atlantisglobalrealty.com",
+    "voz": {
+      "tono": "Arquitectos de patrimonio: sobria, serena y honesta, como banca privada. Asesora experta que acompana una decision importante (comprar, vender, invertir) sin presion. Tuteo neutro latinoamericano, frases cortas.",
+      "lexico": ["patrimonio", "estructura", "decision informada", "acompanamiento", "diagnostico", "sin presion", "el momento correcto"],
+      "reglas": "Siempre afirmativo y honesto. Firma institucional: sin nombres propios de persona. Cero urgencia agresiva ni escasez artificial. Nunca prometer retornos ni rentabilidades; los riesgos se nombran, no se esconden. Cifras de mercado solo con fuente y ano. Cero em dashes; rangos con 'a'. La consulta es un diagnostico, no una venta. Anti-guru: nada de 'transforma tu vida' ni vocabulario de manifestacion."
+    },
+    "firma": "El equipo de Atlantis Global Realty · atlantisglobalrealty.com",
+    "colores": { "primario": "#0F1B2D", "acento": "#E6C788", "fondo_oscuro": "#0A0A0C", "texto": "#1B1B1B" },
+    "tipografia": { "identidad": "Pondar (solo wordmark, sin tildes)", "correos": "Inter" },
+    "disclaimer": "Contenido educativo. No es asesoria financiera, legal ni tributaria."
+  },
+
+  "envio": {
+    "remitente": "Atlantis Global Realty <contact@envios.atlantisglobalrealty.com>",
+    "responder_a": "contact@atlantisglobalrealty.com",
+    "dominio_envio": "envios.atlantisglobalrealty.com",
+    "smtp": { "host": "(en el vault; proveedor por definir en Parte 1)", "puerto": 587 },
+    "imap": { "host": "imap.hostinger.com", "puerto": 993, "_nota": "buzon real andrea@ (recibe contact@); credencial en el vault" }
+  },
+
+  "entregabilidad": {
+    "tope_diario": 40,
+    "espaciado_min": 4,
+    "warmup": true,
+    "warmup_plan": "semana 1: max 10/dia · semana 2: 20/dia · semana 3: 30/dia · desde semana 4: tope 40/dia"
+  },
+
+  "tracking": { "pixel": true, "utm": true },
+
+  "negocio": {
+    "icp": ["compradores de vivienda", "vendedores/propietarios", "inversionistas inmobiliarios", "expatriados/reubicacion"],
+    "lead_magnets": ["Guia del comprador primerizo", "Reporte de mercado de la zona", "Checklist para vender tu propiedad al mejor precio"],
+    "secuencias": [
+      { "id": "comprador", "disparador": "descargo la guia del comprador", "premisa": "Aun explora, quiere entender el proceso y la zona sin sentirse presionado.", "pasos": ["Bienvenida + guia", "Como elegir zona y presupuesto", "Errores a evitar al comprar", "Casos reales (con consentimiento) o principios del metodo", "Invitacion a un diagnostico sin compromiso"] },
+      { "id": "vendedor", "disparador": "pidio valoracion de su propiedad", "premisa": "Piensa vender; le importa el precio correcto y no equivocarse.", "pasos": ["Valoracion + siguientes pasos", "Que suma y que resta valor", "Como preparar la propiedad", "Tiempos y costos reales", "Agenda una visita de valoracion"] },
+      { "id": "inversionista", "disparador": "pidio el reporte de mercado", "premisa": "Busca oportunidades y datos, no romanticismo. Nunca prometerle retornos: los rendimientos proyectados son del constructor y los riesgos se nombran.", "pasos": ["Reporte + tesis de la zona", "Metricas que importan (TIR real, capacidad de endeudamiento)", "Oportunidades del mes", "Financiamiento y estructura", "Hablemos de tu portafolio (diagnostico)"] },
+      { "id": "post_visita", "disparador": "visito una propiedad", "premisa": "Ya vio algo concreto; hay interes real.", "pasos": ["Gracias + resumen de lo que vio", "Responde dudas comunes", "Opciones similares", "Como avanzar si le gusto"] }
+    ]
+  },
+
+  "n8n": { "url": "https://hooks.atlantisglobalrealty.com", "cron_procesar": true, "cron_sincronizar": true },
+
+  "crm": { "modulo_nurturing": true, "modulo_correo_frio": true, "modulo_enviados_bandeja": true }
+}
