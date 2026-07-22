@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================ TIPOGRAFIA REAL DE MARCA
+   Pondar (display/wordmark) + Inter variable (texto/UI), self-hosted en
+   /public/fonts. font-display swap: si el archivo falta, cae al fallback. */
+@font-face {
+  font-family: "Pondar";
+  src: url("/fonts/Pondar.otf") format("opentype");
+  font-weight: 300 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "InterVar";
+  src: url("/fonts/Inter-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "InterVar";
+  src: url("/fonts/Inter-Italic-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* ============================================================ TEMA DE MARCA
    Atlantis Global Realty — banca privada editorial. Para re-brandear el CRM
    completo, SOLO se edita este bloque (las vistas leen estas variables). */
@@ -33,8 +57,8 @@
   /* Tipografia oficial de marca: logo en Pondar (interlineado 0.71) — no esta
      en Google Fonts, el wordmark lo aproximan caps espaciadas de Inter — y
      cuerpo/UI en Inter (interlineado 1.06). */
-  --marca-fuente-display: "Inter", system-ui, sans-serif;
-  --marca-fuente-sans: "Inter", system-ui, sans-serif;
+  --marca-fuente-display: "Pondar", "InterVar", "Inter", system-ui, sans-serif;
+  --marca-fuente-sans: "InterVar", "Inter", system-ui, sans-serif;
   --marca-fuente-mono: ui-monospace, SFMono-Regular, monospace;
   --marca-interlineado: 1.06;
   --marca-interlineado-logo: 0.71;

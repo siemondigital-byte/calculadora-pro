@@ -33,13 +33,8 @@ function Login() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={entrar} className="tarjeta w-full max-w-sm space-y-5">
         <div className="text-center">
-          <img src="/icono.png" alt="" className="mx-auto mb-3 h-16 w-16 rounded-2xl" />
-          <div className="wordmark text-2xl text-crema">
-            Atlantis
-          </div>
-          <div className="wordmark mt-1.5 text-[10px] !tracking-[0.5em] text-oro">
-            Global Realty
-          </div>
+          {/* Lockup oficial: el delta hace de A. Alto fijo + ancho auto = sin deformar. */}
+          <img src="/wordmark.png" alt="Atlantis Global Realty" className="mx-auto mb-1 h-20 w-auto" />
           <div className="mt-3 text-xs uppercase tracking-widest text-gris">
             Centro de Mando
           </div>

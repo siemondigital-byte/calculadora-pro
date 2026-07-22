@@ -209,7 +209,7 @@ export default function App() {
         >
           ☰
         </button>
-        <span className="wordmark text-sm text-crema">Atlantis</span>
+        <img src="/wordmark.png" alt="Atlantis Global Realty" className="h-7 w-auto" />
         <span className="text-sm text-gris">· {titulo}</span>
       </div>
 
@@ -225,16 +225,9 @@ export default function App() {
           navAbierto ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="mb-6 flex items-center gap-2.5">
-          <img src="/icono.png" alt="" className="h-9 w-9 rounded-lg" />
-          <div>
-            <div className="wordmark text-base text-crema">
-              Atlantis
-            </div>
-            <div className="wordmark mt-1 text-[9px] !tracking-[0.45em] text-oro">
-              Global Realty
-            </div>
-          </div>
+        <div className="mb-6">
+          {/* Lockup oficial de marca: el delta hace de A. No deformar: alto fijo, ancho auto. */}
+          <img src="/wordmark.png" alt="Atlantis Global Realty" className="h-14 w-auto" />
         </div>
 
         <select
