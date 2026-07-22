@@ -35,7 +35,7 @@ function Login() {
         <div className="text-center">
           {/* Lockup oficial: el delta hace de A. Alto fijo + ancho auto = sin deformar. */}
           <img src="/wordmark.png" alt="Atlantis Global Realty" className="mx-auto mb-1 h-20 w-auto" />
-          <div className="mt-3 text-xs uppercase tracking-widest text-gris">
+          <div className="wordmark mt-3 text-xs !tracking-[0.3em] text-gris">
             Centro de Mando
           </div>
         </div>

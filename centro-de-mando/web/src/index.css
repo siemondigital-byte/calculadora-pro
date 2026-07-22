@@ -57,8 +57,11 @@
   /* Tipografia oficial de marca: logo en Pondar (interlineado 0.71) — no esta
      en Google Fonts, el wordmark lo aproximan caps espaciadas de Inter — y
      cuerpo/UI en Inter (interlineado 1.06). */
-  --marca-fuente-display: "Pondar", "InterVar", "Inter", system-ui, sans-serif;
+  --marca-fuente-display: "InterVar", "Inter", system-ui, sans-serif;
   --marca-fuente-sans: "InterVar", "Inter", system-ui, sans-serif;
+  /* Pondar (fuente REAL del logo): solo texto de marca en MAYUSCULAS y sin
+     acentos, porque Pondar no incluye tildes ni ñ. */
+  --marca-fuente-logo: "Pondar", "InterVar", "Inter", system-ui, sans-serif;
   --marca-fuente-mono: ui-monospace, SFMono-Regular, monospace;
   --marca-interlineado: 1.06;
   --marca-interlineado-logo: 0.71;
@@ -90,6 +93,7 @@
   /* Wordmark de marca (aprox. Pondar): caps espaciadas, interlineado 0.71 */
   .wordmark {
     line-height: var(--marca-interlineado-logo);
+    font-family: var(--marca-fuente-logo);
     letter-spacing: 0.32em;
     text-transform: uppercase;
     font-weight: 300;
