@@ -131,6 +131,14 @@ def main():
 
     generar_favicons(OUT / "assets", EMB / "sitio" / "assets" / "logo.png")
 
+    # los iconos de los correos (orbita, candado, etc.) tambien viven en
+    # assets/ y los genera el otro script; regenerarlos SIEMPRE para que la
+    # limpieza de OUT no los deje fuera del paquete
+    import subprocess
+    import sys
+    subprocess.run([sys.executable, str(Path(__file__).parent / "generar-assets-correo.py")],
+                   check=True)
+
     print(f"OK: {n} páginas + wordmark en {OUT.relative_to(RAIZ)}/")
     for p in sorted(OUT.glob("*.html")):
         print("  /emails/" + p.name)
