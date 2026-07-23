@@ -1,57 +1,67 @@
 #!/usr/bin/env bash
-# Publica web-emails/ en el hosting bajo /emails/ (versiones web de los correos).
-# Correr EN EL VPS desde /root/atlantis/centro-de-mando (usa el FTP del motor):
+# Publica web-emails/ en el hosting bajo /emails/ (versiones web de los correos
+# + assets PNG que usan los correos enviados).
+#
+# Correr EN EL VPS desde /root/atlantis/centro-de-mando:
 #
 #   bash scripts/publicar-emails-web.sh
 #
-# Lee FTP_HOST / FTP_USER / FTP_PASSWORD / FTP_DIR del .env del compose (los
-# mismos que usa el motor para publicar la web). No imprime credenciales.
+# La subida corre DENTRO del contenedor del motor, con el mismo FTP que el
+# motor usa para publicar la web corporativa (FTP_HOST/FTP_USER/FTP_PASS de su
+# entorno). No imprime credenciales.
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")/.." && pwd)"
 PAQUETE="$AQUI/../web-emails"
 [ -d "$PAQUETE" ] || { echo "ERROR: no existe $PAQUETE (corre primero generar-web-emails.py)"; exit 1; }
-[ -f "$AQUI/.env" ] || { echo "ERROR: no encuentro $AQUI/.env"; exit 1; }
 
-set -a; . "$AQUI/.env"; set +a
-: "${FTP_HOST:?FTP_HOST no esta en .env}"
-: "${FTP_USER:?FTP_USER no esta en .env}"
-: "${FTP_PASSWORD:?FTP_PASSWORD no esta en .env}"
+CONT=$(docker ps --format '{{.Names}}' | grep -m1 'motor' || true)
+[ -n "$CONT" ] || { echo "ERROR: no encuentro el contenedor del motor corriendo"; exit 1; }
 
-PAQUETE="$PAQUETE" python3 - <<'PY'
+if ! docker exec "$CONT" sh -c '[ -n "$FTP_HOST" ]'; then
+  echo "ERROR: el contenedor del motor no tiene FTP_HOST configurado."
+  echo "Agrega FTP_HOST, FTP_USER y FTP_PASS al entorno del motor (los datos"
+  echo "FTP de Hostinger, hPanel > Archivos > Cuentas FTP) y recrea el motor."
+  exit 1
+fi
+
+docker exec "$CONT" rm -rf /tmp/web-emails
+docker cp "$PAQUETE" "$CONT:/tmp/web-emails"
+
+docker exec "$CONT" python3 - <<'PY'
 import os
 from ftplib import FTP
 from pathlib import Path
 
-paquete = Path(os.environ["PAQUETE"]).resolve()
-base = (os.environ.get("FTP_DIR") or "").strip().rstrip("/")
-
-ftp = FTP(os.environ["FTP_HOST"], timeout=30)
-ftp.login(os.environ["FTP_USER"], os.environ["FTP_PASSWORD"])
-if base:
-    ftp.cwd(base)
+paquete = Path("/tmp/web-emails")
+f = FTP()
+f.connect(os.environ["FTP_HOST"].replace("ftp://", ""),
+          int(os.environ.get("FTP_PORT", "21")), timeout=30)
+f.login(os.environ.get("FTP_USER", ""), os.environ.get("FTP_PASS", ""))
 
 def asegurar(d):
     try:
-        ftp.mkd(d)
+        f.mkd(d)
     except Exception:
         pass
 
 asegurar("emails")
 asegurar("emails/assets")
 subidos = 0
-for f in sorted(paquete.rglob("*")):
-    if not f.is_file():
+for p in sorted(paquete.rglob("*")):
+    if not p.is_file():
         continue
-    remoto = "emails/" + str(f.relative_to(paquete)).replace("\\", "/")
-    with open(f, "rb") as fh:
-        ftp.storbinary(f"STOR {remoto}", fh)
+    remoto = "emails/" + str(p.relative_to(paquete))
+    with open(p, "rb") as fh:
+        f.storbinary(f"STOR {remoto}", fh)
     subidos += 1
     print("  subido", remoto)
-ftp.quit()
+f.quit()
 print(f"OK: {subidos} archivos publicados bajo /emails/")
 PY
 
+docker exec "$CONT" rm -rf /tmp/web-emails
+
 echo
-echo "Verifica: https://atlantisglobalrealty.com/emails/descarga-guia.html"
-echo "          https://atlantisglobalrealty.com/emails/assets/wordmark.png"
+echo "Verifica: https://atlantisglobalrealty.com/emails/assets/candado.png"
+echo "          https://atlantisglobalrealty.com/emails/mail-cambio-contrasena.html"
