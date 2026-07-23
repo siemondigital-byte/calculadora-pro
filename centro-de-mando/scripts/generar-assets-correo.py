@@ -95,7 +95,12 @@ def main():
     unicos = {}
     fuentes = (list((RAIZ / "emails" / "credenciales-app" / "dist-email").glob("*.html"))
                + list((RAIZ / "emails" / "embudo-atlantis" / "emails" / "dist-n8n").rglob("*.html")))
-    for f in fuentes:
+    # los dist-web conservan los SVG originales (el navegador si los renderiza);
+    # de ahi se extraen los iconos aunque dist-email/dist-n8n ya esten parcheados
+    extraccion = (fuentes
+                  + list((RAIZ / "emails" / "credenciales-app" / "dist-web").glob("*.html"))
+                  + list((RAIZ / "emails" / "embudo-atlantis" / "emails" / "dist-web").rglob("*.html")))
+    for f in extraccion:
         for m in re.findall(r"<svg.*?</svg>", f.read_text(encoding="utf-8"), re.S):
             nombre = next((n for n, s in FIRMAS.items() if s in m), None)
             if nombre and nombre not in unicos:
