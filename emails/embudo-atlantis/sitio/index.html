@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Embudo web — Atlantis Global Realty</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding:10px 0 70px}
+.pcard{display:flex;flex-direction:column;gap:8px;padding:24px;color:var(--ink)}
+.pcard:hover{border-color:var(--accent);color:var(--ink)}
+.pcard .k{font:600 10px/1 'Figtree','Inter',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.pcard .t{font-weight:600;font-size:18px}
+.pcard .d{color:var(--muted);font-size:13.5px}
+.pcard .u{font:500 11px/1 'Figtree','Inter',sans-serif;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="index.html">
+      <img class="wm-img" src="assets/wordmark.png" alt="Atlantis Global Realty">
+    </a>
+    <div class="controls">
+      <div class="lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
+    </div>
+  </header>
+  <p class="ml" data-i18n="eyebrow">Embudo web</p>
+  <h1 data-i18n-html="h1">Páginas del <b>embudo</b></h1>
+  <p class="lead" data-i18n="lead">Índice interno para QA. Cada página es bilingüe (ES/EN) con el tema oscuro de marca.</p>
+  <nav class="grid">
+    <a class="card pcard" href="agendar-llamada/index.html"><span class="k">01</span><span class="t" data-i18n="p1">Llamada 15 min</span><span class="d" data-i18n="p1d">CTA principal — primer contacto por teléfono. Slot para embed de Cal.</span><span class="u">/agendar-llamada/</span></a>
+    <a class="card pcard" href="agendar-video/index.html"><span class="k">02</span><span class="t" data-i18n="p2">Videollamada 30 min</span><span class="d" data-i18n="p2d">Sesión de estrategia — destino de {{book_url}}. Slot para embed de Cal.</span><span class="u">/agendar-video/</span></a>
+    <a class="card pcard" href="guia/index.html"><span class="k">03</span><span class="t" data-i18n="p3">Landing lead magnet</span><span class="d" data-i18n="p3d">Captura de correo — la guía llega por email vía n8n.</span><span class="u">/guia/</span></a>
+    <a class="card pcard" href="unsubscribe/index.html?email=demo@correo.com"><span class="k">04</span><span class="t" data-i18n="p4">Unsubscribe</span><span class="d" data-i18n="p4d">Baja en un clic — destino de {{unsubscribe_url}}.</span><span class="u">/unsubscribe/</span></a>
+    <a class="card pcard" href="../emails/es/01-solicitud-recibida.html"><span class="k">07</span><span class="t" data-i18n="p7">Correos: secuencia (12)</span><span class="d" data-i18n="p7d">Suite transaccional completa — solicitud a cierre (ES / EN).</span><span class="u">/emails/es · /emails/en</span></a>
+    <a class="card pcard" href="../emails/es/12-descarga-guia.html"><span class="k">08</span><span class="t" data-i18n="p8">Correo: descarga guía</span><span class="d" data-i18n="p8d">Transaccional — entrega del lead magnet (ES / EN).</span><span class="u">/emails/es · /emails/en</span></a>
+    <a class="card pcard" href="legales/privacidad.html"><span class="k">05</span><span class="t" data-i18n="p5">Privacidad</span><span class="d" data-i18n="p5d">ES + EN, enlazada desde todos los footers.</span><span class="u">/legales/privacidad.html</span></a>
+    <a class="card pcard" href="legales/terminos.html"><span class="k">06</span><span class="t" data-i18n="p6">Términos</span><span class="d" data-i18n="p6d">ES + EN, condiciones de uso y del servicio.</span><span class="u">/legales/terminos.html</span></a>
+  </nav>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span><a href="https://atlantisglobalrealty.com">atlantisglobalrealty.com</a> · <a href="mailto:contact@atlantisglobalrealty.com">contact@atlantisglobalrealty.com</a></span>
+</div></footer>
+<script>
+window.I18N={
+ es:{eyebrow:"Embudo web",h1:"Páginas del <b>embudo</b>",lead:"Índice interno para QA. Cada página es bilingüe (ES/EN) con el tema oscuro de marca.",
+  p1:"Llamada 15 min",p1d:"CTA principal — primer contacto por teléfono. Slot para embed de Cal.",
+  p2:"Videollamada 30 min",p2d:"Sesión de estrategia — destino de {{book_url}}. Slot para embed de Cal.",
+  p3:"Landing lead magnet",p3d:"Captura de correo — la guía llega por email vía n8n.",
+  p4:"Unsubscribe",p4d:"Baja en un clic — destino de {{unsubscribe_url}}.",
+  p7:"Correos: secuencia (12)",p7d:"Suite transaccional completa — solicitud a cierre (ES / EN).",
+  p8:"Correo: descarga guía",p8d:"Transaccional — entrega del lead magnet (ES / EN).",
+  p5:"Privacidad",p5d:"ES + EN, enlazada desde todos los footers.",
+  p6:"Términos",p6d:"ES + EN, condiciones de uso y del servicio."},
+ en:{eyebrow:"Web funnel",h1:"Funnel <b>pages</b>",lead:"Internal QA index. Every page is bilingual (ES/EN) in the brand dark theme.",
+  p1:"15-min call",p1d:"Main CTA — first phone contact. Cal embed slot.",
+  p2:"30-min video call",p2d:"Strategy session — {{book_url}} destination. Cal embed slot.",
+  p3:"Lead magnet landing",p3d:"Email capture — the guide arrives by email via n8n.",
+  p4:"Unsubscribe",p4d:"One-click opt-out — {{unsubscribe_url}} destination.",
+  p7:"Emails: sequence (12)",p7d:"Full transactional suite — request to closing (ES / EN).",
+  p8:"Email: guide delivery",p8d:"Transactional — lead magnet delivery (ES / EN).",
+  p5:"Privacy",p5d:"ES + EN, linked from every footer.",
+  p6:"Terms",p6d:"ES + EN, terms of use and service."}
+};
+</script>
+<script src="assets/app.js"></script>
+<script>document.getElementById('yy').textContent=new Date().getFullYear();</script>
+</body>
+</html>

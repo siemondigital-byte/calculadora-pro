@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Baja de correos — Atlantis Global Realty</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+.center{min-height:calc(100vh - 220px);display:flex;align-items:center;justify-content:center;padding:30px 0}
+.ucard{max-width:460px;width:100%;text-align:center}
+.ucard .ic{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 18px}
+.ucard h1{font-size:26px;font-weight:600;margin-bottom:10px}
+.ucard p{color:var(--muted);font-size:15px;margin:0 0 22px}
+.ucard .mail{font:600 13px 'Figtree','Inter',sans-serif;color:var(--ink);word-break:break-all}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="../index.html">
+      <img class="wm-img" src="../assets/wordmark.png" alt="Atlantis Global Realty">
+    </a>
+    <div class="controls">
+      <div class="lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
+    </div>
+  </header>
+  <main class="center">
+    <div class="card ucard">
+      <div id="st-ask">
+        <div class="ic">✉</div>
+        <h1 data-i18n="at">¿Quieres darte de baja?</h1>
+        <p><span data-i18n="ad">Dejarás de recibir nuestros correos en</span><br><span class="mail" id="mail1">—</span></p>
+        <button class="btn" id="btn-unsub" data-i18n="ab">Confirmar baja</button>
+        <p class="status" aria-live="polite" id="u-status"></p>
+      </div>
+      <div id="st-done" class="hide">
+        <div class="ic">✓</div>
+        <h1 data-i18n="dt">Baja confirmada</h1>
+        <p><span data-i18n="dd">No volverás a recibir correos en</span><br><span class="mail" id="mail2">—</span></p>
+        <button class="btn btn-ghost" id="btn-resub" data-i18n="db">Volver a suscribirme</button>
+        <p class="status" aria-live="polite" id="r-status"></p>
+      </div>
+    </div>
+  </main>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span><a data-href-es="../legales/privacidad.html" data-href-en="../legales/privacy.html" href="../legales/privacidad.html" data-i18n="priv">Privacidad</a> · <a href="https://atlantisglobalrealty.com">atlantisglobalrealty.com</a></span>
+</div></footer>
+<script>
+window.I18N={
+ es:{at:"¿Quieres darte de baja?",ad:"Dejarás de recibir nuestros correos en",ab:"Confirmar baja",
+  dt:"Baja confirmada",dd:"No volverás a recibir correos en",db:"Volver a suscribirme",
+  priv:"Privacidad",sending:"Procesando…",resubok:"¡Listo! Sigues suscrito.",
+  fail:"No pudimos procesar tu solicitud. Escríbenos a contact@atlantisglobalrealty.com"},
+ en:{at:"Want to unsubscribe?",ad:"You will stop receiving our emails at",ab:"Confirm unsubscribe",
+  dt:"You're unsubscribed",dd:"You will no longer receive emails at",db:"Re-subscribe",
+  priv:"Privacy",sending:"Processing…",resubok:"Done! You're subscribed again.",
+  fail:"We couldn't process your request. Email us at contact@atlantisglobalrealty.com"}
+};
+</script>
+<script src="../assets/app.js"></script>
+<script>
+var WEBHOOK_UNSUB="";// URL del flujo n8n de baja
+document.getElementById('yy').textContent=new Date().getFullYear();
+var q=new URLSearchParams(location.search),email=q.get('email')||'',token=q.get('token')||'';
+document.getElementById('mail1').textContent=email||'tu correo';
+document.getElementById('mail2').textContent=email||'tu correo';
+function post(action,statusEl,then){
+  statusEl.textContent=AGR.t('sending');
+  if(!WEBHOOK_UNSUB){statusEl.textContent='';then();return;}
+  fetch(WEBHOOK_UNSUB,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email:email,token:token,action:action,lang:AGR.lang})})
+    .then(function(r){if(!r.ok)throw 0;statusEl.textContent='';then();})
+    .catch(function(){statusEl.textContent=AGR.t('fail');});
+}
+document.getElementById('btn-unsub').onclick=function(){
+  post('unsubscribe',document.getElementById('u-status'),function(){
+    document.getElementById('st-ask').classList.add('hide');
+    document.getElementById('st-done').classList.remove('hide');
+  });
+};
+document.getElementById('btn-resub').onclick=function(){
+  post('resubscribe',document.getElementById('r-status'),function(){
+    document.getElementById('r-status').textContent=AGR.t('resubok');
+  });
+};
+</script>
+</body>
+</html>

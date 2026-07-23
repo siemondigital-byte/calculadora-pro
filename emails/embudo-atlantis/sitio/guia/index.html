@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guía gratuita — Atlantis Global Realty</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+.coverwrap{display:flex;justify-content:center;align-items:center}
+.cover{position:relative;width:min(360px,100%);aspect-ratio:3/4.2;border-radius:6px;overflow:hidden;
+  background:linear-gradient(160deg,var(--surface) 0%,var(--surface2) 100%);
+  border:1px solid var(--line);box-shadow:0 40px 80px -30px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;justify-content:space-between;padding:30px 28px}
+.cover::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(320px 260px at 85% 0%,var(--accent-soft),transparent 65%),
+  repeating-radial-gradient(circle at 110% -10%,transparent 0 34px,var(--accent-soft) 34px 35px);
+  opacity:.9;pointer-events:none}
+.cover::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:18px 18px;opacity:.5;
+  -webkit-mask-image:linear-gradient(to top,#000 20%,transparent 60%);mask-image:linear-gradient(to top,#000 20%,transparent 60%)}
+.cover .wm{position:absolute;bottom:44px;left:18px;right:18px;opacity:.07;pointer-events:none}
+.cover .wm img{width:100%;display:block}
+.cover .tag{position:relative;font:600 9.5px/1 'Figtree','Inter',sans-serif;letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
+.cover h2{position:relative;font-weight:500;font-size:27px;line-height:1.22;margin:0;text-wrap:pretty}
+.cover h2 .acc{font-weight:500;color:var(--accent)}
+.cover .foot{position:relative;display:flex;justify-content:space-between;align-items:center;
+  font:600 9px/1 'Figtree','Inter',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.cover .foot::before{content:"";position:absolute;top:-14px;left:0;right:0;height:1px;background:var(--line)}
+.done{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(2,10,16,.7);backdrop-filter:blur(4px);padding:20px}
+.done.show{display:flex}
+.done .card{max-width:420px;text-align:center}
+.done .ok{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px}
+.done h3{font-weight:600;font-size:21px;margin:0 0 8px}
+.done p{color:var(--muted);font-size:14.5px;margin:0 0 20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="../index.html">
+      <img class="wm-img" src="../assets/wordmark.png" alt="Atlantis Global Realty">
+    </a>
+    <div class="controls">
+      <div class="lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
+    </div>
+  </header>
+  <main class="hero">
+    <section>
+      <p class="ml" data-i18n="eyebrow">Guía gratuita</p>
+      <h1 data-i18n-html="h1">Dónde invertir en <b>2026</b>: mercados con mayor valorización</h1>
+      <p class="lead" data-i18n="lead">La guía práctica para inversionistas que quieren entrar al mercado inmobiliario internacional con datos, no con corazonadas.</p>
+      <ul class="arrows" style="margin-bottom:30px">
+        <li data-i18n-html="b1"><b>Tu perfil inversionista:</b> descubre qué estrategia se ajusta a tu capital y horizonte.</li>
+        <li data-i18n-html="b2"><b>5 mercados con proyección:</b> comparados por valorización, renta y riesgo.</li>
+        <li data-i18n-html="b3"><b>Errores costosos:</b> los que frenan al inversionista extranjero y cómo evitarlos.</li>
+      </ul>
+      <form id="lm-form" class="card" novalidate>
+        <div class="field"><label for="lm-name" data-i18n="lname">Nombre</label><input type="text" id="lm-name" name="name" autocomplete="name" data-i18n-ph="phname" placeholder="Tu nombre"><p class="err" data-i18n="ename">Escribe tu nombre.</p></div>
+        <div class="field"><label for="lm-email" data-i18n="lemail">Correo</label><input type="email" id="lm-email" name="email" autocomplete="email" placeholder="tu@correo.com"><p class="err" data-i18n="eemail">Escribe un correo válido.</p></div>
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+        <button class="btn" type="submit" style="width:100%" data-i18n="cta">Descargar guía gratuita →</button>
+        <p class="status" aria-live="polite" id="lm-status"></p>
+        <p class="fine" data-i18n="fine">Sin spam. Solo la guía y contenido útil, y puedes darte de baja cuando quieras.</p>
+      </form>
+    </section>
+    <section class="coverwrap">
+      <div class="cover">
+        <span class="tag" data-i18n="ctag">Guía 2026</span>
+        <h2 data-i18n-html="ctitle">Dónde invertir en <span class="acc">2026</span>:<br>mercados inmobiliarios con mayor <span class="acc">valorización</span></h2>
+        <span class="wm"><img src="../assets/wordmark.png" alt=""></span>
+        <div class="foot"><span>Atlantis Global Realty</span><span>atlantisglobalrealty.com</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span data-i18n="disc">Contenido educativo. No es asesoría financiera, legal ni tributaria.</span>
+  <span><a data-href-es="../legales/privacidad.html" data-href-en="../legales/privacy.html" href="../legales/privacidad.html" data-i18n="priv">Privacidad</a> · <a href="https://atlantisglobalrealty.com">atlantisglobalrealty.com</a></span>
+</div></footer>
+<div class="done" id="done" role="dialog" aria-modal="true">
+  <div class="card">
+    <div class="ok">✓</div>
+    <h3 data-i18n="dt">¡Tu guía va en camino!</h3>
+    <p data-i18n="dd">Revisa tu bandeja de entrada (y la carpeta de spam). Te llega en los próximos minutos.</p>
+    <button class="btn btn-ghost" id="done-close" data-i18n="dc">Entendido</button>
+  </div>
+</div>
+<script>
+window.I18N={
+ es:{eyebrow:"Guía gratuita",h1:"Dónde invertir en <b>2026</b>: mercados con mayor valorización",
+  lead:"La guía práctica para inversionistas que quieren entrar al mercado inmobiliario internacional con datos, no con corazonadas.",
+  b1:"<b>Tu perfil inversionista:</b> descubre qué estrategia se ajusta a tu capital y horizonte.",
+  b2:"<b>5 mercados con proyección:</b> comparados por valorización, renta y riesgo.",
+  b3:"<b>Errores costosos:</b> los que frenan al inversionista extranjero y cómo evitarlos.",
+  lname:"Nombre",phname:"Tu nombre",ename:"Escribe tu nombre.",lemail:"Correo",eemail:"Escribe un correo válido.",
+  cta:"Descargar guía gratuita →",fine:"Sin spam. Solo la guía y contenido útil, y puedes darte de baja cuando quieras.",
+  ctag:"Guía 2026",ctitle:"Dónde invertir en <span class='acc'>2026</span>:<br>mercados inmobiliarios con mayor <span class='acc'>valorización</span>",
+  dt:"¡Tu guía va en camino!",dd:"Revisa tu bandeja de entrada (y la carpeta de spam). Te llega en los próximos minutos.",dc:"Entendido",
+  priv:"Privacidad",disc:"Contenido educativo. No es asesoría financiera, legal ni tributaria.",sending:"Enviando…",fail:"No pudimos enviar el formulario. Escríbenos a contact@atlantisglobalrealty.com"},
+ en:{eyebrow:"Free guide",h1:"Where to invest in <b>2026</b>: highest-appreciation markets",
+  lead:"The practical guide for investors entering the international real-estate market with data, not hunches.",
+  b1:"<b>Your investor profile:</b> find the strategy that fits your capital and horizon.",
+  b2:"<b>5 high-projection markets:</b> compared by appreciation, rental yield and risk.",
+  b3:"<b>Costly mistakes:</b> the ones that stall foreign investors — and how to avoid them.",
+  lname:"Name",phname:"Your name",ename:"Please enter your name.",lemail:"Email",eemail:"Enter a valid email.",
+  cta:"Download the free guide →",fine:"No spam. Just the guide and useful content — unsubscribe anytime.",
+  ctag:"2026 Guide",ctitle:"Where to invest in <span class='acc'>2026</span>:<br>real-estate markets with the highest <span class='acc'>appreciation</span>",
+  dt:"Your guide is on its way!",dd:"Check your inbox (and spam folder). It arrives within minutes.",dc:"Got it",
+  priv:"Privacy",disc:"Educational content. Not financial, legal or tax advice.",sending:"Sending…",fail:"We couldn't send the form. Email us at contact@atlantisglobalrealty.com"}
+};
+</script>
+<script src="../assets/app.js"></script>
+<script>
+var WEBHOOK_LEAD_MAGNET="";// URL del flujo n8n que envía el email "Descarga guía"
+document.getElementById('yy').textContent=new Date().getFullYear();
+var form=document.getElementById('lm-form'),status=document.getElementById('lm-status'),done=document.getElementById('done');
+document.getElementById('done-close').onclick=function(){done.classList.remove('show')};
+form.addEventListener('submit',function(e){
+  e.preventDefault();
+  if(form.website.value)return;
+  var name=form.name.value.trim(),email=form.email.value.trim(),ok=true;
+  form.querySelectorAll('.field').forEach(function(f){f.classList.remove('bad')});
+  if(!name){form.name.closest('.field').classList.add('bad');ok=false;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){form.email.closest('.field').classList.add('bad');ok=false;}
+  if(!ok)return;
+  var payload={name:name,email:email,lang:AGR.lang,source:"guia"};
+  status.textContent=AGR.t('sending');
+  var finish=function(){status.textContent="";done.classList.add('show');form.reset();};
+  if(!WEBHOOK_LEAD_MAGNET){finish();return;}
+  fetch(WEBHOOK_LEAD_MAGNET,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){if(!r.ok)throw 0;finish();})
+    .catch(function(){status.textContent=AGR.t('fail');});
+});
+</script>
+</body>
+</html>
