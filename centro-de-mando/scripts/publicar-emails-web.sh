@@ -16,8 +16,11 @@ PAQUETE="$AQUI/../web-emails"
 DOMINIO="atlantisglobalrealty.com"
 [ -d "$PAQUETE" ] || { echo "ERROR: no existe $PAQUETE (corre primero generar-web-emails.py)"; exit 1; }
 
-CONT=$(docker ps --format '{{.Names}}' | grep -m1 'motor' || true)
-[ -n "$CONT" ] || { echo "ERROR: no encuentro el contenedor del motor corriendo"; exit 1; }
+# OJO: en el VPS conviven dos motores (atlantis y siemon); usar SIEMPRE el de
+# este compose, no "el primero que se llame motor".
+CONT=$(docker ps --format '{{.Names}}' | grep -m1 '^centro-de-mando-motor' || true)
+[ -n "$CONT" ] || { echo "ERROR: no encuentro el contenedor centro-de-mando-motor corriendo"; exit 1; }
+echo "usando contenedor: $CONT"
 
 if ! docker exec "$CONT" sh -c '[ -n "$FTP_HOST" ]'; then
   echo "ERROR: el contenedor del motor no tiene FTP_HOST configurado."
