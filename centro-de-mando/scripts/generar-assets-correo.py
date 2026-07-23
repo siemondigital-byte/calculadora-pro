@@ -43,6 +43,13 @@ ORBITA_SVG = (
     f'stroke="{BRONCE}" stroke-width="1.6"/>'
     f'<circle cx="15" cy="4" r="3" fill="{BRONCE}"/></svg>'
 )
+# temporizador sobrio (reemplaza a &#9202;, que iOS pinta como emoji de color)
+RELOJITO_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24">'
+    f'<circle cx="12" cy="13.5" r="8" fill="none" stroke="{BRONCE}" stroke-width="2.2"/>'
+    f'<path d="M12 13.5V8.5M9 2h6M12 2v3.5" fill="none" stroke="{BRONCE}" '
+    'stroke-width="2.2" stroke-linecap="round"/></svg>'
+)
 ORBITA_RE = re.compile(
     r'<div style="width:34px;height:34px;position:relative;[^"]*">'
     r'(?:<div class="ring[^"]*"[^>]*></div>){3}</div>'
@@ -84,6 +91,7 @@ def main():
 
     # 1. assets: la orbita + cada svg unico encontrado en las plantillas
     rasterizar("orbita", ORBITA_SVG)
+    rasterizar("relojito", RELOJITO_SVG)
     unicos = {}
     fuentes = (list((RAIZ / "emails" / "credenciales-app" / "dist-email").glob("*.html"))
                + list((RAIZ / "emails" / "embudo-atlantis" / "emails" / "dist-n8n").rglob("*.html")))
