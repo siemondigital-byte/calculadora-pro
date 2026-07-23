@@ -20,6 +20,36 @@ import re
 import shutil
 from pathlib import Path
 
+import cairosvg
+from PIL import Image
+
+# favicon del Ciclo: el mismo diseño que ya usa la app de la Calculadora
+# (cuadro oscuro redondeado + orbita dorada con punto)
+FAVICON_CICLO_SVG = (
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+    "<rect width='32' height='32' rx='7' fill='#0A0A0C'/>"
+    "<circle cx='16' cy='16' r='10' fill='none' stroke='#E6C788' stroke-width='2' "
+    "stroke-dasharray='50 14' stroke-linecap='round'/>"
+    "<circle cx='16' cy='6' r='2.2' fill='#E6C788'/></svg>"
+)
+
+
+def generar_favicons(out_assets, iso_atlantis):
+    cairosvg.svg2png(bytestring=FAVICON_CICLO_SVG.encode(),
+                     write_to=str(out_assets / "favicon-ciclo.png"), scale=2)
+    im = Image.open(iso_atlantis).convert("RGBA")
+    im = im.crop(im.getbbox())                       # recortar al iso real
+    lado = max(im.size)
+    lienzo = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+    lienzo.paste(im, ((lado - im.width) // 2, (lado - im.height) // 2), im)
+    lienzo.resize((64, 64), Image.LANCZOS).save(out_assets / "favicon-atlantis.png")
+
+
+def con_favicon(html, marca):
+    link = (f'<link rel="icon" type="image/png" '
+            f'href="assets/favicon-{marca}.png">')
+    return html.replace("</head>", link + "</head>", 1)
+
 RAIZ = Path(__file__).resolve().parents[2]
 EMB = RAIZ / "emails" / "embudo-atlantis"
 CRED = RAIZ / "emails" / "credenciales-app" / "dist-web"
@@ -87,7 +117,7 @@ def main():
             destino = f.stem.split("-", 1)[1] + ".html"   # 02-confirmacion-x -> confirmacion-x
             if (OUT / destino).exists():                  # colision ES/EN (no-show)
                 destino = destino.replace(".html", "-en.html")
-            (OUT / destino).write_text(html, encoding="utf-8")
+            (OUT / destino).write_text(con_favicon(html, "atlantis"), encoding="utf-8")
             n += 1
 
     for f in sorted(CRED.glob("*.html")):
@@ -95,8 +125,11 @@ def main():
         en = base.endswith(" EN")
         slug = base[:-3].strip() if en else base
         slug = slug.lower().replace(" ", "-") + ("-en" if en else "")
-        shutil.copy(f, OUT / f"{slug}.html")
+        html = f.read_text(encoding="utf-8")
+        (OUT / f"{slug}.html").write_text(con_favicon(html, "ciclo"), encoding="utf-8")
         n += 1
+
+    generar_favicons(OUT / "assets", EMB / "sitio" / "assets" / "logo.png")
 
     print(f"OK: {n} páginas + wordmark en {OUT.relative_to(RAIZ)}/")
     for p in sorted(OUT.glob("*.html")):
