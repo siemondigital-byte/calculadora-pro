@@ -28,7 +28,7 @@ fi
 docker exec "$CONT" rm -rf /tmp/web-emails
 docker cp "$PAQUETE" "$CONT:/tmp/web-emails"
 
-docker exec "$CONT" python3 - <<'PY'
+docker exec -i "$CONT" python3 - <<'PY'
 import os
 from ftplib import FTP
 from pathlib import Path
