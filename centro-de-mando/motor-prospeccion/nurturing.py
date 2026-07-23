@@ -87,13 +87,15 @@ def inscribir_elegibles(data, ws, ahora=None):
     if not etapas_eleg:
         stages = (data.get(ws, {}).get("config") or {}).get("stages") or []
         etapas_eleg = set(stages[:2])  # por defecto: las dos primeras etapas
+    tipos_eleg = set(cfg.get("tiposElegibles") or [])  # ej. solo leads de la guia
     inscritos = {i["email"] for i in nur["inscritos"]}
     bajas = set(nur.get("bajas") or [])
     nuevos = 0
     for lead in data.get(ws, {}).get("leads", []):
         email = str(lead.get("email", "")).lower()
         if (not email or email in inscritos or email in bajas
-                or lead.get("etapa") not in etapas_eleg or lead.get("respondio")):
+                or lead.get("etapa") not in etapas_eleg or lead.get("respondio")
+                or (tipos_eleg and lead.get("type") not in tipos_eleg)):
             continue
         nur["inscritos"].append({
             "email": email, "paso": 0, "ultimoEnvio": 0,

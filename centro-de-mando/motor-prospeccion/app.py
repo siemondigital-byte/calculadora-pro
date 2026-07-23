@@ -3647,6 +3647,8 @@ def leer_correos(body: dict = Body(None), authorization: str = Header(None)):
     data = crm_store.leer() or {"workspace": "atlantis"}
 
     for b in buzones.listar_interno():
+        if b.get("soloEnvio"):  # relays sin IMAP (ej. Brevo)
+            continue
         try:
             correos = buzones.leer_bandeja(
                 b["email"], desde_uid=int(b.get("ultimaUid") or 0)

@@ -476,6 +476,28 @@ check("enviar_correo ok", r.json().get("ok") is True)
 d = c.get("/crm/data", headers=AUTH2).json()["data"]
 check("envio registrado en enviados", any(e["para"] == "x@y.com" for e in d["atlantis"]["enviados"]))
 
+# 28b. Buzon de relay (Brevo): usuario de login distinto del remitente + soloEnvio
+r = c.post("/buzones", json={"email": "contact@atlantis.com",
+    "usuario": "login@smtp-relay.com", "host": "smtp-relay.brevo.com",
+    "puerto": 465, "password": "key-relay", "soloEnvio": True}, headers=AUTH2)
+check("buzon relay guardado", r.json().get("ok") is True)
+b_relay = next(b for b in buzones.listar_interno() if b["email"] == "contact@atlantis.com")
+check("buzon relay con usuario y soloEnvio",
+      b_relay["usuario"] == "login@smtp-relay.com" and b_relay["soloEnvio"] is True)
+c.post("/buzones/eliminar", json={"email": "contact@atlantis.com"}, headers=AUTH2)
+
+# 28c. tiposElegibles: la auto-inscripcion filtra por type del lead
+import nurturing as _nur_t  # noqa: E402
+data_t = {"x": {"leads": [
+    {"email": "guia@t.com", "etapa": "Nuevo", "type": "guia"},
+    {"email": "otro@t.com", "etapa": "Nuevo", "type": "diagnostico"},
+], "config": {"stages": ["Nuevo", "Contactado"]}}}
+nur_t = _nur_t._slice(data_t, "x")
+nur_t["config"] = {"autoInscribir": True, "tiposElegibles": ["guia"]}
+check("tiposElegibles filtra por type",
+      _nur_t.inscribir_elegibles(data_t, "x") == 1
+      and nur_t["inscritos"][0]["email"] == "guia@t.com")
+
 # 29. Generar secuencia (IA simulada) queda en borrador
 motor._claude_json = lambda *a, **k: [
     {"asunto": "Bienvenida — parte 1", "cuerpo": "<p>hola <a href="

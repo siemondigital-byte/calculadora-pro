@@ -57,6 +57,10 @@ def guardar(buzon):
         "host": buzon.get("host") or "smtp.hostinger.com",
         "puerto": int(buzon.get("puerto") or 465),
         "password": buzon.get("password") or "",
+        # relays tipo Brevo: el login SMTP no es la direccion remitente
+        "usuario": str(buzon.get("usuario") or "").strip(),
+        # buzones sin IMAP (solo envio): el cron de lectura los salta
+        "soloEnvio": bool(buzon.get("soloEnvio")),
     }
     with _lock:
         buzones = [b for b in _leer() if b.get("email") != email]
@@ -91,7 +95,7 @@ def _buzon(email=None):
 def probar(email=None):
     b = _buzon(email)
     with smtplib.SMTP_SSL(b["host"], b["puerto"], timeout=15) as smtp:
-        smtp.login(b["email"], b["password"])
+        smtp.login(b.get("usuario") or b["email"], b["password"])
     return True
 
 
@@ -190,6 +194,6 @@ def enviar(para, asunto, cuerpo_html, desde=None):
     mensaje["Subject"] = asunto
     mensaje.attach(MIMEText(cuerpo_html, "html", "utf-8"))
     with smtplib.SMTP_SSL(b["host"], b["puerto"], timeout=20) as smtp:
-        smtp.login(b["email"], b["password"])
+        smtp.login(b.get("usuario") or b["email"], b["password"])
         smtp.sendmail(b["email"], [para], mensaje.as_string())
     return True
