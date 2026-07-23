@@ -3809,6 +3809,24 @@ def nurturing_pixel(tid: str):
     return Response(content=gif, media_type="image/gif")
 
 
+@app.get("/nurturing/r")
+def nurturing_redirect(ws: str = "", t: str = "", u: str = ""):
+    """Redireccion de clics (publico). Cuenta el clic y manda al destino con
+    UTM. El token HMAC (emitido al enviar) evita que sea un open redirect."""
+    ws = ws if ws in WORKSPACES else "cicloderiqueza"
+    if not u.startswith(("https://", "http://")):
+        raise HTTPException(400, "destino invalido")
+    data = crm_store.leer()
+    if not data or not nurturing.marcar_clic(data, ws, t):
+        raise HTTPException(400, "enlace invalido")
+    guardar_seguro(data)
+    destino = u
+    if "utm_" not in destino:
+        sep = "&" if "?" in destino else "?"
+        destino += f"{sep}utm_source=nurturing&utm_medium=email&utm_campaign={ws}"
+    return RedirectResponse(destino, status_code=302)
+
+
 @app.get("/nurturing/baja")
 def nurturing_baja(ws: str = "", e: str = "", t: str = ""):
     """Baja con token HMAC (publico, un clic desde el correo)."""

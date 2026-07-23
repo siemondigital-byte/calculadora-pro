@@ -7,6 +7,7 @@ por reembolso.
 import importlib
 import json
 import os
+import re
 import sys
 import tempfile
 
@@ -477,7 +478,9 @@ check("envio registrado en enviados", any(e["para"] == "x@y.com" for e in d["atl
 
 # 29. Generar secuencia (IA simulada) queda en borrador
 motor._claude_json = lambda *a, **k: [
-    {"asunto": "Bienvenida — parte 1", "cuerpo": "<p>hola</p>", "fase": "bienvenida"},
+    {"asunto": "Bienvenida — parte 1", "cuerpo": "<p>hola <a href="
+     "\"https://cicloderiqueza.atlantisglobalrealty.com/\">mira</a></p>",
+     "fase": "bienvenida"},
     {"asunto": "El metodo", "cuerpo": "<p>metodo</p>", "fase": "convencer"},
     {"asunto": "La oferta", "cuerpo": "<p>44 USD</p>", "fase": "ventas"}]
 r = c.post("/nurturing/generar", json={"workspace": "cicloderiqueza", "config": {
@@ -513,6 +516,22 @@ check("correo lleva baja + pixel + disclaimer",
       "/nurturing/baja" in ENVIADOS_FAKE[0]["html"]
       and "/nurturing/px/" in ENVIADOS_FAKE[0]["html"]
       and "educativo" in ENVIADOS_FAKE[0]["html"])
+
+# 31b. Links del cuerpo pasan por /nurturing/r; el clic cuenta y redirige con UTM
+m = re.search(r'href="https://[^/]+(/nurturing/r\?[^"]+)"', ENVIADOS_FAKE[0]["html"])
+check("link del cuerpo trackeado por /nurturing/r", m is not None)
+check("clic con token malo -> 400",
+      c.get("/nurturing/r?ws=cicloderiqueza&t=malo&u=https%3A%2F%2Fx.com",
+            follow_redirects=False).status_code == 400)
+r = c.get(m.group(1), follow_redirects=False)
+check("clic redirige 302 con UTM al destino",
+      r.status_code == 302
+      and r.headers["location"].startswith("https://cicloderiqueza.atlantisglobalrealty.com/")
+      and "utm_source=nurturing" in r.headers["location"])
+c.get(m.group(1), follow_redirects=False)  # repetir no doble-cuenta
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("clic contado una sola vez",
+      d["cicloderiqueza"]["nurturing"]["metricas"].get("clics") == 1)
 
 # 32. Segundo ciclo: envia al tercero, no repite a los primeros (cadencia)
 ENVIADOS_FAKE.clear()

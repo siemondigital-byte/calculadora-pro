@@ -13,7 +13,9 @@ los endpoints y el envio real via buzones.enviar.
 import hashlib
 import hmac
 import os
+import re
 import time
+from urllib.parse import quote
 
 ETAPAS_SALIDA = {"Comprador", "Cliente", "Reembolsado", "Baja", "Descartado"}
 DIA = 86400
@@ -38,6 +40,23 @@ def token_baja(email):
 def token_pixel(email, paso):
     secreto = os.environ.get("TOKEN_SECRET", "")
     return hmac.new(secreto.encode(), f"px:{email}:{paso}".encode(), "sha256").hexdigest()[:24]
+
+
+def token_clic(email, paso):
+    secreto = os.environ.get("TOKEN_SECRET", "")
+    return hmac.new(secreto.encode(), f"clic:{email}:{paso}".encode(), "sha256").hexdigest()[:24]
+
+
+def _trackear_links(cuerpo, base_url, ws, email, paso):
+    """Reescribe cada link del cuerpo para pasar por /nurturing/r (cuenta el
+    clic y redirige). El token HMAC evita que el endpoint sea un open redirect:
+    solo redirige URLs que salieron en un correo nuestro."""
+    tok = token_clic(email, paso)
+
+    def _r(m):
+        return f'href="{base_url}/nurturing/r?ws={ws}&t={tok}&u={quote(m.group(1), safe="")}"'
+
+    return re.sub(r'href="(https?://[^"]+)"', _r, cuerpo), tok
 
 
 def prompt_secuencia(config, n_correos):
@@ -134,6 +153,9 @@ def procesar(data, ws, enviar_fn, base_url="", ahora=None):
             continue
         correo = secuencia[paso]
         email = inscrito["email"]
+        cuerpo, tok_clic = _trackear_links(
+            correo.get("cuerpo") or "", base_url, ws, email, paso
+        )
         pie = (
             f'<p style="font-size:12px;color:#888">Contenido educativo. No es '
             f'asesoria financiera, legal ni tributaria.<br>'
@@ -143,16 +165,29 @@ def procesar(data, ws, enviar_fn, base_url="", ahora=None):
             f'width="1" height="1" alt="">'
         )
         try:
-            enviar_fn(email, correo.get("asunto", ""), (correo.get("cuerpo") or "") + pie,
-                      remitente)
+            enviar_fn(email, correo.get("asunto", ""), cuerpo + pie, remitente)
             inscrito["paso"] = paso + 1
             inscrito["ultimoEnvio"] = ahora
             inscrito.setdefault("pixeles", []).append(token_pixel(email, paso))
+            inscrito.setdefault("clicTokens", []).append(tok_clic)
             nur["metricas"]["enviados"] = int(nur["metricas"].get("enviados") or 0) + 1
             resumen["enviados"] += 1
         except Exception:  # noqa: BLE001
             resumen["errores"] += 1
     return resumen
+
+
+def marcar_clic(data, ws, tid):
+    """Valida el token de clic y suma la metrica (una vez por token). Devuelve
+    True si el token pertenece a un inscrito: solo entonces se puede redirigir."""
+    nur = _slice(data, ws)
+    for inscrito in nur["inscritos"]:
+        if tid in (inscrito.get("clicTokens") or []):
+            if tid not in (inscrito.get("clicados") or []):
+                inscrito.setdefault("clicados", []).append(tid)
+                nur["metricas"]["clics"] = int(nur["metricas"].get("clics") or 0) + 1
+            return True
+    return False
 
 
 def marcar_apertura(data, ws, tid):

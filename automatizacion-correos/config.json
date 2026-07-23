@@ -34,8 +34,9 @@
     "responder_a": "contact@atlantisglobalrealty.com",
     "dominio_envio": "envios.atlantisglobalrealty.com",
     "smtp": {
-      "host": "(en el vault; proveedor por definir en Parte 1)",
-      "puerto": 587
+      "host": "smtp-relay.brevo.com",
+      "puerto": 587,
+      "_nota": "proveedor Brevo, validado 2026-07-23 con mail-tester 9.5/10 (SPF/DKIM/DMARC ok); usuario y clave en el vault"
     },
     "imap": {
       "host": "imap.hostinger.com",
