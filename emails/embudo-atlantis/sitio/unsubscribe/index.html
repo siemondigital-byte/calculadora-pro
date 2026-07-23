@@ -64,7 +64,7 @@ window.I18N={
 </script>
 <script src="../assets/app.js"></script>
 <script>
-var WEBHOOK_UNSUB="";// URL del flujo n8n de baja
+var WEBHOOK_UNSUB="https://hooks.atlantisglobalrealty.com/webhook/unsubscribe";// flujo n8n embudo-unsubscribe
 document.getElementById('yy').textContent=new Date().getFullYear();
 var q=new URLSearchParams(location.search),email=q.get('email')||'',token=q.get('token')||'';
 document.getElementById('mail1').textContent=email||'tu correo';

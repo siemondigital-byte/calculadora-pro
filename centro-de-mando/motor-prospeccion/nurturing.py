@@ -200,6 +200,28 @@ def marcar_apertura(data, ws, tid):
     return False
 
 
+def baja_directa(data, email, accion="unsubscribe"):
+    """Baja (o re-alta) sin token HMAC, para canales autenticados (n8n con
+    CRON_KEY desde la pagina /unsubscribe). Aplica a TODOS los workspaces."""
+    email = str(email).strip().lower()
+    if not email or "@" not in email:
+        return False
+    for ws in ("atlantis", "cicloderiqueza"):
+        nur = _slice(data, ws)
+        if accion == "resubscribe":
+            nur["bajas"] = [b for b in nur["bajas"] if b != email]
+            for inscrito in nur["inscritos"]:
+                if inscrito["email"] == email and inscrito.get("estado") == "salido":
+                    inscrito["estado"] = "activo"
+        else:
+            if email not in nur["bajas"]:
+                nur["bajas"].append(email)
+            for inscrito in nur["inscritos"]:
+                if inscrito["email"] == email:
+                    inscrito["estado"] = "salido"
+    return True
+
+
 def dar_baja(data, ws, email, token):
     if not hmac.compare_digest(token, token_baja(email)):
         return False

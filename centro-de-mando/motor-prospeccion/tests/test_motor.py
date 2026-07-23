@@ -561,6 +561,23 @@ d = c.get("/crm/data", headers=AUTH2).json()["data"]
 check("baja registrada y salido",
       "nutrido1@test.com" in d["cicloderiqueza"]["nurturing"]["bajas"])
 
+# 34b. Baja directa autenticada (pagina /unsubscribe via n8n) y re-alta
+r = c.post("/nurturing/baja", json={"email": "nutrido2@test.com"},
+           headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("baja directa ok", r.json().get("ok") is True)
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("baja directa registrada en ambos workspaces",
+      "nutrido2@test.com" in d["cicloderiqueza"]["nurturing"]["bajas"]
+      and "nutrido2@test.com" in d["atlantis"]["nurturing"]["bajas"])
+r = c.post("/nurturing/baja", json={"email": "nutrido2@test.com",
+    "action": "resubscribe"}, headers={"Authorization": "Bearer cron-key-interna-n8n"})
+d = c.get("/crm/data", headers=AUTH2).json()["data"]
+check("re-alta saca de bajas",
+      "nutrido2@test.com" not in d["cicloderiqueza"]["nurturing"]["bajas"])
+check("baja directa sin email -> 400",
+      c.post("/nurturing/baja", json={},
+             headers={"Authorization": "Bearer cron-key-interna-n8n"}).status_code == 400)
+
 # 35. Pixel de apertura suma metricas
 ins2 = next(i for i in d["cicloderiqueza"]["nurturing"]["inscritos"] if i["email"] == "nutrido2@test.com")
 tid = ins2["pixeles"][0]

@@ -3827,6 +3827,19 @@ def nurturing_redirect(ws: str = "", t: str = "", u: str = ""):
     return RedirectResponse(destino, status_code=302)
 
 
+@app.post("/nurturing/baja")
+def nurturing_baja_directa(body: dict = Body(...), authorization: str = Header(None)):
+    """Baja (o re-alta) desde un canal autenticado: la pagina /unsubscribe
+    postea a n8n y n8n llama aqui con CRON_KEY. Aplica a todos los workspaces."""
+    _auth(authorization)
+    accion = body.get("action") if body.get("action") in ("unsubscribe", "resubscribe") else "unsubscribe"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    if not nurturing.baja_directa(data, body.get("email", ""), accion):
+        raise HTTPException(400, "email requerido")
+    guardar_seguro(data)
+    return {"ok": True, "accion": accion}
+
+
 @app.get("/nurturing/baja")
 def nurturing_baja(ws: str = "", e: str = "", t: str = ""):
     """Baja con token HMAC (publico, un clic desde el correo)."""
