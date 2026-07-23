@@ -44,7 +44,7 @@ LISTA=$(docker exec -u node "$CONT" n8n list:workflow 2>/dev/null || true)
 rm -rf n8n-data/flujos-smtp
 mkdir -p n8n-data/flujos-smtp
 IDS=""
-for f in n8n/acceso-app-*.json n8n/compra-confirmada.json n8n/reembolso.json; do
+for f in n8n/acceso-app-*.json n8n/compra-confirmada.json n8n/reembolso.json n8n/embudo-guia.json n8n/embudo-agendamiento.json; do
   NOMBRE=$(sed -n 's/.*"name": "\([^"]*\)".*/\1/p' "$f" | head -1)
   ID=$(echo "$LISTA" | grep -F "|$NOMBRE" | head -1 | cut -d'|' -f1)
   [ -n "$ID" ] || { echo "   AVISO: '$NOMBRE' no esta importado; lo salto."; continue; }

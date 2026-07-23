@@ -25,7 +25,7 @@ LISTA=$(docker exec -u node "$CONT" n8n list:workflow 2>/dev/null || true)
 rm -rf n8n-data/flujos-actualizar
 mkdir -p n8n-data/flujos-actualizar
 IDS=""
-for f in n8n/acceso-app-*.json n8n/compra-confirmada.json; do
+for f in n8n/acceso-app-*.json n8n/compra-confirmada.json n8n/embudo-*.json; do
   NOMBRE=$(sed -n 's/.*"name": "\([^"]*\)".*/\1/p' "$f" | head -1)
   ID=$(echo "$LISTA" | grep -F "|$NOMBRE" | head -1 | cut -d'|' -f1)
   if [ -z "$ID" ]; then
