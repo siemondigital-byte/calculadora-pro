@@ -139,5 +139,19 @@
       "privacidad": "https://atlantisglobalrealty.com/privacy",
       "_pendiente": "confirmar la version en espanol de la privacidad corporativa y la URL de terminos de atlantisglobalrealty.com"
     }
+  },
+  "captacion": {
+    "_nota": "Paginas y descargas publicas que alimentan los correos. download-guide.html detecta el idioma del navegador y lo envia por el webhook, igual que book call y book videocall.",
+    "baja": "https://atlantisglobalrealty.com/unsubscribe",
+    "landing_descarga_guia": "https://atlantisglobalrealty.com/download-guide.html",
+    "descargas": {
+      "guia_inversion_en": "https://atlantisglobalrealty.com/download/investment-guide.pdf",
+      "guia_inversion_es": "https://atlantisglobalrealty.com/download/guia-inversion.pdf"
+    },
+    "eventos_con_idioma": [
+      "descarga de guia",
+      "book call",
+      "book videocall"
+    ]
   }
 }
