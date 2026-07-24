@@ -80,6 +80,10 @@ def main():
     for f in sorted(DIST.glob("*.html")):
         html = f.read_text(encoding="utf-8")
         for sel, props in parsear_dark(html).items():
+            if sel.lstrip(".") == "email-bg":
+                # decision de la usuaria (24 jul 2026): el fondo EXTERIOR queda
+                # claro (#ECE6DA, papel del diseño); solo la tarjeta va oscura
+                continue
             partes = sel.split()
             if len(partes) == 2 and partes[1] == "a":
                 html = patch_descendiente(html, partes[0].lstrip("."), props)
