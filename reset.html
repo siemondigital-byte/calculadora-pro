@@ -106,12 +106,23 @@
       <p class="msg" id="msg"></p>
     </form>
 
+    <!-- Bloque para pedir un enlace nuevo (enlace inválido / vencido / usado) -->
+    <div id="renovar" style="display:none">
+      <div class="campo">
+        <label for="email" id="lbl-email">Tu correo</label>
+        <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com" />
+      </div>
+      <button class="enviar" id="btn-renovar" type="button">Enviar enlace nuevo</button>
+      <p class="msg" id="msg-renovar"></p>
+    </div>
+
     <p class="pie" id="pie"></p>
+    <p class="pie" id="pie-volver" style="margin-top:10px"><a href="./index.html" id="lnk-volver">Ir a iniciar sesión</a></p>
     <div class="alliance">Atlantis Global Realty</div>
   </main>
 
 <script type="module">
-import { confirmarReset, tokenDeLaUrl, requisitos, idioma } from './auth-cliente.js';
+import { confirmarReset, pedirReset, tokenDeLaUrl, requisitos, idioma } from './auth-cliente.js';
 
 const $ = (id) => document.getElementById(id);
 const token = tokenDeLaUrl();
@@ -120,26 +131,74 @@ const TXT = {
   es:{eyebrow:"Restablecer",titulo:"Define tu nueva contraseña",sub:"Elige una contraseña segura para tu cuenta.",
       lbl1:"Nueva contraseña",lbl2:"Confirmar contraseña",btn:"Guardar contraseña",
       r:["Al menos 8 caracteres","Una mayúscula y una minúscula","Un número","Un símbolo (!?@#…)"],
-      sinToken:"Enlace inválido. Pide un restablecimiento nuevo.",
-      vence:(m)=>`Este enlace vence en ${m} minutos.`, venc:"El enlace venció. Pide uno nuevo.",
-      guardando:"Guardando…", volver:"Ir a iniciar sesión"},
+      vence:(m)=>`Este enlace vence en ${m} minutos.`, venc:"El enlace venció. Pide uno nuevo abajo.",
+      guardando:"Guardando…", volver:"Ir a iniciar sesión",
+      // Bloque "pedir enlace nuevo"
+      renEyebrow:"Recuperar acceso",
+      renTituloSinToken:"Pide tu enlace de acceso",
+      renTituloVenc:"Ese enlace ya no sirve",
+      renSubSinToken:"Escribe tu correo y te enviamos un enlace para crear tu contraseña.",
+      renSubVenc:"Los enlaces caducan por seguridad. Escribe tu correo y te enviamos uno nuevo.",
+      lblEmail:"Tu correo", btnRenovar:"Enviar enlace nuevo", enviando:"Enviando…"},
   en:{eyebrow:"Reset",titulo:"Set your new password",sub:"Choose a strong password for your account.",
       lbl1:"New password",lbl2:"Confirm password",btn:"Save password",
       r:["At least 8 characters","One uppercase and one lowercase","One number","One symbol (!?@#…)"],
-      sinToken:"Invalid link. Request a new reset.",
-      vence:(m)=>`This link expires in ${m} minutes.`, venc:"The link expired. Request a new one.",
-      guardando:"Saving…", volver:"Go to sign in"},
+      vence:(m)=>`This link expires in ${m} minutes.`, venc:"The link expired. Request a new one below.",
+      guardando:"Saving…", volver:"Go to sign in",
+      renEyebrow:"Recover access",
+      renTituloSinToken:"Request your access link",
+      renTituloVenc:"That link no longer works",
+      renSubSinToken:"Enter your email and we'll send you a link to set your password.",
+      renSubVenc:"Links expire for security. Enter your email and we'll send a fresh one.",
+      lblEmail:"Your email", btnRenovar:"Send a new link", enviando:"Sending…"},
 };
 const T = TXT[idioma()];
 document.documentElement.lang = idioma();
 ["eyebrow","titulo","sub","lbl1","lbl2"].forEach(k => $(k).textContent = T[k]);
 $("btn").textContent = T.btn;
+$("lbl-email").textContent = T.lblEmail;
+$("btn-renovar").textContent = T.btnRenovar;
+$("lnk-volver").textContent = T.volver;
 ["r-largo","r-mayus","r-numero","r-simbolo"].forEach((id,i) => $(id).textContent = T.r[i]);
 
-if (!token) {
+let tick = null;
+
+/** Cambia la tarjeta al modo "pedir enlace nuevo" (sin token o token vencido/usado). */
+function mostrarRenovar(motivo) {
+  if (tick) clearInterval(tick);
   $("form").style.display = "none";
-  $("msg").textContent = T.sinToken;
-  $("msg").className = "msg err";
+  $("pie").textContent = "";
+  $("eyebrow").textContent = T.renEyebrow;
+  if (motivo === "vencido") {
+    $("titulo").textContent = T.renTituloVenc;
+    $("sub").textContent = T.renSubVenc;
+  } else {
+    $("titulo").textContent = T.renTituloSinToken;
+    $("sub").textContent = T.renSubSinToken;
+  }
+  $("renovar").style.display = "block";
+  $("email").focus();
+}
+
+$("btn-renovar").addEventListener("click", async () => {
+  $("btn-renovar").disabled = true;
+  $("msg-renovar").textContent = T.enviando;
+  $("msg-renovar").className = "msg";
+  const res = await pedirReset($("email").value);
+  $("msg-renovar").textContent = res.mensaje;
+  $("msg-renovar").className = "msg " + (res.ok ? "ok" : "err");
+  if (res.ok) {
+    // Enviado: deja el botón deshabilitado para evitar reenvíos accidentales.
+    $("email").disabled = true;
+  } else {
+    $("btn-renovar").disabled = false;
+  }
+});
+
+$("email").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btn-renovar").click(); } });
+
+if (!token) {
+  mostrarRenovar("sinToken");
 }
 
 document.querySelectorAll(".ojo").forEach(b => {
@@ -158,17 +217,19 @@ $("pw").addEventListener("input", () => {
   $("r-simbolo").classList.toggle("ok", r.simbolo);
 });
 
-let restan = 60 * 60;
-const tick = setInterval(() => {
-  restan -= 1;
-  if (restan <= 0) {
-    clearInterval(tick);
-    $("pie").textContent = T.venc;
-    $("btn").disabled = true;
-    return;
-  }
+if (token) {
+  let restan = 60 * 60;
   $("pie").textContent = T.vence(Math.ceil(restan / 60));
-}, 1000);
+  tick = setInterval(() => {
+    restan -= 1;
+    if (restan <= 0) {
+      clearInterval(tick);
+      mostrarRenovar("vencido");   // vence en pantalla → ofrece pedir uno nuevo
+      return;
+    }
+    $("pie").textContent = T.vence(Math.ceil(restan / 60));
+  }, 1000);
+}
 
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -177,14 +238,24 @@ $("form").addEventListener("submit", async (e) => {
   $("msg").className = "msg";
 
   const res = await confirmarReset(token, $("pw").value, $("pw2").value);
-  $("msg").textContent = res.mensaje;
-  $("msg").className = "msg " + (res.ok ? "ok" : "err");
 
   if (res.ok) {
-    clearInterval(tick);
+    if (tick) clearInterval(tick);
+    $("msg").textContent = res.mensaje;
+    $("msg").className = "msg ok";
     $("form").style.display = "none";
     $("pie").innerHTML = '<a href="./index.html">' + T.volver + '</a>';
+    return;
+  }
+
+  // errToken = enlace vencido o ya usado → llévalo a pedir uno nuevo (no callejón sin salida).
+  if (res.expirado) {
+    mostrarRenovar("vencido");
+    $("msg-renovar").textContent = res.mensaje;
+    $("msg-renovar").className = "msg err";
   } else {
+    $("msg").textContent = res.mensaje;
+    $("msg").className = "msg err";
     $("btn").disabled = false;
   }
 });

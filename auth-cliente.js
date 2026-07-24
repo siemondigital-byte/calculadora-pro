@@ -78,7 +78,9 @@ export function tokenDeLaUrl() {
  * sesión previa, así que funciona en cualquier navegador o dispositivo.
  */
 export async function confirmarReset(token, password, confirmacion) {
-  if (!token) return { ok: false, mensaje: t("errToken") };
+  // `expirado:true` avisa a la UI que el fallo es del enlace (token vencido o
+  // usado), para ofrecer pedir uno nuevo en vez de dejar un callejón sin salida.
+  if (!token) return { ok: false, expirado: true, mensaje: t("errToken") };
   if (String(password).length < 8) return { ok: false, mensaje: t("errCorta") };
   if (confirmacion !== undefined && password !== confirmacion) {
     return { ok: false, mensaje: t("errDistintas") };
@@ -90,7 +92,7 @@ export async function confirmarReset(token, password, confirmacion) {
       body: JSON.stringify({ token, password }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) return { ok: false, mensaje: t("errToken") };
+    if (!res.ok || !data.ok) return { ok: false, expirado: true, mensaje: t("errToken") };
     return { ok: true, mensaje: t("guardada") };
   } catch {
     return { ok: false, mensaje: t("errEnvio") };
