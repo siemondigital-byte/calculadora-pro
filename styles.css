@@ -31,13 +31,32 @@
    screen visible after sign-in. Force it so screen switching actually hides. */
 [hidden] { display: none !important; }
 
+html {
+  background: var(--black); /* lienzo base de respaldo */
+}
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--black);
   color: var(--gray);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Degradado azul marino unificado en toda la app (login, accesos y calculadora),
+   igual que la página de nueva contraseña. Overlay fijo: cubre siempre el
+   viewport, sin repetirse al hacer scroll y sin los fallos de
+   background-attachment:fixed en iOS/PWA.
+   OJO: body queda transparente a propósito; si pintara un color opaco taparía
+   este ::before (orden de pintado: el fondo del body va por encima de las capas
+   con z-index negativo). */
+body { position: relative; min-height: 100vh; background: transparent; }
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 0%, #16263f 0%, #0F1B2D 42%, var(--black) 100%);
 }
 
 ::selection { background: var(--gold); color: var(--black); }
