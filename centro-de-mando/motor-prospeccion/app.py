@@ -3743,16 +3743,10 @@ def proyectos_listar(authorization: str = Header(None)):
     return {"proyectos": (data.get("atlantis") or {}).get("proyectos", [])}
 
 
-@app.post("/proyectos/upsert")
-def proyectos_upsert(body: dict = Body(...), authorization: str = Header(None)):
-    """Registra o actualiza un proyecto (extraido de la presentacion del
-    constructor). Idempotente por slug; el CRM guarda la ficha completa y el
-    estado (borrador hasta que publicar=true)."""
-    _auth(authorization)
+def _proyecto_upsert(data, body):
     slug = str(body.get("slug", "")).strip()
     if not slug:
         raise HTTPException(400, "slug requerido")
-    data = crm_store.leer() or {"workspace": "atlantis"}
     lista = data.setdefault("atlantis", {}).setdefault("proyectos", [])
     existente = next((x for x in lista if x.get("slug") == slug), None)
     registro = {**(existente or {}), **body, "actualizado": int(time.time())}
@@ -3762,8 +3756,56 @@ def proyectos_upsert(body: dict = Body(...), authorization: str = Header(None)):
         lista[lista.index(existente)] = registro
     else:
         lista.append(registro)
+    return registro
+
+
+@app.post("/proyectos/upsert")
+def proyectos_upsert(body: dict = Body(...), authorization: str = Header(None)):
+    """Registra o actualiza un proyecto (extraido de la presentacion del
+    constructor). Idempotente por slug; el CRM guarda la ficha completa y el
+    estado (borrador hasta que publicar=true)."""
+    _auth(authorization)
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    registro = _proyecto_upsert(data, body)
     guardar_seguro(data)
-    return {"ok": True, "slug": slug, "estado": registro["estado"]}
+    return {"ok": True, "slug": registro["slug"], "estado": registro["estado"]}
+
+
+@app.post("/proyectos/extraer")
+def proyectos_extraer(body: dict = Body(...), authorization: str = Header(None)):
+    """Respaldo automatico del scrapeo (n8n vigila el Drive de proyectos):
+    recibe el TEXTO de la presentacion del constructor, la IA arma la ficha
+    SOLO con datos presentes en el texto, y queda en el CRM como borrador."""
+    _auth(authorization)
+    texto = str(body.get("texto", "")).strip()[:60000]
+    if len(texto) < 100:
+        raise HTTPException(400, "texto de la presentacion requerido (min 100 chars)")
+    archivo = str(body.get("archivo", ""))[:120]
+    ficha = _claude_json(
+        "Extrae la ficha de este proyecto inmobiliario desde el texto de la "
+        "presentacion del constructor. REGLA DURA: usa SOLO datos presentes en "
+        "el texto; si un dato no aparece, deja el campo como cadena vacia o "
+        "lista vacia. NUNCA inventes precios, fechas ni cifras. Devuelve SOLO "
+        "JSON con esta forma exacta: {\"slug\": str (kebab-case del nombre), "
+        "\"constructora\": str, \"ciudad\": str, \"pais\": str, \"entrega\": str, "
+        "\"precioDesde\": str (formato 'Desde N USD' si aparece), "
+        "\"precioDesdeEn\": str, \"es\": {\"nombre\": str, \"eslogan\": str (una "
+        "frase sobria que hable de entrar por etapa, valorizacion en obra o "
+        "salida disenada, sin promesas), \"descripcion\": str (3 frases, sin "
+        "promesas de retorno), \"tipologias\": [str], \"amenidades\": [str], "
+        "\"planPagos\": str}, \"en\": {mismo shape en ingles}}."
+        f"\n\nArchivo: {archivo}\n\nTexto de la presentacion:\n{texto}",
+        max_tokens=4000, system=_VOZ_MARCA,
+    )
+    if not isinstance(ficha, dict) or not ficha.get("slug"):
+        raise HTTPException(502, "la IA no devolvio una ficha valida")
+    ficha["publicar"] = False
+    ficha["fuente"] = archivo or "drive"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    registro = _proyecto_upsert(data, ficha)
+    guardar_seguro(data)
+    return {"ok": True, "slug": registro["slug"], "estado": registro["estado"],
+            "ficha": registro}
 
 
 # ------------------------------------------------------- nurturing (F4)

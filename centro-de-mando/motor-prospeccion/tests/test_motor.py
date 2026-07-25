@@ -490,6 +490,23 @@ check("proyectos: un solo registro con merge",
 check("proyecto sin slug -> 400",
       c.post("/proyectos/upsert", json={}, headers=AUTH2).status_code == 400)
 
+# 27c. Extraccion IA de presentacion -> ficha en borrador
+motor._claude_json = lambda *a, **k: {"slug": "torre-drive", "ciudad": "Panama",
+    "pais": "Panama", "constructora": "Const X", "entrega": "2027",
+    "precioDesde": "", "precioDesdeEn": "",
+    "es": {"nombre": "Torre Drive", "eslogan": "Entrar por etapa.",
+           "descripcion": "d", "tipologias": [], "amenidades": [], "planPagos": ""},
+    "en": {"nombre": "Torre Drive", "eslogan": "Enter by stage.",
+           "descripcion": "d", "tipologias": [], "amenidades": [], "planPagos": ""}}
+r = c.post("/proyectos/extraer", json={"texto": "x" * 200, "archivo": "torre.pdf"},
+           headers={"Authorization": "Bearer cron-key-interna-n8n"})
+check("extraer crea ficha en borrador",
+      r.json().get("ok") is True and r.json()["estado"] == "borrador"
+      and r.json()["ficha"]["fuente"] == "torre.pdf")
+check("extraer sin texto -> 400",
+      c.post("/proyectos/extraer", json={"texto": "corto"},
+             headers=AUTH2).status_code == 400)
+
 # 28b. Buzon de relay (Brevo): usuario de login distinto del remitente + soloEnvio
 r = c.post("/buzones", json={"email": "contact@atlantis.com",
     "usuario": "login@smtp-relay.com", "host": "smtp-relay.brevo.com",
