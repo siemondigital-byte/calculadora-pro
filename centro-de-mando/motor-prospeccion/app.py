@@ -3733,6 +3733,39 @@ def generar_mensaje(body: dict = Body(...), authorization: str = Header(None)):
     return {"ok": True, "mensaje": pieza}
 
 
+# --------------------------------------------- proyectos inmobiliarios
+
+@app.get("/proyectos")
+def proyectos_listar(authorization: str = Header(None)):
+    """Proyectos registrados en el Centro de Mando (workspace atlantis)."""
+    _auth(authorization)
+    data = crm_store.leer() or {}
+    return {"proyectos": (data.get("atlantis") or {}).get("proyectos", [])}
+
+
+@app.post("/proyectos/upsert")
+def proyectos_upsert(body: dict = Body(...), authorization: str = Header(None)):
+    """Registra o actualiza un proyecto (extraido de la presentacion del
+    constructor). Idempotente por slug; el CRM guarda la ficha completa y el
+    estado (borrador hasta que publicar=true)."""
+    _auth(authorization)
+    slug = str(body.get("slug", "")).strip()
+    if not slug:
+        raise HTTPException(400, "slug requerido")
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    lista = data.setdefault("atlantis", {}).setdefault("proyectos", [])
+    existente = next((x for x in lista if x.get("slug") == slug), None)
+    registro = {**(existente or {}), **body, "actualizado": int(time.time())}
+    registro.setdefault("creado", int(time.time()))
+    registro["estado"] = "publicado" if body.get("publicar") else "borrador"
+    if existente:
+        lista[lista.index(existente)] = registro
+    else:
+        lista.append(registro)
+    guardar_seguro(data)
+    return {"ok": True, "slug": slug, "estado": registro["estado"]}
+
+
 # ------------------------------------------------------- nurturing (F4)
 
 @app.post("/nurturing/generar")

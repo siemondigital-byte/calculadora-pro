@@ -476,6 +476,20 @@ check("enviar_correo ok", r.json().get("ok") is True)
 d = c.get("/crm/data", headers=AUTH2).json()["data"]
 check("envio registrado en enviados", any(e["para"] == "x@y.com" for e in d["atlantis"]["enviados"]))
 
+# 27b. Proyectos inmobiliarios: upsert idempotente + estado por publicar
+r = c.post("/proyectos/upsert", json={"slug": "torre-x", "ciudad": "Cartagena",
+    "publicar": False}, headers=AUTH2)
+check("proyecto creado como borrador", r.json().get("estado") == "borrador")
+r = c.post("/proyectos/upsert", json={"slug": "torre-x", "ciudad": "Cartagena",
+    "precioDesde": "Desde 100.000 USD", "publicar": True}, headers=AUTH2)
+check("proyecto actualizado a publicado", r.json().get("estado") == "publicado")
+r = c.get("/proyectos", headers=AUTH2).json()["proyectos"]
+check("proyectos: un solo registro con merge",
+      len([p for p in r if p["slug"] == "torre-x"]) == 1
+      and r[0].get("precioDesde") == "Desde 100.000 USD" and "creado" in r[0])
+check("proyecto sin slug -> 400",
+      c.post("/proyectos/upsert", json={}, headers=AUTH2).status_code == 400)
+
 # 28b. Buzon de relay (Brevo): usuario de login distinto del remitente + soloEnvio
 r = c.post("/buzones", json={"email": "contact@atlantis.com",
     "usuario": "login@smtp-relay.com", "host": "smtp-relay.brevo.com",
