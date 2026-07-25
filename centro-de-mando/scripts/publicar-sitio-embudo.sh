@@ -39,6 +39,13 @@ raiz "$SITIO/guia/index.html"            "$STAGE/download-guide.html"
 raiz "$SITIO/agendar-llamada/index.html" "$STAGE/book-call.html"
 raiz "$SITIO/agendar-video/index.html"   "$STAGE/book-videocall.html"
 
+# tambien sin extension (/download-guide funciona igual que /download-guide.html)
+for p in download-guide book-call book-videocall; do
+  mkdir -p "$STAGE/$p"
+  sed 's#href="assets/#href="../assets/#g; s#src="assets/#src="../assets/#g; s#href="legales/#href="../legales/#g' \
+    "$STAGE/$p.html" > "$STAGE/$p/index.html"
+done
+
 docker exec "$CONT" rm -rf /tmp/sitio-embudo
 docker cp "$STAGE" "$CONT:/tmp/sitio-embudo"
 
