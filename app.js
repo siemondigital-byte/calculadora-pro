@@ -118,6 +118,7 @@
       pnSimultaneos: 'Proyectos simultáneos que puedes asumir',
       pnRangoTipo: 'Rango de precio objetivo', pnEntrada: 'Entrada mínima', pnCuotaMes: 'cuota/mes aprox.',
       pnAlcanza: 'Alcanza', pnNoAlcanza: 'Aún no', pnProyMercado: 'proyecto(s)',
+      pnStEntrada: 'Entrada', pnStCuota: 'Cuota/mes', pnStProys: 'Proyectos',
       pnVerdictAccel: '🟢 Perfil acelerado — la libertad financiera está a 5 años o menos. Ejecuta con disciplina.',
       pnVerdictSolido: '🟡 Perfil sólido — el ciclo funciona para ti. Optimiza tu flujo mensual para acelerar.',
       pnVerdictConstru: '🔴 Perfil en construcción — sube tu capital inicial o tu flujo mensual, o monetiza activos inactivos.',
@@ -228,6 +229,7 @@
       pnSimultaneos: 'Simultaneous projects you can take on',
       pnRangoTipo: 'Target price range', pnEntrada: 'Min. entry', pnCuotaMes: 'approx. payment/mo',
       pnAlcanza: 'Within reach', pnNoAlcanza: 'Not yet', pnProyMercado: 'project(s)',
+      pnStEntrada: 'Entry', pnStCuota: 'Payment/mo', pnStProys: 'Projects',
       pnVerdictAccel: '🟢 Accelerated profile — financial freedom is 5 years away or less. Execute with discipline.',
       pnVerdictSolido: '🟡 Solid profile — the cycle works for you. Optimize your monthly flow to accelerate.',
       pnVerdictConstru: '🔴 Building profile — raise your starting capital or monthly flow, or monetize idle assets.',
@@ -873,14 +875,22 @@
         '</div>';
 
     } else if (tab === 'proyectos') {
+      var stat = function (val, unit, label) {
+        return '<div class="pn-stat"><div class="pn-stat-v">' + val +
+          (unit ? '<span> ' + unit + '</span>' : '') + '</div>' +
+          '<div class="pn-stat-l">' + escapeHtml(label) + '</div></div>';
+      };
       var mkRows = c.mkView.map(function (m) {
         var name = (L.pnMercados && L.pnMercados[m.key]) || m.key;
         var badge = '<span class="viab-badge ' + (m.afford ? 'ok' : 'no') + '">' + escapeHtml(m.afford ? L.pnAlcanza : L.pnNoAlcanza) + '</span>';
-        var nlabel = m.afford ? (' · <b>' + m.n + ' ' + escapeHtml(L.pnProyMercado) + '</b>') : '';
         return '<div class="pn-mk-row">' +
           '<div class="pn-mk-head"><span class="pn-mk-name">' + escapeHtml(name) + '</span>' + badge + '</div>' +
-          '<div class="pn-mk-sub">' + escapeHtml(L.pnEntrada) + ' <b>' + f.fmt(m.min) + ' USD</b> · ' + f.fmt(m.cuotaMes) + ' USD ' + escapeHtml(L.pnCuotaMes) + nlabel + '</div>' +
-          '</div>';
+          '<div class="pn-mk-stats">' +
+            stat(f.fmt(m.min), 'USD', L.pnStEntrada) +
+            stat(f.fmt(m.cuotaMes), 'USD', L.pnStCuota) +
+            stat(m.afford ? String(m.n) : '—', '', L.pnStProys) +
+          '</div>' +
+        '</div>';
       }).join('');
       html =
         '<div class="panel card card-span pn-solo">' +
