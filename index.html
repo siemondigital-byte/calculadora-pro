@@ -192,6 +192,19 @@
 
       <!-- ============================ PROJECT ============================ -->
       <div id="view-proyecto">
+      <!-- sub-navegación de proyectos -->
+      <nav class="pn-subnav proj-subnav" role="tablist">
+        <button type="button" class="pn-subtab proj-subtab" data-ptab="analizar" data-i18n="projTabAnalizar" role="tab"></button>
+        <button type="button" class="pn-subtab proj-subtab" data-ptab="comparar" data-i18n="projTabComparar" role="tab"></button>
+        <button type="button" class="pn-subtab proj-subtab" data-ptab="portafolio" data-i18n="projTabPortafolio" role="tab"></button>
+        <button type="button" class="pn-subtab proj-subtab" data-ptab="checklist" data-i18n="projTabChecklist" role="tab"></button>
+      </nav>
+
+      <div id="proj-comparar"></div>
+      <div id="proj-portafolio"></div>
+      <div id="proj-checklist"></div>
+
+      <div id="proj-analizar">
       <!-- projects bar -->
       <div class="projects-row">
         <span class="projects-label" data-i18n="projectsTitle"></span>
@@ -544,6 +557,7 @@
 
         </div>
       </div>
+      </div><!-- /proj-analizar -->
       </div><!-- /view-proyecto -->
 
       <p class="disclaimer" data-i18n="disclaimer"></p>

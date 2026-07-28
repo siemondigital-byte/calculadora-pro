@@ -130,6 +130,25 @@
       pnFiscal: 'Diferimiento fiscal · 5 ciclos', pnFiscalHelp: 'Cuánto patrimonio ganas reinvirtiendo sin pagar impuesto en cada ciclo, frente a pagarlo (supuestos del libro: 35% por ciclo, 20% de impuesto, 2,5% de gastos).',
       pnFisCon: 'Con diferimiento', pnFisSin: 'Pagando impuesto', pnFisDif: 'Ventaja',
       pnFisExtra: 'Patrimonio extra por diferir (5 ciclos)', pnFisNota: 'Colombia (AFC), Rep. Dominicana (CONFOTUR), Dubái (0%) permiten diferir o anular el impuesto.',
+      // ---- Módulos registrables (Proyectos) ----
+      projTabAnalizar: 'Analizar', projTabComparar: 'Comparar', projTabPortafolio: 'Portafolio', projTabChecklist: 'Checklist',
+      pjRemove: 'Quitar',
+      shopTitulo: 'Shopping inmobiliario', shopHelp: 'Registra proyectos candidatos de una zona; el sistema calcula $/m², TIR y el mejor valor.',
+      shopAdd: '+ Añadir proyecto',
+      shopNombre: 'Proyecto', shopM2: 'Área (m²)', shopPrecio: 'Precio total', shopInicial: 'Cuota inicial %', shopMeses: 'Meses de obra', shopValoriz: 'Valoriz. mensual %',
+      shopM2Price: '$/m²', shopTir: 'TIR est.', shopMejor: 'Mejor precio', shopJusto: 'Precio justo', shopSobre: 'Sobre precio',
+      shopResumen: 'Resumen de zona', shopProm: '$/m² promedio', shopTirProm: 'TIR promedio', shopN: 'Proyectos', shopVacio: 'Añade al menos un proyecto candidato.',
+      portTitulo: 'Portafolio activo', portHelp: 'Registra tus propiedades en curso y monitorea avance, valor y ganancia.',
+      portAdd: '+ Añadir propiedad',
+      portNombre: 'Propiedad', portPrecio: 'Precio compra', portCuota: 'Cuota inicial', portMeses: 'Meses de obra', portMesActual: 'Mes actual', portValoriz: 'Valoriz. mensual %',
+      portAvance: 'Avance', portValor: 'Valor actual', portGanancia: 'Ganancia',
+      portSalida: '🔔 Preparar salida', portMonitor: '📊 Monitorear zona', portObra: '⏳ En construcción',
+      portResumen: 'Resumen del portafolio', portActivos: 'Activos', portInvertido: 'Capital invertido', portValorTotal: 'Valor total', portGananciaTotal: 'Ganancia total', portVacio: 'Añade tu primera propiedad activa.',
+      chkTitulo: 'Checklist y scoring', chkHelp: 'Puntúa cada criterio de 0 a 5. El sistema pondera y da un veredicto.',
+      chkNombre: 'Nombre del proyecto', chkTotal: 'Puntuación ponderada', chkPeso: 'Peso',
+      chkExcelente: '🟢 Proyecto excelente — cumple criterios de alta calidad. Procede al análisis financiero.',
+      chkAceptable: '🟡 Proyecto aceptable — hay puntos por mejorar. Evalúa si el precio compensa las debilidades.',
+      chkDebil: '🔴 Proyecto débil — demasiados criterios bajos. Busca mejores opciones.',
       pnConclEyebrow: 'Conclusiones de viabilidad', pnConclHelp: 'Síntesis de tu viabilidad y análisis predictivo de tu patrimonio.',
       pnPredic: 'Análisis predictivo · escenarios', pnPredicHelp: 'Patrimonio y libertad según la valorización que se materialice.',
       pnEscLibertad: 'Libertad', pnEscPat: 'Patrimonio', pnAnioLib: 'Libertad estimada',
@@ -256,6 +275,25 @@
       pnFiscal: 'Tax deferral · 5 cycles', pnFiscalHelp: 'How much more net worth you build by reinvesting without paying tax each cycle vs. paying it (book assumptions: 35% per cycle, 20% tax, 2.5% costs).',
       pnFisCon: 'With deferral', pnFisSin: 'Paying tax', pnFisDif: 'Advantage',
       pnFisExtra: 'Extra net worth from deferring (5 cycles)', pnFisNota: 'Colombia (AFC), Dominican Rep. (CONFOTUR), Dubai (0%) let you defer or zero-out the tax.',
+      // ---- Registrable modules (Projects) ----
+      projTabAnalizar: 'Analyze', projTabComparar: 'Compare', projTabPortafolio: 'Portfolio', projTabChecklist: 'Checklist',
+      pjRemove: 'Remove',
+      shopTitulo: 'Property shopping', shopHelp: 'Register candidate projects in an area; the system computes $/m², IRR and best value.',
+      shopAdd: '+ Add project',
+      shopNombre: 'Project', shopM2: 'Area (m²)', shopPrecio: 'Total price', shopInicial: 'Down payment %', shopMeses: 'Construction months', shopValoriz: 'Monthly appr. %',
+      shopM2Price: '$/m²', shopTir: 'Est. IRR', shopMejor: 'Best price', shopJusto: 'Fair price', shopSobre: 'Overpriced',
+      shopResumen: 'Zone summary', shopProm: 'Avg $/m²', shopTirProm: 'Avg IRR', shopN: 'Projects', shopVacio: 'Add at least one candidate project.',
+      portTitulo: 'Active portfolio', portHelp: 'Register your ongoing properties and monitor progress, value and gain.',
+      portAdd: '+ Add property',
+      portNombre: 'Property', portPrecio: 'Purchase price', portCuota: 'Down payment', portMeses: 'Construction months', portMesActual: 'Current month', portValoriz: 'Monthly appr. %',
+      portAvance: 'Progress', portValor: 'Current value', portGanancia: 'Gain',
+      portSalida: '🔔 Prepare exit', portMonitor: '📊 Monitor area', portObra: '⏳ Under construction',
+      portResumen: 'Portfolio summary', portActivos: 'Active', portInvertido: 'Capital invested', portValorTotal: 'Total value', portGananciaTotal: 'Total gain', portVacio: 'Add your first active property.',
+      chkTitulo: 'Checklist & scoring', chkHelp: 'Score each criterion 0–5. The system weights it and gives a verdict.',
+      chkNombre: 'Project name', chkTotal: 'Weighted score', chkPeso: 'Weight',
+      chkExcelente: '🟢 Excellent project — meets high-quality criteria. Proceed to financial analysis.',
+      chkAceptable: '🟡 Acceptable project — room to improve. Weigh whether the price offsets the weaknesses.',
+      chkDebil: '🔴 Weak project — too many low criteria. Look for better options.',
       pnConclEyebrow: 'Viability conclusions', pnConclHelp: 'A synthesis of your viability and a predictive analysis of your net worth.',
       pnPredic: 'Predictive analysis · scenarios', pnPredicHelp: 'Net worth and freedom depending on the appreciation that materializes.',
       pnEscLibertad: 'Freedom', pnEscPat: 'Net worth', pnAnioLib: 'Estimated freedom',
@@ -274,6 +312,33 @@
   /* --------------------------------------------------------- persistence -- */
   var LS_KEY = 'crd-calc-v2';
   function uid() { return 'p' + Math.random().toString(36).slice(2, 9); }
+
+  /* ---- Módulos registrables del Excel (Shopping / Portafolio / Checklist) ---- */
+  function defaultShopping() {
+    return [
+      { id: uid(), name: 'Torre A', m2: 65, precio: 130000, inicialPct: 30, meses: 30, valoriz: 1 },
+      { id: uid(), name: 'Torre B', m2: 72, precio: 138000, inicialPct: 30, meses: 30, valoriz: 1 }
+    ];
+  }
+  function defaultPortafolio() {
+    return [
+      { id: uid(), name: 'El Poblado 1204', precioCompra: 90000, cuotaInicial: 27000, mesesObra: 30, mesActual: 12, valoriz: 1 }
+    ];
+  }
+  // Checklist de selección (Cap. 13 / hoja "Checklist y Scoring"): 8 criterios ponderados.
+  var CHECKLIST_CRIT = [
+    { peso: 0.20, name: { es: 'Trayectoria y reputación de la constructora', en: 'Developer track record & reputation' } },
+    { peso: 0.20, name: { es: 'Ubicación y zona de valorización', en: 'Location & appreciation zone' } },
+    { peso: 0.15, name: { es: 'Demanda habitacional documentada en la zona', en: 'Documented housing demand in the area' } },
+    { peso: 0.15, name: { es: 'Respaldo fiduciario / garantías legales', en: 'Trust backing / legal guarantees' } },
+    { peso: 0.10, name: { es: 'Calidad del diseño y especificaciones', en: 'Design quality & specifications' } },
+    { peso: 0.10, name: { es: 'Transparencia y comunicación del desarrollador', en: 'Developer transparency & communication' } },
+    { peso: 0.05, name: { es: 'Acceso a servicios, vías e infraestructura', en: 'Access to services, roads & infrastructure' } },
+    { peso: 0.05, name: { es: 'Potencial de renta si decides no vender', en: 'Rental potential if you decide to hold' } }
+  ];
+  function defaultChecklist() {
+    return { nombre: '', scores: CHECKLIST_CRIT.map(function () { return 3; }) };
+  }
 
   function defaultProjects() {
     return [
@@ -338,38 +403,45 @@
   function loadState() {
     var base = {
       lang: (function () { try { return /^en/i.test(navigator.language || navigator.userLanguage || '') ? 'en' : 'es'; } catch (e) { return 'es'; } })(),
-      screen: 'login', mobileTab: 'datos', view: 'panel', panelTab: 'resumen',
+      screen: 'login', mobileTab: 'datos', view: 'panel', panelTab: 'resumen', projTab: 'analizar',
       perfilNombre: '', ingreso: 6000, gasto: 2800, deudas: 400, capital: 35000,
       horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000,
-      projects: null, activeId: null
+      projects: null, activeId: null, shopping: null, portafolio: null, checklist: null
     };
     try {
       var raw = window.localStorage.getItem(LS_KEY);
       if (raw) {
         var saved = JSON.parse(raw);
         ['perfilNombre', 'ingreso', 'gasto', 'deudas', 'capital', 'horizonte', 'inflacion',
-         'valorizacionEsp', 'gastoLibertad', 'lang', 'view', 'panelTab'].forEach(function (k) {
+         'valorizacionEsp', 'gastoLibertad', 'lang', 'view', 'panelTab', 'projTab'].forEach(function (k) {
           if (saved[k] != null) base[k] = saved[k];
         });
         if (Array.isArray(saved.projects) && saved.projects.length) base.projects = saved.projects;
         if (saved.activeId) base.activeId = saved.activeId;
+        if (Array.isArray(saved.shopping)) base.shopping = saved.shopping;
+        if (Array.isArray(saved.portafolio)) base.portafolio = saved.portafolio;
+        if (saved.checklist) base.checklist = saved.checklist;
       }
     } catch (e) { /* ignore storage errors */ }
     if (!base.projects) base.projects = defaultProjects();
     if (!base.activeId || !base.projects.some(function (p) { return p.id === base.activeId; })) {
       base.activeId = base.projects[0].id;
     }
+    if (!base.shopping) base.shopping = defaultShopping();
+    if (!base.portafolio) base.portafolio = defaultPortafolio();
+    if (!base.checklist) base.checklist = defaultChecklist();
     return base;
   }
 
   function saveState() {
     try {
       window.localStorage.setItem(LS_KEY, JSON.stringify({
-        lang: state.lang, view: state.view, panelTab: state.panelTab, perfilNombre: state.perfilNombre,
+        lang: state.lang, view: state.view, panelTab: state.panelTab, projTab: state.projTab, perfilNombre: state.perfilNombre,
         ingreso: state.ingreso, gasto: state.gasto, deudas: state.deudas,
         capital: state.capital, horizonte: state.horizonte, inflacion: state.inflacion,
         valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad,
-        projects: state.projects, activeId: state.activeId
+        projects: state.projects, activeId: state.activeId,
+        shopping: state.shopping, portafolio: state.portafolio, checklist: state.checklist
       }));
     } catch (e) { /* ignore */ }
     // sincronización en la nube (debounced) si hay sesión Supabase
@@ -1088,6 +1160,235 @@
   /* --------------------------------------------------------- rendering ---- */
   function setText(id, v) { var el = $(id); if (el) el.textContent = v; }
 
+  /* ============ Módulos registrables: Shopping / Portafolio / Checklist ==== */
+  function regNumInput(mod, id, field, step, val) {
+    return '<input class="num-input" type="number" step="' + step + '" inputmode="decimal" data-mod="' + mod +
+      '" data-id="' + id + '" data-field="' + field + '" value="' + (val != null ? val : '') + '">';
+  }
+  function regField(mod, id, field, label, step, val) {
+    return '<div class="input-group"><span class="input-label">' + escapeHtml(label) + '</span>' + regNumInput(mod, id, field, step, val) + '</div>';
+  }
+
+  // ---- Shopping inmobiliario ----
+  function computeShopping() {
+    var rows = state.shopping.map(function (r) {
+      var m2p = r.m2 > 0 ? r.precio / r.m2 : 0;
+      var d = (r.inicialPct || 0) / 100, g = (r.valoriz || 0) / 100;
+      var tir = (r.precio > 0 && r.meses > 0 && d > 0)
+        ? Math.pow(1 + ((r.precio * Math.pow(1 + g, r.meses) - r.precio) / (r.precio * d)), 12 / r.meses) - 1 : 0;
+      return { id: r.id, m2p: m2p, tir: tir, valid: r.precio > 0 && r.m2 > 0 };
+    });
+    var valids = rows.filter(function (x) { return x.valid; });
+    var avgP = valids.length ? valids.reduce(function (a, b) { return a + b.m2p; }, 0) / valids.length : 0;
+    var avgT = valids.length ? valids.reduce(function (a, b) { return a + b.tir; }, 0) / valids.length : 0;
+    rows.forEach(function (x) {
+      if (!x.valid || avgP <= 0) x.rank = null;
+      else if (x.m2p < avgP * 0.92) x.rank = 'mejor';
+      else if (x.m2p > avgP * 1.08) x.rank = 'sobre';
+      else x.rank = 'justo';
+    });
+    return { rows: rows, avgP: avgP, avgT: avgT, n: valids.length };
+  }
+  function paintShopping() {
+    var c = computeShopping(), f = makeFmt(state.lang), L = T[state.lang];
+    c.rows.forEach(function (x) {
+      setText('shd-price-' + x.id, x.valid ? f.fmt(x.m2p) : '—');
+      setText('shd-tir-' + x.id, x.valid ? f.pct(x.tir, 0) + '%' : '—');
+      var rk = $('shd-rank-' + x.id);
+      if (rk) {
+        rk.textContent = x.rank === 'mejor' ? L.shopMejor : x.rank === 'sobre' ? L.shopSobre : x.rank === 'justo' ? L.shopJusto : '—';
+        rk.className = 'viab-badge ' + (x.rank === 'mejor' ? 'ok' : x.rank === 'sobre' ? 'no' : 'mid');
+      }
+    });
+    setText('sh-sum-price', c.avgP > 0 ? f.fmt(c.avgP) + ' USD' : '—');
+    setText('sh-sum-tir', c.n ? f.pct(c.avgT, 0) + '%' : '—');
+    setText('sh-sum-n', String(c.n));
+  }
+  function renderComparar() {
+    var L = T[state.lang];
+    var cards = state.shopping.map(function (r) {
+      return '<div class="reg-card">' +
+        '<div class="reg-head"><input class="num-input plain reg-name" type="text" data-mod="shop" data-id="' + r.id + '" data-field="name" value="' + escapeHtml(r.name || '') + '" placeholder="' + escapeHtml(L.shopNombre) + '">' +
+          '<button class="reg-del" type="button" data-del="shop:' + r.id + '" aria-label="' + escapeHtml(L.pjRemove) + '">×</button></div>' +
+        '<div class="reg-grid">' +
+          regField('shop', r.id, 'm2', L.shopM2, '1', r.m2) +
+          regField('shop', r.id, 'precio', L.shopPrecio, '1000', r.precio) +
+          regField('shop', r.id, 'inicialPct', L.shopInicial, '1', r.inicialPct) +
+          regField('shop', r.id, 'meses', L.shopMeses, '1', r.meses) +
+          regField('shop', r.id, 'valoriz', L.shopValoriz, '0.1', r.valoriz) +
+        '</div>' +
+        '<div class="pn-mk-stats reg-out">' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="shd-price-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.shopM2Price) + '</div></div>' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="shd-tir-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.shopTir) + '</div></div>' +
+          '<div class="pn-stat pn-stat-badge"><span class="viab-badge" id="shd-rank-' + r.id + '"></span></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    if (!state.shopping.length) cards = '<p class="card-help">' + escapeHtml(L.shopVacio) + '</p>';
+    $('proj-comparar').innerHTML =
+      '<div class="panel card card-span pn-solo">' +
+        '<div class="eyebrow">' + escapeHtml(L.shopTitulo) + '</div>' +
+        '<p class="card-help card-help-mb">' + escapeHtml(L.shopHelp) + '</p>' +
+        '<div class="pn-mk-stats reg-summary">' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="sh-sum-price"></div><div class="pn-stat-l">' + escapeHtml(L.shopProm) + '</div></div>' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="sh-sum-tir"></div><div class="pn-stat-l">' + escapeHtml(L.shopTirProm) + '</div></div>' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="sh-sum-n"></div><div class="pn-stat-l">' + escapeHtml(L.shopN) + '</div></div>' +
+        '</div>' +
+        '<div class="reg-list">' + cards + '</div>' +
+        '<button class="pn-cta" type="button" data-add="shop">' + escapeHtml(L.shopAdd) + '</button>' +
+      '</div>';
+    wireRegSection('proj-comparar', paintShopping);
+    paintShopping();
+  }
+
+  // ---- Portafolio mensual ----
+  function computePortafolio() {
+    var rows = state.portafolio.map(function (r) {
+      var avance = r.mesesObra > 0 ? Math.min(r.mesActual / r.mesesObra, 1) : 0;
+      var valor = r.precioCompra > 0 ? r.precioCompra * Math.pow(1 + (r.valoriz != null ? r.valoriz : 1) / 100, r.mesActual || 0) : 0;
+      var gan = r.precioCompra > 0 ? valor - r.precioCompra : 0;
+      var accion = r.precioCompra <= 0 ? '' : (avance >= 0.9 ? 'salida' : avance >= 0.6 ? 'monitor' : 'obra');
+      return { id: r.id, avance: avance, valor: valor, gan: gan, accion: accion, valid: r.precioCompra > 0 };
+    });
+    var valids = rows.filter(function (x) { return x.valid; });
+    return { rows: rows, activos: valids.length,
+      invertido: state.portafolio.reduce(function (a, b) { return a + (b.cuotaInicial || 0); }, 0),
+      valorTotal: valids.reduce(function (a, b) { return a + b.valor; }, 0),
+      ganTotal: valids.reduce(function (a, b) { return a + b.gan; }, 0) };
+  }
+  function paintPortafolio() {
+    var c = computePortafolio(), f = makeFmt(state.lang), L = T[state.lang];
+    c.rows.forEach(function (x) {
+      setText('pod-avance-' + x.id, x.valid ? f.pct(x.avance, 0) + '%' : '—');
+      setText('pod-valor-' + x.id, x.valid ? f.fmt(x.valor) : '—');
+      setText('pod-gan-' + x.id, x.valid ? '+' + f.fmt(x.gan) : '—');
+      var ac = $('pod-accion-' + x.id);
+      if (ac) {
+        ac.textContent = x.accion === 'salida' ? L.portSalida : x.accion === 'monitor' ? L.portMonitor : x.accion === 'obra' ? L.portObra : '—';
+        ac.className = 'scen-verdict pod-accion ' + (x.accion === 'salida' ? '' : x.accion === 'monitor' ? 'mid' : '');
+      }
+    });
+    setText('po-sum-act', String(c.activos));
+    setText('po-sum-inv', f.fmt(c.invertido) + ' USD');
+    setText('po-sum-val', f.fmt(c.valorTotal) + ' USD');
+    setText('po-sum-gan', '+' + f.fmt(c.ganTotal) + ' USD');
+  }
+  function renderPortafolio() {
+    var L = T[state.lang];
+    var cards = state.portafolio.map(function (r) {
+      return '<div class="reg-card">' +
+        '<div class="reg-head"><input class="num-input plain reg-name" type="text" data-mod="port" data-id="' + r.id + '" data-field="name" value="' + escapeHtml(r.name || '') + '" placeholder="' + escapeHtml(L.portNombre) + '">' +
+          '<button class="reg-del" type="button" data-del="port:' + r.id + '" aria-label="' + escapeHtml(L.pjRemove) + '">×</button></div>' +
+        '<div class="reg-grid">' +
+          regField('port', r.id, 'precioCompra', L.portPrecio, '1000', r.precioCompra) +
+          regField('port', r.id, 'cuotaInicial', L.portCuota, '500', r.cuotaInicial) +
+          regField('port', r.id, 'mesesObra', L.portMeses, '1', r.mesesObra) +
+          regField('port', r.id, 'mesActual', L.portMesActual, '1', r.mesActual) +
+          regField('port', r.id, 'valoriz', L.portValoriz, '0.1', r.valoriz) +
+        '</div>' +
+        '<div class="pn-mk-stats reg-out">' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="pod-avance-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.portAvance) + '</div></div>' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="pod-valor-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.portValor) + '</div></div>' +
+          '<div class="pn-stat"><div class="pn-stat-v" id="pod-gan-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.portGanancia) + '</div></div>' +
+        '</div>' +
+        '<div class="scen-verdict pod-accion" id="pod-accion-' + r.id + '"></div>' +
+      '</div>';
+    }).join('');
+    if (!state.portafolio.length) cards = '<p class="card-help">' + escapeHtml(L.portVacio) + '</p>';
+    $('proj-portafolio').innerHTML =
+      '<div class="panel card card-span pn-solo">' +
+        '<div class="eyebrow">' + escapeHtml(L.portTitulo) + '</div>' +
+        '<p class="card-help card-help-mb">' + escapeHtml(L.portHelp) + '</p>' +
+        '<div class="pn-tiles pn-tiles-2 reg-summary">' +
+          '<div class="pn-tile"><div class="pn-tile-val" id="po-sum-val"></div><div class="pn-tile-lbl">' + escapeHtml(L.portValorTotal) + '</div></div>' +
+          '<div class="pn-tile"><div class="pn-tile-val" id="po-sum-gan"></div><div class="pn-tile-lbl">' + escapeHtml(L.portGananciaTotal) + '</div></div>' +
+          '<div class="pn-tile"><div class="pn-tile-val" id="po-sum-inv"></div><div class="pn-tile-lbl">' + escapeHtml(L.portInvertido) + '</div></div>' +
+          '<div class="pn-tile"><div class="pn-tile-val" id="po-sum-act"></div><div class="pn-tile-lbl">' + escapeHtml(L.portActivos) + '</div></div>' +
+        '</div>' +
+        '<div class="reg-list">' + cards + '</div>' +
+        '<button class="pn-cta" type="button" data-add="port">' + escapeHtml(L.portAdd) + '</button>' +
+      '</div>';
+    wireRegSection('proj-portafolio', paintPortafolio);
+    paintPortafolio();
+  }
+
+  // ---- Checklist y scoring ----
+  function paintChecklist() {
+    var f = makeFmt(state.lang), L = T[state.lang], ch = state.checklist, total = 0, wsum = 0;
+    CHECKLIST_CRIT.forEach(function (cr, i) { total += cr.peso * (ch.scores[i] || 0); wsum += cr.peso; });
+    var score = wsum > 0 ? total / wsum : 0;
+    setText('chk-total', f.dec(score, 1));
+    var v = $('chk-verdict');
+    if (v) {
+      var t, cls;
+      if (score >= 4) { t = L.chkExcelente; cls = ''; }
+      else if (score >= 3) { t = L.chkAceptable; cls = 'mid'; }
+      else { t = L.chkDebil; cls = 'warn'; }
+      v.textContent = t; v.className = 'verdict ' + cls;
+    }
+  }
+  function renderChecklist() {
+    var L = T[state.lang], ch = state.checklist;
+    var rows = CHECKLIST_CRIT.map(function (cr, i) {
+      var val = ch.scores[i] != null ? ch.scores[i] : 3;
+      return '<div class="chk-row">' +
+        '<div class="chk-crit"><span class="chk-name">' + escapeHtml(cr.name[state.lang]) + '</span>' +
+          '<span class="chk-peso">' + escapeHtml(L.chkPeso) + ' ' + Math.round(cr.peso * 100) + '%</span></div>' +
+        '<div class="chk-ctrl"><input type="range" class="rng" min="0" max="5" step="1" data-chk="' + i + '" value="' + val + '">' +
+          '<span class="chk-val" id="chk-val-' + i + '">' + val + '</span></div>' +
+      '</div>';
+    }).join('');
+    $('proj-checklist').innerHTML =
+      '<div class="panel card card-span pn-solo">' +
+        '<div class="eyebrow">' + escapeHtml(L.chkTitulo) + '</div>' +
+        '<p class="card-help card-help-mb">' + escapeHtml(L.chkHelp) + '</p>' +
+        '<div class="input-group"><span class="input-label">' + escapeHtml(L.chkNombre) + '</span>' +
+          '<input class="num-input plain" id="chk-nombre" type="text" value="' + escapeHtml(ch.nombre || '') + '"></div>' +
+        '<div class="chk-list">' + rows + '</div>' +
+        '<div class="big-num-row"><span class="big-num" id="chk-total"></span><span class="big-num-unit">/ 5</span></div>' +
+        '<div class="sub-line">' + escapeHtml(L.chkTotal) + '</div>' +
+        '<div class="verdict" id="chk-verdict"></div>' +
+      '</div>';
+    $('chk-nombre').addEventListener('input', function (e) { state.checklist.nombre = e.target.value; saveState(); });
+    $('proj-checklist').querySelectorAll('input[data-chk]').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var i = +inp.getAttribute('data-chk');
+        state.checklist.scores[i] = +inp.value;
+        setText('chk-val-' + i, inp.value);
+        saveState(); paintChecklist();
+      });
+    });
+    paintChecklist();
+  }
+
+  // wiring compartido para las secciones registrables (inputs, borrar, añadir)
+  function wireRegSection(containerId, paint) {
+    var cont = $(containerId);
+    cont.querySelectorAll('input[data-mod]').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var mod = inp.getAttribute('data-mod'), id = inp.getAttribute('data-id'), field = inp.getAttribute('data-field');
+        var arr = mod === 'shop' ? state.shopping : state.portafolio;
+        var r = arr.filter(function (x) { return x.id === id; })[0];
+        if (!r) return;
+        r[field] = field === 'name' ? inp.value : parseNum(inp.value);
+        saveState(); paint();
+      });
+    });
+    cont.querySelectorAll('.reg-del').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var parts = b.getAttribute('data-del').split(':'), mod = parts[0], id = parts[1];
+        if (mod === 'shop') { state.shopping = state.shopping.filter(function (x) { return x.id !== id; }); saveState(); renderComparar(); }
+        else { state.portafolio = state.portafolio.filter(function (x) { return x.id !== id; }); saveState(); renderPortafolio(); }
+      });
+    });
+    cont.querySelectorAll('[data-add]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.getAttribute('data-add') === 'shop') { state.shopping.push({ id: uid(), name: '', m2: 0, precio: 0, inicialPct: 30, meses: 30, valoriz: 1 }); saveState(); renderComparar(); }
+        else { state.portafolio.push({ id: uid(), name: '', precioCompra: 0, cuotaInicial: 0, mesesObra: 30, mesActual: 0, valoriz: 1 }); saveState(); renderPortafolio(); }
+      });
+    });
+  }
+
   function renderStaticText() {
     var L = T[state.lang];
     document.documentElement.lang = state.lang;
@@ -1209,6 +1510,20 @@
       navBtns[nb].classList.toggle('active', navBtns[nb].getAttribute('data-view') === view);
     }
     if ($('panel-results')) renderPanel();
+
+    // project sub-tabs (Analizar / Comparar / Portafolio / Checklist)
+    var pjt = s.projTab || 'analizar';
+    var pjMap = { analizar: 'proj-analizar', comparar: 'proj-comparar', portafolio: 'proj-portafolio', checklist: 'proj-checklist' };
+    Object.keys(pjMap).forEach(function (k) { var el = $(pjMap[k]); if (el) el.hidden = pjt !== k; });
+    var pjBtns = document.querySelectorAll('.proj-subtab');
+    for (var pj = 0; pj < pjBtns.length; pj++) {
+      pjBtns[pj].classList.toggle('active', pjBtns[pj].getAttribute('data-ptab') === pjt);
+    }
+    if (view === 'proyecto') {
+      if (pjt === 'comparar' && $('proj-comparar')) renderComparar();
+      else if (pjt === 'portafolio' && $('proj-portafolio')) renderPortafolio();
+      else if (pjt === 'checklist' && $('proj-checklist')) renderChecklist();
+    }
 
     $('app').setAttribute('data-tab', mqMobile.matches ? s.mobileTab : 'all');
     var tabBtns = document.querySelectorAll('.tab-btn');
@@ -1529,6 +1844,10 @@
     // panel sub-tabs (una sección por pestaña)
     document.querySelectorAll('.pn-subtab').forEach(function (b) {
       b.addEventListener('click', function () { state.panelTab = b.getAttribute('data-ptab'); commit(); });
+    });
+    // project sub-tabs (Analizar / Comparar / Portafolio / Checklist)
+    document.querySelectorAll('.proj-subtab').forEach(function (b) {
+      b.addEventListener('click', function () { state.projTab = b.getAttribute('data-ptab'); commit(); window.scrollTo(0, 0); });
     });
 
     // panel — personal profile inputs (shared global state)
