@@ -122,7 +122,15 @@
       pnVerdictAccel: '🟢 Perfil acelerado — la libertad financiera está a 5 años o menos. Ejecuta con disciplina.',
       pnVerdictSolido: '🟡 Perfil sólido — el ciclo funciona para ti. Optimiza tu flujo mensual para acelerar.',
       pnVerdictConstru: '🔴 Perfil en construcción — sube tu capital inicial o tu flujo mensual, o monetiza activos inactivos.',
-      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabProys: 'Proyectos',
+      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabProys: 'Proyectos', pnTabConcl: 'Conclusiones',
+      pnConclEyebrow: 'Conclusiones de viabilidad', pnConclHelp: 'Síntesis de tu viabilidad y análisis predictivo de tu patrimonio.',
+      pnPredic: 'Análisis predictivo · escenarios', pnPredicHelp: 'Patrimonio y libertad según la valorización que se materialice.',
+      pnEscLibertad: 'Libertad', pnEscPat: 'Patrimonio', pnAnioLib: 'Libertad estimada',
+      pnPalancas: 'Palancas para acelerar', pnPalancasHelp: 'Qué mueve más la aguja desde tu situación actual.',
+      pnLevAporte: '+500/mes de aporte', pnLevCapital: '+20.000 de capital', pnLevValoriz: '+1 punto de valorización',
+      pnLevAdelanta: 'adelanta', pnLevMasPat: 'de patrimonio', pnLevNada: 'sin cambio material',
+      pnCartera: 'Tu cartera de proyectos', pnMejorProy: 'Mejor proyecto', pnViablesN: 'Proyectos viables', pnSinProy: 'Aún no has añadido proyectos.',
+      pnConclVeredicto: 'Veredicto', pnDe: 'de',
       pnRecomienda: 'Recomendación', pnAbrirProyecto: 'Analizar un proyecto →',
       pnMercados: { colombia: 'Colombia', rd: 'Rep. Dominicana', mexico: 'México', dubai: 'Dubái' },
       pnResumenNota: 'Para vivir de tu patrimonio: rinde ~1%/mes con un margen de seguridad de 1,25×.',
@@ -233,7 +241,15 @@
       pnVerdictAccel: '🟢 Accelerated profile — financial freedom is 5 years away or less. Execute with discipline.',
       pnVerdictSolido: '🟡 Solid profile — the cycle works for you. Optimize your monthly flow to accelerate.',
       pnVerdictConstru: '🔴 Building profile — raise your starting capital or monthly flow, or monetize idle assets.',
-      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabProys: 'Projects',
+      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabProys: 'Projects', pnTabConcl: 'Conclusions',
+      pnConclEyebrow: 'Viability conclusions', pnConclHelp: 'A synthesis of your viability and a predictive analysis of your net worth.',
+      pnPredic: 'Predictive analysis · scenarios', pnPredicHelp: 'Net worth and freedom depending on the appreciation that materializes.',
+      pnEscLibertad: 'Freedom', pnEscPat: 'Net worth', pnAnioLib: 'Estimated freedom',
+      pnPalancas: 'Levers to accelerate', pnPalancasHelp: 'What moves the needle most from where you are today.',
+      pnLevAporte: '+500/mo contribution', pnLevCapital: '+20,000 capital', pnLevValoriz: '+1 pt appreciation',
+      pnLevAdelanta: 'sooner by', pnLevMasPat: 'net worth', pnLevNada: 'no material change',
+      pnCartera: 'Your project portfolio', pnMejorProy: 'Best project', pnViablesN: 'Viable projects', pnSinProy: 'You haven\'t added any projects yet.',
+      pnConclVeredicto: 'Verdict', pnDe: 'of',
       pnRecomienda: 'Recommendation', pnAbrirProyecto: 'Analyze a project →',
       pnMercados: { colombia: 'Colombia', rd: 'Dominican Rep.', mexico: 'Mexico', dubai: 'Dubai' },
       pnResumenNota: 'To live off your net worth: it yields ~1%/mo with a 1.25× safety margin.',
@@ -753,6 +769,16 @@
       mkView: mkView, nSimult: nSimult, verdict: verdict };
   }
 
+  /* Análisis predictivo: patrimonio compuesto y años a la libertad para una
+     tasa de valorización dada (permite simular escenarios y palancas). */
+  function pnPatAt(C, flujoAnual, g, t) {
+    return g === 0 ? C + flujoAnual * t : C * Math.pow(1 + g, t) + flujoAnual * (Math.pow(1 + g, t) - 1) / g;
+  }
+  function pnFreedomYears(flujoAnual, g, NSE) {
+    if (!(g > 0 && flujoAnual > 0 && NSE > 0)) return null;
+    return Math.log((NSE * g) / flujoAnual + 1) / Math.log(1 + g);
+  }
+
   function panelChartSVG(c) {
     // área de patrimonio año a año + línea de meta (NSE)
     var W = 600, Hh = 210, padL = 6, padR = 6, padT = 18, padB = 8;
@@ -901,6 +927,85 @@
           '<div class="pn-mk-list">' + mkRows + '</div>' +
           '<div class="cap-poder-line sub-line"><span>' + escapeHtml(L.pnRangoTipo) + '</span>: <span>' + f.fmt(c.propiedadMax * 0.6) + ' – ' + f.fmt(c.propiedadMax) + ' USD</span></div>' +
           '<button type="button" class="pn-cta" id="pn-goto-proyecto">' + escapeHtml(L.pnAbrirProyecto) + '</button>' +
+        '</div>';
+
+    } else if (tab === 'conclusiones') {
+      var C = s.capital || 0, flujoAnual = c.flujoLibre * 12, gBase = c.g, libertad = s.gastoLibertad || 0, H = c.H;
+
+      // --- escenarios predictivos (conservador / base / optimista) ---
+      var scen = [
+        { key: 'cons', label: L.scenCons, g: gBase * 0.6 },
+        { key: 'base', label: L.scenBase, g: gBase },
+        { key: 'opt',  label: L.scenOpt,  g: gBase * 1.4 }
+      ].map(function (sc) {
+        var NSEs = sc.g > 0 ? (libertad * 12) / sc.g : 0;
+        return { key: sc.key, label: sc.label, g: sc.g, patH: pnPatAt(C, flujoAnual, sc.g, H), fy: pnFreedomYears(flujoAnual, sc.g, NSEs) };
+      });
+      var maxPat = Math.max.apply(null, scen.map(function (x) { return x.patH; }).concat([1]));
+      var scenRows = scen.map(function (sc) {
+        var fyTxt = sc.fy == null ? '—' : f.dec(sc.fy, 1) + ' ' + L.unitYears;
+        return '<div class="pn-scn">' +
+          '<div class="pn-scn-head"><span class="pn-scn-lbl">' + escapeHtml(sc.label) + ' · ' + f.dec(sc.g * 100, (sc.g * 100) % 1 ? 1 : 0) + '%</span>' +
+          '<span class="pn-scn-val">' + f.fmt(sc.patH) + ' USD</span></div>' +
+          '<div class="bar-track bar-track-6"><div class="bar-fill" style="width:' + (sc.patH / maxPat * 100).toFixed(0) + '%;background:' + (sc.key === 'base' ? '#E6C788' : 'rgba(230,199,136,0.45)') + '"></div></div>' +
+          '<div class="pn-scn-sub">' + escapeHtml(L.pnEscLibertad) + ': ' + fyTxt + '</div>' +
+        '</div>';
+      }).join('');
+
+      // --- palancas (sensibilidad desde la situación actual) ---
+      var baseFy = c.aniosLibertad, basePatH = pnPatAt(C, flujoAnual, gBase, H);
+      function levAporte() {
+        var fy2 = pnFreedomYears((c.flujoLibre + 500) * 12, gBase, c.NSE);
+        if (fy2 == null || baseFy == null) return L.pnLevNada;
+        var d = baseFy - fy2;
+        return d > 0.05 ? L.pnLevAdelanta + ' ' + f.dec(d, 1) + ' ' + L.unitYears : L.pnLevNada;
+      }
+      function levCapital() {
+        var d = pnPatAt(C + 20000, flujoAnual, gBase, H) - basePatH;
+        return '+' + f.fmt(d) + ' USD ' + L.pnLevMasPat;
+      }
+      function levValoriz() {
+        var d = pnPatAt(C, flujoAnual, gBase + 0.01, H) - basePatH;
+        return '+' + f.fmt(d) + ' USD ' + L.pnLevMasPat;
+      }
+      var levRow = function (label, effect) {
+        return '<div class="pn-lev"><span class="pn-lev-act">' + escapeHtml(label) + '</span>' +
+          '<span class="pn-lev-arrow">→</span><span class="pn-lev-eff">' + escapeHtml(effect) + '</span></div>';
+      };
+      var palancas = levRow(L.pnLevAporte, levAporte()) + levRow(L.pnLevCapital, levCapital()) + levRow(L.pnLevValoriz, levValoriz());
+
+      // --- cartera (viabilidad de los proyectos añadidos) ---
+      var cc = compute();
+      var pv = cc.projView.slice().sort(function (a, b) { return b.tir - a.tir; });
+      var nViables = pv.filter(function (x) { return x.viable; }).length;
+      var best = pv[0];
+      var carteraHtml = best
+        ? '<div class="pn-tiles pn-tiles-2">' +
+            tile(L.pnMejorProy, escapeHtml(best.name) + ' · ' + f.pct(best.tir, 0) + '%', '') +
+            tile(L.pnViablesN, nViables + ' ' + escapeHtml(L.pnDe) + ' ' + pv.length, '') +
+          '</div>'
+        : '<p class="card-help">' + escapeHtml(L.pnSinProy) + '</p>';
+
+      html =
+        '<div class="panel card card-accent card-span pn-hero">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnConclEyebrow) + '</div>' +
+          '<p class="card-help">' + escapeHtml(L.pnConclHelp) + '</p>' +
+          '<div class="verdict ' + c.verdict.cls + '" style="margin-top:14px">' + escapeHtml(c.verdict.text) + '</div>' +
+          '<div class="pn-concl-grid">' +
+            '<div class="pn-concl-block">' +
+              '<div class="eyebrow eyebrow-tight">' + escapeHtml(L.pnPredic) + '</div>' +
+              '<p class="card-help card-help-mb">' + escapeHtml(L.pnPredicHelp) + '</p>' +
+              '<div class="pn-scn-list">' + scenRows + '</div>' +
+            '</div>' +
+            '<div class="pn-concl-block">' +
+              '<div class="eyebrow eyebrow-tight">' + escapeHtml(L.pnPalancas) + '</div>' +
+              '<p class="card-help card-help-mb">' + escapeHtml(L.pnPalancasHelp) + '</p>' +
+              '<div class="pn-lev-list">' + palancas + '</div>' +
+              '<div class="eyebrow eyebrow-tight" style="margin-top:22px">' + escapeHtml(L.pnCartera) + '</div>' +
+              carteraHtml +
+              '<button type="button" class="pn-cta" id="pn-goto-proyecto">' + escapeHtml(L.pnAbrirProyecto) + '</button>' +
+            '</div>' +
+          '</div>' +
         '</div>';
     }
 
