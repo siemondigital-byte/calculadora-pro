@@ -620,6 +620,37 @@ a { color: inherit; }
 .nav-btn:hover { color: var(--cream); }
 .nav-btn.active { background: var(--gold); color: var(--black); }
 
+/* sub-navegación del panel (una sección por pestaña) */
+.pn-subnav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin-top: -4px;
+}
+.pn-subnav::-webkit-scrollbar { display: none; }
+.pn-subtab {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.pn-subtab:hover { color: var(--cream); }
+.pn-subtab.active { background: rgba(230,199,136,0.12); color: var(--gold); border-color: var(--gold-line); }
+
+/* tarjeta suelta (sección única en su pestaña) — limita el ancho para lectura */
+.pn-solo { max-width: 720px; }
+
 /* summary tiles */
 .pn-tiles {
   display: grid;

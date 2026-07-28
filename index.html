@@ -134,8 +134,16 @@
 
       <!-- ============================ PANEL (dashboard) ============================ -->
       <div id="view-panel">
+        <!-- sub-navegación: una sección por pestaña -->
+        <nav class="pn-subnav" role="tablist">
+          <button type="button" class="pn-subtab" data-ptab="info" data-i18n="pnTabInfo" role="tab"></button>
+          <button type="button" class="pn-subtab" data-ptab="resumen" data-i18n="pnTabResumen" role="tab"></button>
+          <button type="button" class="pn-subtab" data-ptab="proyeccion" data-i18n="pnTabProy" role="tab"></button>
+          <button type="button" class="pn-subtab" data-ptab="endeuda" data-i18n="pnTabDeuda" role="tab"></button>
+          <button type="button" class="pn-subtab" data-ptab="proyectos" data-i18n="pnTabProys" role="tab"></button>
+        </nav>
         <!-- Your information — módulo propio, separado del resumen -->
-        <div class="panel pn-perfil">
+        <div class="panel pn-perfil" id="pn-section-info">
           <div class="eyebrow eyebrow-tight" data-i18n="pnPerfil"></div>
           <p class="sec-note" data-i18n="pnPerfilNota"></p>
           <div class="pn-perfil-grid">

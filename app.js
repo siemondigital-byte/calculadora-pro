@@ -121,6 +121,7 @@
       pnVerdictAccel: '🟢 Perfil acelerado — la libertad financiera está a 5 años o menos. Ejecuta con disciplina.',
       pnVerdictSolido: '🟡 Perfil sólido — el ciclo funciona para ti. Optimiza tu flujo mensual para acelerar.',
       pnVerdictConstru: '🔴 Perfil en construcción — sube tu capital inicial o tu flujo mensual, o monetiza activos inactivos.',
+      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabProys: 'Proyectos',
       pnRecomienda: 'Recomendación', pnAbrirProyecto: 'Analizar un proyecto →',
       pnMercados: { colombia: 'Colombia', rd: 'Rep. Dominicana', mexico: 'México', dubai: 'Dubái' },
       pnResumenNota: 'Para vivir de tu patrimonio: rinde ~1%/mes con un margen de seguridad de 1,25×.',
@@ -230,6 +231,7 @@
       pnVerdictAccel: '🟢 Accelerated profile — financial freedom is 5 years away or less. Execute with discipline.',
       pnVerdictSolido: '🟡 Solid profile — the cycle works for you. Optimize your monthly flow to accelerate.',
       pnVerdictConstru: '🔴 Building profile — raise your starting capital or monthly flow, or monetize idle assets.',
+      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabProys: 'Projects',
       pnRecomienda: 'Recommendation', pnAbrirProyecto: 'Analyze a project →',
       pnMercados: { colombia: 'Colombia', rd: 'Dominican Rep.', mexico: 'Mexico', dubai: 'Dubai' },
       pnResumenNota: 'To live off your net worth: it yields ~1%/mo with a 1.25× safety margin.',
@@ -304,7 +306,7 @@
   function loadState() {
     var base = {
       lang: (function () { try { return /^en/i.test(navigator.language || navigator.userLanguage || '') ? 'en' : 'es'; } catch (e) { return 'es'; } })(),
-      screen: 'login', mobileTab: 'datos', view: 'panel',
+      screen: 'login', mobileTab: 'datos', view: 'panel', panelTab: 'resumen',
       perfilNombre: '', ingreso: 6000, gasto: 2800, deudas: 400, capital: 35000,
       horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000,
       projects: null, activeId: null
@@ -314,7 +316,7 @@
       if (raw) {
         var saved = JSON.parse(raw);
         ['perfilNombre', 'ingreso', 'gasto', 'deudas', 'capital', 'horizonte', 'inflacion',
-         'valorizacionEsp', 'gastoLibertad', 'lang', 'view'].forEach(function (k) {
+         'valorizacionEsp', 'gastoLibertad', 'lang', 'view', 'panelTab'].forEach(function (k) {
           if (saved[k] != null) base[k] = saved[k];
         });
         if (Array.isArray(saved.projects) && saved.projects.length) base.projects = saved.projects;
@@ -331,7 +333,7 @@
   function saveState() {
     try {
       window.localStorage.setItem(LS_KEY, JSON.stringify({
-        lang: state.lang, view: state.view, perfilNombre: state.perfilNombre,
+        lang: state.lang, view: state.view, panelTab: state.panelTab, perfilNombre: state.perfilNombre,
         ingreso: state.ingreso, gasto: state.gasto, deudas: state.deudas,
         capital: state.capital, horizonte: state.horizonte, inflacion: state.inflacion,
         valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad,
@@ -812,74 +814,87 @@
     }
 
     var anios = c.aniosLibertad == null ? '—' : f.dec(c.aniosLibertad, 1);
+    var tab = s.panelTab || 'resumen';
 
-    // ---- summary tiles ----
-    var tiles =
-      tile(L.pnFlujoLibre, f.fmt(c.flujoLibre), 'USD') +
-      tile(L.pnPoder, f.fmt(c.poderInversion), 'USD') +
-      tile(L.pnPropMax, f.fmt(c.propiedadMax), 'USD') +
-      tile(L.pnNse, f.fmt(c.NSE), 'USD') +
-      tile(L.pnAnios, anios, L.unitYears) +
-      tile(L.pnPatY10, f.fmt(c.patY10), 'USD');
+    // sub-pestañas activas
+    var subs = document.querySelectorAll('.pn-subtab');
+    for (var st = 0; st < subs.length; st++) subs[st].classList.toggle('active', subs[st].getAttribute('data-ptab') === tab);
 
-    // ---- debt capacity ----
-    var dtiPct = f.pct(c.dti, 0);
-    var endeuda =
-      '<div class="big-num-row"><span class="big-num">' + f.fmt(c.maxCuota) + '</span><span class="big-num-unit">' + escapeHtml(L.perMonth) + '</span></div>' +
-      '<div class="sub-line">' + escapeHtml(L.pnCuotaMax) + '</div>' +
-      '<div class="cap-line"><span class="cap-line-lbl">' + escapeHtml(L.pnHipMax) + '</span><span class="cap-line-val">' + f.fmt(c.maxHipoteca) + ' USD</span></div>' +
-      '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnDti) + ': <span class="usage-strong">' + dtiPct + '%</span></span></div>' +
-      '<div class="bar-track bar-track-6"><div class="bar-fill" style="width:' + Math.min(c.dti / 0.35 * 100, 100).toFixed(0) + '%;background:' + (c.dti > 0.35 ? '#d98b6a' : '#E6C788') + '"></div></div>' +
-      '<div class="usage-status ' + c.dtiCls + '">' + escapeHtml(c.dtiTxt) + '</div></div>';
+    // 'info' = módulo de perfil (HTML estático); el resto se pinta en #panel-results
+    var infoSec = $('pn-section-info');
+    if (infoSec) infoSec.hidden = tab !== 'info';
+    var res = $('panel-results');
+    if (tab === 'info') { res.innerHTML = ''; res.hidden = true; return; }
+    res.hidden = false;
 
-    // ---- investment capacity (markets) — cuenta de proyectos en la sub-línea para no desbordar ----
-    var mkRows = c.mkView.map(function (m) {
-      var name = (L.pnMercados && L.pnMercados[m.key]) || m.key;
-      var badge = '<span class="viab-badge ' + (m.afford ? 'ok' : 'no') + '">' + escapeHtml(m.afford ? L.pnAlcanza : L.pnNoAlcanza) + '</span>';
-      var nlabel = m.afford ? (' · <b>' + m.n + ' ' + escapeHtml(L.pnProyMercado) + '</b>') : '';
-      return '<div class="pn-mk-row">' +
-        '<div class="pn-mk-head"><span class="pn-mk-name">' + escapeHtml(name) + '</span>' + badge + '</div>' +
-        '<div class="pn-mk-sub">' + escapeHtml(L.pnEntrada) + ' <b>' + f.fmt(m.min) + ' USD</b> · ' + f.fmt(m.cuotaMes) + ' USD ' + escapeHtml(L.pnCuotaMes) + nlabel + '</div>' +
+    var html = '';
+
+    if (tab === 'resumen') {
+      var tiles =
+        tile(L.pnFlujoLibre, f.fmt(c.flujoLibre), 'USD') +
+        tile(L.pnPoder, f.fmt(c.poderInversion), 'USD') +
+        tile(L.pnPropMax, f.fmt(c.propiedadMax), 'USD') +
+        tile(L.pnNse, f.fmt(c.NSE), 'USD') +
+        tile(L.pnAnios, anios, L.unitYears) +
+        tile(L.pnPatY10, f.fmt(c.patY10), 'USD');
+      html =
+        '<div class="panel card card-accent card-span pn-hero">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnResumen) + '</div>' +
+          '<div class="pn-tiles">' + tiles + '</div>' +
+          '<p class="card-help pn-hero-note">' + escapeHtml(L.pnResumenNota) + '</p>' +
+          '<div class="verdict ' + c.verdict.cls + '">' + escapeHtml(c.verdict.text) + '</div>' +
         '</div>';
-    }).join('');
-    var simulHead = '<div class="pn-simult"><span class="pn-simult-n">' + c.nSimult + '</span>' +
-      '<span class="pn-simult-lbl">' + escapeHtml(L.pnSimultaneos) + '</span></div>';
 
-    // ---- assemble results ----
-    var html =
-      '<div class="panel card card-accent card-span pn-hero">' +
-        '<div class="eyebrow">' + escapeHtml(L.pnResumen) + '</div>' +
-        '<div class="pn-tiles">' + tiles + '</div>' +
-        '<p class="card-help pn-hero-note">' + escapeHtml(L.pnResumenNota) + '</p>' +
-        '<div class="verdict ' + c.verdict.cls + '">' + escapeHtml(c.verdict.text) + '</div>' +
-      '</div>' +
+    } else if (tab === 'proyeccion') {
+      html =
+        '<div class="panel card card-span">' +
+          '<div class="proj-head"><div><div class="eyebrow">' + escapeHtml(L.pnProyeccion) + '</div>' +
+          '<p class="card-help">' + escapeHtml(L.pnProyeccionHelp) + '</p></div>' +
+          '<div class="proj-end"><div class="proj-end-num">' + f.fmt(c.patFinal) + ' <span class="foot-unit">USD</span></div>' +
+          '<div class="foot-cap">' + escapeHtml(L.yr) + ' ' + c.H + '</div></div></div>' +
+          '<div class="pn-chart">' + panelChartSVG(c) + '</div>' +
+          '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnProgreso) + '</span>' +
+          '<span class="usage-pct">' + f.pct(c.progreso, 0) + '%</span></div>' +
+          '<div class="bar-track bar-track-8"><div class="bar-fill bar-fill-gold" style="width:' + (c.progreso * 100).toFixed(0) + '%"></div></div></div>' +
+        '</div>';
 
-      '<div class="panel card card-span">' +
-        '<div class="proj-head"><div><div class="eyebrow">' + escapeHtml(L.pnProyeccion) + '</div>' +
-        '<p class="card-help">' + escapeHtml(L.pnProyeccionHelp) + '</p></div>' +
-        '<div class="proj-end"><div class="proj-end-num">' + f.fmt(c.patFinal) + ' <span class="foot-unit">USD</span></div>' +
-        '<div class="foot-cap">' + escapeHtml(L.yr) + ' ' + c.H + '</div></div></div>' +
-        '<div class="pn-chart">' + panelChartSVG(c) + '</div>' +
-        '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnProgreso) + '</span>' +
-        '<span class="usage-pct">' + f.pct(c.progreso, 0) + '%</span></div>' +
-        '<div class="bar-track bar-track-8"><div class="bar-fill bar-fill-gold" style="width:' + (c.progreso * 100).toFixed(0) + '%"></div></div></div>' +
-      '</div>' +
+    } else if (tab === 'endeuda') {
+      var dtiPct = f.pct(c.dti, 0);
+      html =
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnEndeuda) + '</div>' +
+          '<p class="card-help">' + escapeHtml(L.pnEndeudaHelp) + '</p>' +
+          '<div class="big-num-row"><span class="big-num">' + f.fmt(c.maxCuota) + '</span><span class="big-num-unit">' + escapeHtml(L.perMonth) + '</span></div>' +
+          '<div class="sub-line">' + escapeHtml(L.pnCuotaMax) + '</div>' +
+          '<div class="cap-line"><span class="cap-line-lbl">' + escapeHtml(L.pnHipMax) + '</span><span class="cap-line-val">' + f.fmt(c.maxHipoteca) + ' USD</span></div>' +
+          '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnDti) + ': <span class="usage-strong">' + dtiPct + '%</span></span></div>' +
+          '<div class="bar-track bar-track-6"><div class="bar-fill" style="width:' + Math.min(c.dti / 0.35 * 100, 100).toFixed(0) + '%;background:' + (c.dti > 0.35 ? '#d98b6a' : '#E6C788') + '"></div></div>' +
+          '<div class="usage-status ' + c.dtiCls + '">' + escapeHtml(c.dtiTxt) + '</div></div>' +
+        '</div>';
 
-      '<div class="panel card">' +
-        '<div class="eyebrow">' + escapeHtml(L.pnEndeuda) + '</div>' +
-        '<p class="card-help">' + escapeHtml(L.pnEndeudaHelp) + '</p>' + endeuda +
-      '</div>' +
+    } else if (tab === 'proyectos') {
+      var mkRows = c.mkView.map(function (m) {
+        var name = (L.pnMercados && L.pnMercados[m.key]) || m.key;
+        var badge = '<span class="viab-badge ' + (m.afford ? 'ok' : 'no') + '">' + escapeHtml(m.afford ? L.pnAlcanza : L.pnNoAlcanza) + '</span>';
+        var nlabel = m.afford ? (' · <b>' + m.n + ' ' + escapeHtml(L.pnProyMercado) + '</b>') : '';
+        return '<div class="pn-mk-row">' +
+          '<div class="pn-mk-head"><span class="pn-mk-name">' + escapeHtml(name) + '</span>' + badge + '</div>' +
+          '<div class="pn-mk-sub">' + escapeHtml(L.pnEntrada) + ' <b>' + f.fmt(m.min) + ' USD</b> · ' + f.fmt(m.cuotaMes) + ' USD ' + escapeHtml(L.pnCuotaMes) + nlabel + '</div>' +
+          '</div>';
+      }).join('');
+      html =
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnProyectos) + '</div>' +
+          '<p class="card-help card-help-mb">' + escapeHtml(L.pnProyectosHelp) + '</p>' +
+          '<div class="pn-simult"><span class="pn-simult-n">' + c.nSimult + '</span>' +
+          '<span class="pn-simult-lbl">' + escapeHtml(L.pnSimultaneos) + '</span></div>' +
+          '<div class="pn-mk-list">' + mkRows + '</div>' +
+          '<div class="cap-poder-line sub-line"><span>' + escapeHtml(L.pnRangoTipo) + '</span>: <span>' + f.fmt(c.propiedadMax * 0.6) + ' – ' + f.fmt(c.propiedadMax) + ' USD</span></div>' +
+          '<button type="button" class="pn-cta" id="pn-goto-proyecto">' + escapeHtml(L.pnAbrirProyecto) + '</button>' +
+        '</div>';
+    }
 
-      '<div class="panel card">' +
-        '<div class="eyebrow">' + escapeHtml(L.pnProyectos) + '</div>' +
-        '<p class="card-help card-help-mb">' + escapeHtml(L.pnProyectosHelp) + '</p>' +
-        simulHead +
-        '<div class="pn-mk-list">' + mkRows + '</div>' +
-        '<div class="cap-poder-line sub-line"><span>' + escapeHtml(L.pnRangoTipo) + '</span>: <span>' + f.fmt(c.propiedadMax * 0.6) + ' – ' + f.fmt(c.propiedadMax) + ' USD</span></div>' +
-        '<button type="button" class="pn-cta" id="pn-goto-proyecto">' + escapeHtml(L.pnAbrirProyecto) + '</button>' +
-      '</div>';
-
-    $('panel-results').innerHTML = html;
+    res.innerHTML = html;
     var goto = $('pn-goto-proyecto');
     if (goto) goto.addEventListener('click', function () { state.view = 'proyecto'; commit(); });
   }
@@ -1323,6 +1338,11 @@
     // primary nav (Panel dashboard vs. project analyzer)
     document.querySelectorAll('.nav-btn').forEach(function (b) {
       b.addEventListener('click', function () { state.view = b.getAttribute('data-view'); commit(); window.scrollTo(0, 0); });
+    });
+
+    // panel sub-tabs (una sección por pestaña)
+    document.querySelectorAll('.pn-subtab').forEach(function (b) {
+      b.addEventListener('click', function () { state.panelTab = b.getAttribute('data-ptab'); commit(); });
     });
 
     // panel — personal profile inputs (shared global state)
