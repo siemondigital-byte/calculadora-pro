@@ -122,7 +122,14 @@
       pnVerdictAccel: '🟢 Perfil acelerado — la libertad financiera está a 5 años o menos. Ejecuta con disciplina.',
       pnVerdictSolido: '🟡 Perfil sólido — el ciclo funciona para ti. Optimiza tu flujo mensual para acelerar.',
       pnVerdictConstru: '🔴 Perfil en construcción — sube tu capital inicial o tu flujo mensual, o monetiza activos inactivos.',
-      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabProys: 'Inversión', pnTabConcl: 'Conclusiones',
+      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabProys: 'Inversión', pnTabFiscal: 'Fiscal', pnTabConcl: 'Conclusiones',
+      pnProyTablaHelp: 'Año a año: patrimonio nominal, valor real (ajustado por inflación), ingreso pasivo y avance a la libertad.',
+      pnReal: 'Real (infl.)', pnPasivo: 'Ingreso pasivo', pnStProgreso: 'Libertad',
+      pnRefValoriz: 'Valoriz.', pnRefRenta: 'Renta', pnRefTax: 'Impuesto', pnRefDifer: 'Diferim.',
+      pnMercadosFuente: 'Datos de referencia por mercado (2024–2025). La entrada mínima orienta tu primer ciclo.',
+      pnFiscal: 'Diferimiento fiscal · 5 ciclos', pnFiscalHelp: 'Cuánto patrimonio ganas reinvirtiendo sin pagar impuesto en cada ciclo, frente a pagarlo (supuestos del libro: 35% por ciclo, 20% de impuesto, 2,5% de gastos).',
+      pnFisCon: 'Con diferimiento', pnFisSin: 'Pagando impuesto', pnFisDif: 'Ventaja',
+      pnFisExtra: 'Patrimonio extra por diferir (5 ciclos)', pnFisNota: 'Colombia (AFC), Rep. Dominicana (CONFOTUR), Dubái (0%) permiten diferir o anular el impuesto.',
       pnConclEyebrow: 'Conclusiones de viabilidad', pnConclHelp: 'Síntesis de tu viabilidad y análisis predictivo de tu patrimonio.',
       pnPredic: 'Análisis predictivo · escenarios', pnPredicHelp: 'Patrimonio y libertad según la valorización que se materialice.',
       pnEscLibertad: 'Libertad', pnEscPat: 'Patrimonio', pnAnioLib: 'Libertad estimada',
@@ -241,7 +248,14 @@
       pnVerdictAccel: '🟢 Accelerated profile — financial freedom is 5 years away or less. Execute with discipline.',
       pnVerdictSolido: '🟡 Solid profile — the cycle works for you. Optimize your monthly flow to accelerate.',
       pnVerdictConstru: '🔴 Building profile — raise your starting capital or monthly flow, or monetize idle assets.',
-      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabProys: 'Investing', pnTabConcl: 'Conclusions',
+      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabProys: 'Investing', pnTabFiscal: 'Tax', pnTabConcl: 'Conclusions',
+      pnProyTablaHelp: 'Year by year: nominal net worth, real value (inflation-adjusted), passive income and progress to freedom.',
+      pnReal: 'Real (infl.)', pnPasivo: 'Passive income', pnStProgreso: 'Freedom',
+      pnRefValoriz: 'Appr.', pnRefRenta: 'Yield', pnRefTax: 'Tax', pnRefDifer: 'Deferral',
+      pnMercadosFuente: 'Reference market data (2024–2025). The minimum entry guides your first cycle.',
+      pnFiscal: 'Tax deferral · 5 cycles', pnFiscalHelp: 'How much more net worth you build by reinvesting without paying tax each cycle vs. paying it (book assumptions: 35% per cycle, 20% tax, 2.5% costs).',
+      pnFisCon: 'With deferral', pnFisSin: 'Paying tax', pnFisDif: 'Advantage',
+      pnFisExtra: 'Extra net worth from deferring (5 cycles)', pnFisNota: 'Colombia (AFC), Dominican Rep. (CONFOTUR), Dubai (0%) let you defer or zero-out the tax.',
       pnConclEyebrow: 'Viability conclusions', pnConclHelp: 'A synthesis of your viability and a predictive analysis of your net worth.',
       pnPredic: 'Predictive analysis · scenarios', pnPredicHelp: 'Net worth and freedom depending on the appreciation that materializes.',
       pnEscLibertad: 'Freedom', pnEscPat: 'Net worth', pnAnioLib: 'Estimated freedom',
@@ -706,11 +720,14 @@
      inversión, NSE, años a la libertad, proyección año a año, capacidad de
      endeudamiento y cuántos/qué proyectos puedes asumir (entradas por mercado
      de la hoja "Comparativa de Mercados"). */
+  /* Datos de referencia por mercado (hoja "Comparativa de Mercados", 2024-2025).
+     valoriz = valorización vivienda nueva/año · renta = rentabilidad renta corta/año
+     tax = impuesto a la ganancia · difer = mecanismo de diferimiento fiscal. */
   var PN_MERCADOS = [
-    { key: 'colombia', min: 15000, planM: 30 },
-    { key: 'rd',       min: 20000, planM: 24 },
-    { key: 'mexico',   min: 25000, planM: 36 },
-    { key: 'dubai',    min: 80000, planM: 36 }
+    { key: 'colombia', min: 15000, planM: 30, valoriz: '6–14%', renta: '5–10%', tax: '15%',  difer: 'AFC' },
+    { key: 'rd',       min: 20000, planM: 24, valoriz: '7–12%', renta: '8–15%', tax: '27%',  difer: 'CONFOTUR' },
+    { key: 'mexico',   min: 25000, planM: 36, valoriz: '8–12%', renta: '7–12%', tax: 'Var.', difer: 'FIBRA' },
+    { key: 'dubai',    min: 80000, planM: 36, valoriz: '15–40%', renta: '7–12%', tax: '0%',  difer: '—' }
   ];
 
   function computePanel() {
@@ -752,7 +769,8 @@
       var nCap = Math.floor(C / mk.min);
       var nFlow = cuotaMes > 0 ? Math.floor(flujoLibre / cuotaMes) : 0;
       var n = Math.max(0, Math.min(nCap, nFlow));
-      return { key: mk.key, min: mk.min, cuotaMes: cuotaMes, afford: C >= mk.min && flujoLibre >= cuotaMes, n: n };
+      return { key: mk.key, min: mk.min, cuotaMes: cuotaMes, afford: C >= mk.min && flujoLibre >= cuotaMes, n: n,
+        valoriz: mk.valoriz, renta: mk.renta, tax: mk.tax, difer: mk.difer };
     });
     var afford = mkView.filter(function (m) { return m.afford; });
     var nSimult = afford.length ? Math.max.apply(null, afford.map(function (m) { return m.n; })) : 0;
@@ -762,7 +780,8 @@
     else if (aniosLibertad != null && aniosLibertad <= 8) verdict = { text: L.pnVerdictSolido, cls: 'mid' };
     else verdict = { text: L.pnVerdictConstru, cls: 'warn' };
 
-    return { f: f, L: L, H: H, g: g, flujoLibre: flujoLibre, poderInversion: poderInversion,
+    var infl = (s.inflacion != null ? s.inflacion : 3) / 100;
+    return { f: f, L: L, H: H, g: g, infl: infl, capital: C, flujoLibre: flujoLibre, poderInversion: poderInversion,
       propiedadMax: propiedadMax, NSE: NSE, aniosLibertad: aniosLibertad, serie: serie,
       patFinal: patFinal, patY5: patY5, patY10: patY10, progreso: progreso,
       maxCuota: maxCuota, dti: dti, maxHipoteca: maxHipoteca, dtiCls: dtiCls, dtiTxt: dtiTxt,
@@ -810,6 +829,11 @@
     return '<div class="pn-tile"><div class="pn-tile-val">' + value +
       (unit ? '<span class="pn-tile-unit"> ' + unit + '</span>' : '') + '</div>' +
       '<div class="pn-tile-lbl">' + escapeHtml(label) + '</div></div>';
+  }
+  function pnStat(val, unit, label) {
+    return '<div class="pn-stat"><div class="pn-stat-v">' + val +
+      (unit ? '<span> ' + unit + '</span>' : '') + '</div>' +
+      '<div class="pn-stat-l">' + escapeHtml(label) + '</div></div>';
   }
 
   function renderPanel() {
@@ -869,21 +893,36 @@
         '<div class="panel card card-accent card-span pn-hero">' +
           '<div class="eyebrow">' + escapeHtml(L.pnResumen) + '</div>' +
           '<div class="pn-tiles">' + tiles + '</div>' +
+          '<div class="pn-chart">' + panelChartSVG(c) + '</div>' +
+          '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnProgreso) + '</span>' +
+          '<span class="usage-pct">' + f.pct(c.progreso, 0) + '%</span></div>' +
+          '<div class="bar-track bar-track-8"><div class="bar-fill bar-fill-gold" style="width:' + (c.progreso * 100).toFixed(0) + '%"></div></div></div>' +
           '<p class="card-help pn-hero-note">' + escapeHtml(L.pnResumenNota) + '</p>' +
           '<div class="verdict ' + c.verdict.cls + '">' + escapeHtml(c.verdict.text) + '</div>' +
         '</div>';
 
     } else if (tab === 'proyeccion') {
+      // tabla año a año (hoja "Panel de Control"): nominal, real (infl.), pasivo/mes, progreso
+      var yrRows = c.serie.filter(function (d) { return d.t > 0; }).map(function (d) {
+        var real = d.val / Math.pow(1 + c.infl, d.t);
+        var libre = d.prog >= 1;
+        return '<div class="pn-mk-row">' +
+          '<div class="pn-mk-head"><span class="pn-mk-name">' + L.yr + ' ' + d.t + '</span>' +
+            '<span class="pn-yr-total">' + f.fmt(d.val) + ' USD' + (libre ? ' <span class="pn-libre">' + escapeHtml(L.pnEscLibertad) + '</span>' : '') + '</span></div>' +
+          '<div class="pn-mk-stats">' +
+            pnStat(f.fmt(real), 'USD', L.pnReal) +
+            pnStat(f.fmt(d.pasivo), L.perMonth, L.pnPasivo) +
+            pnStat(f.pct(d.prog, 0) + '%', '', L.pnStProgreso) +
+          '</div>' +
+        '</div>';
+      }).join('');
       html =
-        '<div class="panel card card-span">' +
+        '<div class="panel card card-span pn-solo">' +
           '<div class="proj-head"><div><div class="eyebrow">' + escapeHtml(L.pnProyeccion) + '</div>' +
-          '<p class="card-help">' + escapeHtml(L.pnProyeccionHelp) + '</p></div>' +
+          '<p class="card-help">' + escapeHtml(L.pnProyTablaHelp) + '</p></div>' +
           '<div class="proj-end"><div class="proj-end-num">' + f.fmt(c.patFinal) + ' <span class="foot-unit">USD</span></div>' +
           '<div class="foot-cap">' + escapeHtml(L.yr) + ' ' + c.H + '</div></div></div>' +
-          '<div class="pn-chart">' + panelChartSVG(c) + '</div>' +
-          '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnProgreso) + '</span>' +
-          '<span class="usage-pct">' + f.pct(c.progreso, 0) + '%</span></div>' +
-          '<div class="bar-track bar-track-8"><div class="bar-fill bar-fill-gold" style="width:' + (c.progreso * 100).toFixed(0) + '%"></div></div></div>' +
+          '<div class="pn-mk-list pn-yr-list">' + yrRows + '</div>' +
         '</div>';
 
     } else if (tab === 'endeuda') {
@@ -901,20 +940,21 @@
         '</div>';
 
     } else if (tab === 'proyectos') {
-      var stat = function (val, unit, label) {
-        return '<div class="pn-stat"><div class="pn-stat-v">' + val +
-          (unit ? '<span> ' + unit + '</span>' : '') + '</div>' +
-          '<div class="pn-stat-l">' + escapeHtml(label) + '</div></div>';
-      };
       var mkRows = c.mkView.map(function (m) {
         var name = (L.pnMercados && L.pnMercados[m.key]) || m.key;
         var badge = '<span class="viab-badge ' + (m.afford ? 'ok' : 'no') + '">' + escapeHtml(m.afford ? L.pnAlcanza : L.pnNoAlcanza) + '</span>';
         return '<div class="pn-mk-row">' +
           '<div class="pn-mk-head"><span class="pn-mk-name">' + escapeHtml(name) + '</span>' + badge + '</div>' +
           '<div class="pn-mk-stats">' +
-            stat(f.fmt(m.min), 'USD', L.pnStEntrada) +
-            stat(f.fmt(m.cuotaMes), 'USD', L.pnStCuota) +
-            stat(m.afford ? String(m.n) : '—', '', L.pnStProys) +
+            pnStat(f.fmt(m.min), 'USD', L.pnStEntrada) +
+            pnStat(f.fmt(m.cuotaMes), 'USD', L.pnStCuota) +
+            pnStat(m.afford ? String(m.n) : '—', '', L.pnStProys) +
+          '</div>' +
+          '<div class="pn-mk-ref">' +
+            '<span>' + escapeHtml(L.pnRefValoriz) + ' <b>' + m.valoriz + '</b></span>' +
+            '<span>' + escapeHtml(L.pnRefRenta) + ' <b>' + m.renta + '</b></span>' +
+            '<span>' + escapeHtml(L.pnRefTax) + ' <b>' + m.tax + '</b></span>' +
+            '<span>' + escapeHtml(L.pnRefDifer) + ' <b>' + escapeHtml(m.difer) + '</b></span>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -926,7 +966,38 @@
           '<span class="pn-simult-lbl">' + escapeHtml(L.pnSimultaneos) + '</span></div>' +
           '<div class="pn-mk-list">' + mkRows + '</div>' +
           '<div class="cap-poder-line sub-line"><span>' + escapeHtml(L.pnRangoTipo) + '</span>: <span>' + f.fmt(c.propiedadMax * 0.6) + ' – ' + f.fmt(c.propiedadMax) + ' USD</span></div>' +
+          '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnMercadosFuente) + '</p>' +
           '<button type="button" class="pn-cta" id="pn-goto-proyecto">' + escapeHtml(L.pnAbrirProyecto) + '</button>' +
+        '</div>';
+
+    } else if (tab === 'fiscal') {
+      // impacto del diferimiento fiscal en 5 ciclos (hoja "Fiscal y Diferimiento")
+      var cap0 = c.capital || 0, gc = 0.35, taxSin = 0.20, gastos = 0.025;
+      var cs = cap0, cc = cap0, fdata = [];
+      for (var fk = 1; fk <= 5; fk++) {
+        cs = cs * (1 + gc) * (1 - taxSin) * (1 - gastos);
+        cc = cc * (1 + gc) * (1 - gastos);
+        fdata.push({ k: fk, sin: cs, con: cc });
+      }
+      var fisRows = fdata.map(function (d) {
+        return '<div class="pn-mk-row">' +
+          '<div class="pn-mk-head"><span class="pn-mk-name">' + escapeHtml(L.cicloLabel) + ' ' + d.k + '</span>' +
+            '<span class="pn-yr-total">×' + f.dec(cap0 > 0 ? d.con / cap0 : 1, 2) + '</span></div>' +
+          '<div class="pn-mk-stats">' +
+            pnStat(f.fmt(d.con), 'USD', L.pnFisCon) +
+            pnStat(f.fmt(d.sin), 'USD', L.pnFisSin) +
+            pnStat('+' + f.fmt(d.con - d.sin), 'USD', L.pnFisDif) +
+          '</div>' +
+        '</div>';
+      }).join('');
+      var extra = fdata[4].con - fdata[4].sin;
+      html =
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnFiscal) + '</div>' +
+          '<p class="card-help card-help-mb">' + escapeHtml(L.pnFiscalHelp) + '</p>' +
+          '<div class="pn-mk-list">' + fisRows + '</div>' +
+          '<div class="highlight"><span class="highlight-label">' + escapeHtml(L.pnFisExtra) + '</span>: <span class="highlight-val">+' + f.fmt(extra) + ' USD</span></div>' +
+          '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnFisNota) + '</p>' +
         '</div>';
 
     } else if (tab === 'conclusiones') {
