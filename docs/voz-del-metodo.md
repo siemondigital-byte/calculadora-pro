@@ -255,3 +255,13 @@ Cómo escribir landings, web y correos que orbiten el método sin nombrar el lib
 ---
 
 *Extracción completa: 131 de 131 páginas, sin páginas vacías. Los únicos defectos del original son erratas propias del PDF (línea corrupta en la Tabla de Contenido, doble "PARTE 2", numeración de la TOC distinta a la del cuerpo, comillas cerradas con "»", seis P bajo el título "5 P's"), reportadas tal cual arriba.*
+
+---
+
+## Nota de marca (decisión de la dueña, 26 jul 2026)
+
+**The Money Command NO se menciona en ninguna pieza de Atlantis ni del Ciclo de
+Riqueza** (web, landings, correos, redes, CRM). El co-branding "The Money
+Command & Atlantis Global Realty" existe solo dentro del libro. El Ciclo es el
+upsell de TMC y la relación comercial vive únicamente en la plataforma
+(Hotmart) como enlace de downsell, jamás en la comunicación de este producto.
