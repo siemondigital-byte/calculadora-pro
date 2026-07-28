@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
-# Trae al repo candidatas de fotografia del BANCO integrado del CRM
-# (Pexels/Unsplash/Pixabay via motor /blog/fotos, claves en el vault) para la
-# web nueva de Atlantis. Descarga ~16 fotos de arquitectura con su archivo de
-# creditos (autor + banco + pagina) y las sube al repo para curaduria.
+# Galeria de seleccion de fotografia para la web nueva de Atlantis.
+#
+# Trae candidatas del BANCO integrado del CRM (Pexels/Unsplash/Pixabay via
+# motor /blog/fotos, claves en el vault) y las publica en el sitio como una
+# galeria privada de curaduria:
+#
+#   https://atlantisglobalrealty.com/banco-candidatas/
+#
+# La duena la abre en el navegador y elige por numero ("la 03, la 07 y la 12");
+# el agente integra las elegidas en la home y las landings. Requiere al menos
+# una API key gratis en el Centro de Mando > Accesos: PEXELS_KEY (pexels.com/api),
+# PIXABAY_KEY (pixabay.com/api/docs) o UNSPLASH_KEY.
 #
 # Correr EN EL VPS desde /root/atlantis:
 #
 #   bash centro-de-mando/scripts/curar-fotos-banco.sh
 set -euo pipefail
 
-cd /root/atlantis
+DOMINIO="atlantisglobalrealty.com"
 CONT=$(docker ps --format '{{.Names}}' | grep -m1 '^centro-de-mando-motor' || true)
 [ -n "$CONT" ] || { echo "ERROR: no encuentro el contenedor centro-de-mando-motor"; exit 1; }
 
@@ -17,6 +25,7 @@ docker exec "$CONT" rm -rf /tmp/fotos-banco
 docker exec -i "$CONT" python3 - <<'PY'
 import json
 import os
+import sys
 
 import httpx
 
@@ -47,17 +56,73 @@ with httpx.Client(timeout=60) as c:
                                  "autor": f.get("autor"), "banco": f.get("banco"),
                                  "pagina": f.get("pagina")})
                 print("  descargada", nombre, "·", f.get("banco"), "·", f.get("autor"))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print("  fallo", nombre, str(e)[:80])
-json.dump(creditos, open("/tmp/fotos-banco/creditos.json", "w"), ensure_ascii=False, indent=1)
-print(f"OK: {len(creditos)} candidatas con creditos")
+
 if not creditos:
-    print("NINGUNA foto: agrega una API key gratis de Pexels/Pixabay/Unsplash en")
-    print("el Centro de Mando (Accesos) y re-corre este script.")
+    print("NINGUNA foto: agrega una API key gratis en el Centro de Mando > Accesos")
+    print("(PEXELS_KEY, PIXABAY_KEY o UNSPLASH_KEY) y re-corre este script.")
+    sys.exit(2)
+
+json.dump(creditos, open("/tmp/fotos-banco/creditos.json", "w"),
+          ensure_ascii=False, indent=1)
+
+# galeria de seleccion (pagina simple, oscura, numerada)
+tarjetas = "".join(
+    f'<figure><img src="{c["archivo"]}" loading="lazy">'
+    f'<figcaption><b>{c["archivo"][6:8]}</b> · {c["banco"]} · {c["autor"]}<br>'
+    f'<span>{c["busqueda"]}</span></figcaption></figure>'
+    for c in creditos)
+open("/tmp/fotos-banco/index.html", "w").write(f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Seleccion de fotografia · uso interno</title>
+<style>body{{margin:0;background:#0A0A0C;color:#F4EFE6;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;padding:30px}}
+h1{{font-weight:600;font-size:22px}}p{{color:#D7D7D9}}
+.g{{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;margin-top:22px}}
+figure{{margin:0;border:1px solid rgba(201,168,126,.25);border-radius:6px;overflow:hidden}}
+img{{width:100%;height:220px;object-fit:cover;display:block}}
+figcaption{{padding:10px 14px;font-size:12.5px;color:#D7D7D9}}
+figcaption b{{color:#E6C788;font-size:16px}}figcaption span{{color:#8a8f98}}</style>
+</head><body>
+<h1>Selección de fotografía · uso interno</h1>
+<p>Dile al agente los números elegidos (ej. "usa la 03, la 07 y la 12").</p>
+<div class="g">{tarjetas}</div>
+</body></html>""")
+print(f"OK: {len(creditos)} candidatas listas para publicar")
 PY
 
-rm -rf fotos-banco
-docker cp "$CONT:/tmp/fotos-banco" fotos-banco
+# publicar la galeria en el sitio (mismo FTP del motor)
+docker exec -i "$CONT" python3 - <<'PY'
+import os
+from ftplib import FTP
+from pathlib import Path
+
+paquete = Path("/tmp/fotos-banco")
+f = FTP()
+f.connect(os.environ["FTP_HOST"].replace("ftp://", ""),
+          int(os.environ.get("FTP_PORT", "21")), timeout=30)
+f.login(os.environ.get("FTP_USER", ""), os.environ.get("FTP_PASS", ""))
+destino = (os.environ.get("FTP_DIR") or "").strip().rstrip("/")
+if destino:
+    f.cwd(destino)
+try:
+    f.mkd("banco-candidatas")
+except Exception:
+    pass
+n = 0
+for p in sorted(paquete.iterdir()):
+    if p.is_file():
+        with open(p, "rb") as fh:
+            f.storbinary(f"STOR banco-candidatas/{p.name}", fh)
+        n += 1
+f.quit()
+print(f"OK: {n} archivos publicados en /banco-candidatas/")
+PY
+
 docker exec "$CONT" rm -rf /tmp/fotos-banco
-du -sh fotos-banco
-git add fotos-banco && git commit -m "Candidatas del banco de imagenes para la web nueva (con creditos)" && git push -u origin claude/new-session-3rjwcr
+echo
+code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://$DOMINIO/banco-candidatas/" || echo ERR)
+echo "  [$code] https://$DOMINIO/banco-candidatas/"
+echo "Abre esa URL, mira las candidatas y dile al agente los numeros elegidos."
