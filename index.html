@@ -126,6 +126,62 @@
         </div>
       </header>
 
+      <!-- primary navigation -->
+      <nav class="app-nav" role="tablist">
+        <button type="button" class="nav-btn" data-view="panel" data-i18n="navPanel" role="tab"></button>
+        <button type="button" class="nav-btn" data-view="proyecto" data-i18n="navProyecto" role="tab"></button>
+      </nav>
+
+      <!-- ============================ PANEL (dashboard) ============================ -->
+      <div id="view-panel">
+        <!-- Your information — módulo propio, separado del resumen -->
+        <div class="panel pn-perfil">
+          <div class="eyebrow eyebrow-tight" data-i18n="pnPerfil"></div>
+          <p class="sec-note" data-i18n="pnPerfilNota"></p>
+          <div class="pn-perfil-grid">
+            <div class="input-group">
+              <span class="input-label" data-i18n="pnNombre"></span>
+              <input class="num-input plain" id="pn-nombre" type="text" autocomplete="name">
+            </div>
+            <div class="input-group">
+              <span class="input-label" data-i18n="lblIngreso"></span>
+              <div class="num-wrap"><input class="num-input" id="pn-ingreso" type="number" step="100" inputmode="numeric"><span class="num-suffix">USD</span></div>
+            </div>
+            <div class="input-group">
+              <span class="input-label" data-i18n="lblGasto"></span>
+              <div class="num-wrap"><input class="num-input" id="pn-gasto" type="number" step="100" inputmode="numeric"><span class="num-suffix">USD</span></div>
+            </div>
+            <div class="input-group">
+              <span class="input-label" data-i18n="lblDeudas"></span>
+              <div class="num-wrap"><input class="num-input" id="pn-deudas" type="number" step="50" inputmode="numeric"><span class="num-suffix">USD</span></div>
+            </div>
+            <div class="input-group">
+              <span class="input-label" data-i18n="lblCapital"></span>
+              <div class="num-wrap"><input class="num-input" id="pn-capital" type="number" step="500" inputmode="numeric"><span class="num-suffix">USD</span></div>
+            </div>
+            <div class="input-group">
+              <span class="input-label" data-i18n="pnLibertad"></span>
+              <div class="num-wrap"><input class="num-input" id="pn-libertad" type="number" step="100" inputmode="numeric"><span class="num-suffix">USD</span></div>
+            </div>
+            <div class="input-group">
+              <div class="slider-head"><span class="input-label" data-i18n="pnValoriz"></span><span class="slider-val" id="pn-val-valoriz"></span></div>
+              <input class="rng" id="pn-valoriz" type="range" min="3" max="20" step="0.5">
+            </div>
+            <div class="input-group">
+              <div class="slider-head"><span class="input-label" data-i18n="lblInflacion"></span><span class="slider-val" id="pn-val-inflacion"></span></div>
+              <input class="rng" id="pn-inflacion" type="range" min="2" max="10" step="0.5">
+            </div>
+            <div class="input-group input-group-tight">
+              <span class="input-label" data-i18n="lblHorizonte"></span>
+              <div class="seg seg-3" id="pn-seg-horizonte"></div>
+            </div>
+          </div>
+        </div>
+        <div class="results-grid" id="panel-results"></div>
+      </div>
+
+      <!-- ============================ PROJECT ============================ -->
+      <div id="view-proyecto">
       <!-- projects bar -->
       <div class="projects-row">
         <span class="projects-label" data-i18n="projectsTitle"></span>
@@ -478,6 +534,7 @@
 
         </div>
       </div>
+      </div><!-- /view-proyecto -->
 
       <p class="disclaimer" data-i18n="disclaimer"></p>
     </div>
