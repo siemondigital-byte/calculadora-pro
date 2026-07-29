@@ -83,7 +83,7 @@ PAGINA = """<!DOCTYPE html>
           <a class="btn btn-ghost" href="#dossier" data-i18n="cta2">Recibir el dossier</a>
         </div>
       </div>
-      <img src="img/{hero}" alt="{nombre_es}">
+      <img src="{hero_src}" alt="{nombre_es}">
     </section>
 
     <section class="bloque dos-col">
@@ -118,7 +118,7 @@ PAGINA = """<!DOCTYPE html>
       </div>
     </section>
 
-    <p class="nota-legal" data-i18n="legal">Contenido educativo. No es asesoría financiera, legal ni tributaria. Los precios, fechas de entrega y rendimientos proyectados son del constructor y pueden cambiar sin previo aviso; verifícalos en el diagnóstico.</p>
+    <p class="nota-legal" data-i18n="legal">Contenido educativo. No es asesoría financiera, legal ni tributaria. Los precios, fechas de entrega y rendimientos proyectados son del constructor y pueden cambiar sin previo aviso; verifícalos en el diagnóstico.</p>{credito_html}
   </main>
 </div>
 <footer class="footer"><div class="wrap">
@@ -196,14 +196,20 @@ def i18n_de(p):
 def generar(p, carpeta):
     es = p["es"]
     imgs = p.get("imagenes") or []
-    hero = imgs[0] if imgs else ""
     galeria = imgs[1:] or imgs
+    # sin renders del constructor: foto referencial del banco curado del CRM
+    if imgs:
+        hero_src, credito_html = f"img/{imgs[0]}", ""
+    else:
+        hero_src = "../../assets/fotos/atlantis-02.jpg"
+        credito_html = ('\n    <p class="nota-legal">Fotografía referencial: '
+                        '鲨柿笔亚 · <a href="https://www.pexels.com" rel="noopener">Pexels</a>.</p>')
     html = PAGINA.format(
         titulo=f'{es["nombre"]} · {p["ciudad"]} — Atlantis Global Realty',
         ciudad=p["ciudad"], pais=p["pais"], nombre_es=es["nombre"],
         eslogan_es=es["eslogan"], descripcion_es=es["descripcion"],
         entrega=p["entrega"], precio_desde=p["precioDesde"],
-        constructora=p["constructora"], hero=hero,
+        constructora=p["constructora"], hero_src=hero_src, credito_html=credito_html,
         tipologias_html="".join(f"<li>{t}</li>" for t in es["tipologias"]),
         amenidades_html="".join(f'<span class="fact">{a}</span>' for a in es["amenidades"]),
         plan_es=es["planPagos"],
@@ -226,12 +232,17 @@ def generar(p, carpeta):
 
 def indice(proyectos):
     tarjetas = ""
+    con_referencial = False
     for p in proyectos:
         es = p["es"]
         hero = (p.get("imagenes") or [""])[0]
+        if hero:
+            src = f"{p['slug']}/img/{hero}"
+        else:
+            src, con_referencial = "../assets/fotos/atlantis-03.jpg", True
         tarjetas += f"""
     <a class="card proy" href="{p['slug']}/index.html">
-      <img src="{p['slug']}/img/{hero}" alt="{es['nombre']}">
+      <img src="{src}" alt="{es['nombre']}">
       <div class="pad"><p class="ml">{p['ciudad']} · {p['pais']}</p>
       <h2>{es['nombre']}</h2>
       <p class="datos">{p['precioDesde']} · <span data-i18n="entrega-{p['slug']}">Entrega {p['entrega']}</span></p></div>
@@ -245,6 +256,10 @@ def indice(proyectos):
     for p in proyectos:
         i18n["es"][f"entrega-{p['slug']}"] = f"Entrega {p['entrega']}"
         i18n["en"][f"entrega-{p['slug']}"] = f"Delivery {p['entrega']}"
+    credito = ""
+    if con_referencial:
+        credito = ('\n  <span>Fotografía referencial: Germán Latasa · '
+                   '<a href="https://www.pexels.com" rel="noopener">Pexels</a></span>')
     return f"""<!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
@@ -281,7 +296,7 @@ def indice(proyectos):
 <footer class="footer"><div class="wrap">
   <span>© <span id="yy"></span> Atlantis Global Realty</span>
   <span data-i18n="disc">Contenido educativo. No es asesoría financiera, legal ni tributaria.</span>
-  <span><a data-href-es="../legales/privacidad.html" data-href-en="../legales/privacy.html" href="../legales/privacidad.html" data-i18n="priv">Privacidad</a></span>
+  <span><a data-href-es="../legales/privacidad.html" data-href-en="../legales/privacy.html" href="../legales/privacidad.html" data-i18n="priv">Privacidad</a></span>{credito}
 </div></footer>
 <script>window.I18N={json.dumps(i18n, ensure_ascii=False)};</script>
 <script src="../assets/app.js"></script>

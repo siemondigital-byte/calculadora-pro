@@ -9,10 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/base.css">
 <style>
-.hero-h{min-height:62vh;display:flex;flex-direction:column;justify-content:center;padding:40px 0 30px}
+.hero-h{min-height:62vh;display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center;padding:40px 0 30px}
 .hero-h h1{font-size:clamp(38px,5.4vw,62px);font-weight:500;line-height:1.12;max-width:17ch;margin:14px 0 20px}
 .hero-h .lead{max-width:52ch}
+.hero-h .foto{width:100%;border-radius:6px;border:1px solid var(--line);box-shadow:0 40px 80px -30px rgba(0,0,0,.55)}
 .cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px}
+.banda{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;padding:6px 0 34px}
+.banda img{width:100%;height:330px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .manifiesto{padding:60px 0 30px;border-top:1px solid var(--line)}
 .citas{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:8px}
 .cita{border-left:2px solid var(--accent);padding:6px 0 6px 20px;font-size:16.5px;line-height:1.6;color:var(--ink)}
@@ -25,7 +28,8 @@
 .bfin{padding:28px 26px}
 .bfin h3{font-size:20px;font-weight:600;margin:0 0 8px}
 .bfin p{color:var(--gris);font-size:14.5px;margin:0 0 18px}
-@media(max-width:920px){.citas,.pilares,.bloques-fin{grid-template-columns:1fr}}
+@media(max-width:920px){.citas,.pilares,.bloques-fin,.hero-h,.banda{grid-template-columns:1fr}.hero-h{gap:32px;min-height:0}.banda img{height:240px}}
+@media(max-width:560px){.topbar{flex-wrap:wrap}.topbar .btn{padding:13px 20px}}
 </style>
 </head>
 <body>
@@ -40,13 +44,16 @@
 
   <main>
     <section class="hero-h">
-      <p class="ml" data-i18n="eyebrow">Wealth architects</p>
-      <h1 data-i18n-html="h1">Financial freedom <b>architecture</b> for visionary investors</h1>
-      <p class="lead" data-i18n="lead">We are not a real estate agency. We design, structure and accompany the construction of real estate wealth, project by project, with the risks on the table.</p>
-      <div class="cta-row">
-        <a class="btn" href="book-videocall.html" data-i18n="cta1">Book a diagnostic →</a>
-        <a class="btn btn-ghost" href="proyectos/index.html" data-i18n="cta2">Selected projects</a>
+      <div>
+        <p class="ml" data-i18n="eyebrow">Wealth architects</p>
+        <h1 data-i18n-html="h1">Financial freedom <b>architecture</b> for visionary investors</h1>
+        <p class="lead" data-i18n="lead">We are not a real estate agency. We design, structure and accompany the construction of real estate wealth, project by project, with the risks on the table.</p>
+        <div class="cta-row">
+          <a class="btn" href="book-videocall.html" data-i18n="cta1">Book a diagnostic →</a>
+          <a class="btn btn-ghost" href="proyectos/index.html" data-i18n="cta2">Selected projects</a>
+        </div>
       </div>
+      <img class="foto" src="assets/fotos/atlantis-01.jpg" alt="Residential tower at dusk">
     </section>
 
     <section class="manifiesto">
@@ -64,6 +71,11 @@
         <div class="pilar"><span class="num">02</span><h3 data-i18n="p2t">Structure</h3><p data-i18n="p2d">Pre-construction entry, staged payments with the developer, and an exit designed before signing.</p></div>
         <div class="pilar"><span class="num">03</span><h3 data-i18n="p3t">Accompaniment</h3><p data-i18n="p3d">Verified developers, written commitments and follow-through from reservation to delivery.</p></div>
       </div>
+    </section>
+
+    <section class="banda">
+      <img src="assets/fotos/atlantis-02.jpg" alt="Residential towers under construction at dusk">
+      <img src="assets/fotos/atlantis-03.jpg" alt="Modern building facade">
     </section>
 
     <section class="bloques-fin">
@@ -84,6 +96,7 @@
   <span>© <span id="yy"></span> Atlantis Global Realty</span>
   <span data-i18n="disc">Educational content. Not financial, legal or tax advice.</span>
   <span><a data-href-es="legales/privacidad.html" data-href-en="legales/privacy.html" href="legales/privacy.html" data-i18n="priv">Privacy</a> · <a href="unsubscribe/" data-i18n="baja">Email preferences</a></span>
+  <span data-i18n-html="fotocred">Photography: Jan van der Wolf, 鲨柿笔亚 and Germán Latasa · <a href="https://www.pexels.com" rel="noopener">Pexels</a></span>
 </div></footer>
 <script>
 window.I18N={
@@ -99,7 +112,8 @@ window.I18N={
   p3t:"Accompaniment",p3d:"Verified developers, written commitments and follow-through from reservation to delivery.",
   g1t:"Free guide: where to invest in 2026",g1d:"Markets compared by appreciation, rental yield and risk. Data, not hunches.",g1c:"Download the guide →",
   g2t:"A diagnostic, not a sales call",g2d:"15 minutes to hear your case and define the next step. Free and without commitment.",g2c:"Book your call →",
-  disc:"Educational content. Not financial, legal or tax advice.",priv:"Privacy",baja:"Email preferences"},
+  disc:"Educational content. Not financial, legal or tax advice.",priv:"Privacy",baja:"Email preferences",
+  fotocred:'Photography: Jan van der Wolf, 鲨柿笔亚 and Germán Latasa · <a href="https://www.pexels.com" rel="noopener">Pexels</a>'},
  es:{eyebrow:"Arquitectos de patrimonio",h1:"Arquitectura de <b>libertad financiera</b> para inversionistas con visión",
   lead:"No somos una agencia de bienes raíces. Diseñamos, estructuramos y acompañamos la construcción de patrimonio inmobiliario, proyecto a proyecto, con los riesgos sobre la mesa.",
   cta1:"Agenda tu diagnóstico →",cta2:"Proyectos seleccionados",tcta:"Agendar",
@@ -112,7 +126,8 @@ window.I18N={
   p3t:"Acompañamiento",p3d:"Constructoras verificadas, compromisos por escrito y seguimiento de la separación a la entrega.",
   g1t:"Guía gratuita: dónde invertir en 2026",g1d:"Mercados comparados por valorización, renta y riesgo. Datos, no corazonadas.",g1c:"Descargar la guía →",
   g2t:"Un diagnóstico, no una llamada de ventas",g2d:"15 minutos para escuchar tu caso y definir el siguiente paso. Sin costo y sin compromiso.",g2c:"Agenda tu llamada →",
-  disc:"Contenido educativo. No es asesoría financiera, legal ni tributaria.",priv:"Privacidad",baja:"Preferencias de correo"}
+  disc:"Contenido educativo. No es asesoría financiera, legal ni tributaria.",priv:"Privacidad",baja:"Preferencias de correo",
+  fotocred:'Fotografía: Jan van der Wolf, 鲨柿笔亚 y Germán Latasa · <a href="https://www.pexels.com" rel="noopener">Pexels</a>'}
 };
 </script>
 <script src="assets/app.js"></script>

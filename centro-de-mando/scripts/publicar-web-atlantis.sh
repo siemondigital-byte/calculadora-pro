@@ -37,15 +37,33 @@ sed -i 's#href="assets/#href="/assets/#g; s#src="assets/#src="/assets/#g; s#href
 docker exec "$CONT" rm -rf /tmp/web-atlantis
 docker cp "$STAGE" "$CONT:/tmp/web-atlantis"
 
-docker exec -i "$CONT" python3 - <<'PY'
+# credenciales FTP: si el contenedor no las tiene (p. ej. se recreo sin ellas),
+# tomarlas del .env del centro de mando y pasarlas con -e
+ENV_CM="$AQUI/.env"
+FTP_ENV=()
+for v in FTP_HOST FTP_PORT FTP_USER FTP_PASS FTP_DIR; do
+  if ! docker exec "$CONT" sh -c "printenv $v >/dev/null 2>&1"; then
+    val=$(grep -m1 "^$v=" "$ENV_CM" 2>/dev/null | cut -d= -f2- || true)
+    val="${val%\"}"; val="${val#\"}"
+    [ -n "$val" ] && FTP_ENV+=(-e "$v=$val")
+  fi
+done
+
+docker exec -i "${FTP_ENV[@]}" "$CONT" python3 - <<'PY'
+import io
 import os
+import sys
 from ftplib import FTP
 from pathlib import Path
 
 paquete = Path("/tmp/web-atlantis")
+host = (os.environ.get("FTP_HOST") or "").replace("ftp://", "")
+if not host or not os.environ.get("FTP_PASS"):
+    print("ERROR: faltan credenciales FTP (FTP_HOST/FTP_USER/FTP_PASS); agregalas")
+    print("a centro-de-mando/.env del VPS y re-corre este script.")
+    sys.exit(3)
 f = FTP()
-f.connect(os.environ["FTP_HOST"].replace("ftp://", ""),
-          int(os.environ.get("FTP_PORT", "21")), timeout=30)
+f.connect(host, int(os.environ.get("FTP_PORT", "21")), timeout=30)
 f.login(os.environ.get("FTP_USER", ""), os.environ.get("FTP_PASS", ""))
 destino = (os.environ.get("FTP_DIR") or "").strip().rstrip("/")
 if destino:
@@ -75,6 +93,26 @@ for p in sorted(paquete.rglob("*")):
         f.storbinary(f"STOR {remoto}", fh)
     subidos += 1
 print(f"OK: {subidos} archivos subidos")
+
+# fotos elegidas de la curaduria (/banco-candidatas/) -> /assets/fotos/
+# copia servidor-a-servidor por FTP; si la galeria ya no existe, avisa y sigue
+FOTOS = {
+    "banco-candidatas/banco-03.jpg": "assets/fotos/atlantis-01.jpg",
+    "banco-candidatas/banco-04.jpg": "assets/fotos/atlantis-02.jpg",
+    "banco-candidatas/banco-06.jpg": "assets/fotos/atlantis-03.jpg",
+}
+asegurar("assets/fotos")
+copiadas = 0
+for origen, destino in FOTOS.items():
+    try:
+        buf = io.BytesIO()
+        f.retrbinary(f"RETR {origen}", buf.write)
+        buf.seek(0)
+        f.storbinary(f"STOR {destino}", buf)
+        copiadas += 1
+    except Exception as e:  # noqa: BLE001
+        print(f"  AVISO: no pude copiar {origen}: {str(e)[:70]}")
+print(f"OK: {copiadas} fotos del banco copiadas a /assets/fotos/")
 f.quit()
 PY
 
@@ -82,7 +120,10 @@ docker exec "$CONT" rm -rf /tmp/web-atlantis
 
 echo
 echo "== Verificacion HTTP desde el host (debe decir 200) =="
-for u in "https://$DOMINIO/proyectos/" "https://$DOMINIO/nueva/"; do
+for u in "https://$DOMINIO/proyectos/" "https://$DOMINIO/nueva/" \
+         "https://$DOMINIO/assets/fotos/atlantis-01.jpg" \
+         "https://$DOMINIO/assets/fotos/atlantis-02.jpg" \
+         "https://$DOMINIO/assets/fotos/atlantis-03.jpg"; do
   code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$u" || echo ERR)
   echo "  [$code] $u"
 done
