@@ -30,9 +30,18 @@ create table if not exists public.usuarios (
   capital           numeric default 35000,
   horizonte         int     default 10 check (horizonte in (5,10,15)),
 
+  -- Sync total: estado que no cabe en columnas (supuestos, shopping, portafolio,
+  -- checklist, pestañas). Lo escribe/lee la app con la anon key; RLS lo protege.
+  snapshot          jsonb,
+
   created_at        timestamptz default now(),
   updated_at        timestamptz default now()
 );
+
+-- Migración idempotente: si tu tabla `usuarios` ya existía SIN la columna
+-- `snapshot`, esta línea la agrega sin tocar los datos. (En instalaciones nuevas
+-- ya viene incluida arriba; ejecutarla igual no hace daño.)
+alter table public.usuarios add column if not exists snapshot jsonb;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2) PROYECTOS · un deal por fila (todo el modelo de negocio de la app)

@@ -17,7 +17,18 @@ configuración corre en modo demo (como hoy). Para activarlo son **5 pasos** (~1
 ## Paso 2 · Crea las tablas
 Supabase → **SQL Editor** → pega **todo** `supabase-schema.sql` → **Run**.
 Crea `usuarios` y `proyectos` con RLS (cada quien ve solo lo suyo), los triggers de
-perfil-al-registrarse y `updated_at`.
+perfil-al-registrarse y `updated_at`, e incluye la columna **`snapshot`** (sync total).
+
+> **¿Ya tenías la base creada de una versión anterior?** Entonces tu tabla `usuarios`
+> puede no tener la columna `snapshot` (la del *sync total*: supuestos, shopping,
+> portafolio, checklist y pestañas). Córrela una vez en **SQL Editor** — es segura e
+> idempotente, no borra nada:
+> ```sql
+> ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS snapshot jsonb;
+> ```
+> Confirma en **Table Editor → usuarios** que aparezca la columna `snapshot`.
+> Si la columna no existe, la app no falla: el resto sigue sincronizando y el estado
+> extra se guarda solo en `localStorage`.
 
 ## Paso 3 · Habilita Auth
 Supabase → **Authentication → Providers → Email** → habilítalo. (Si no quieres
@@ -51,6 +62,13 @@ Eso es todo — el `app.js` detecta la config y activa el modo real automáticam
 - **Carga**: al entrar, trae la *situación* (ingreso/gasto/…) y los *proyectos* del
   usuario desde la nube. Primer login → sube los proyectos de ejemplo.
 - **Guardado**: cada cambio se sincroniza (debounced 0.8 s) a `usuarios` y `proyectos`.
+- **Sync total (columna `snapshot`)**: además de la situación y los proyectos, se
+  guarda en la nube TODO el estado extra — supuestos (valorización, renta, gasto de
+  libertad, inflación), *shopping inmobiliario*, *portafolio en marcha*, *checklist* y
+  la pestaña activa. Al iniciar sesión en otro dispositivo, recuperas tu trabajo tal
+  cual lo dejaste. Requiere la columna `snapshot` del Paso 2.
+- **Informes**: en *Panel → Información → Copia de seguridad* puedes **Exportar CSV**
+  (portafolio + shopping, para Excel) y generar un **Informe PDF** (imprime el Resumen).
 - **Logout**: cierra la sesión de Supabase.
 - **Auto-login**: si ya hay sesión activa, entra directo.
 - **Gating**: si `usuarios.acceso_activo = false` (reembolso), bloquea el acceso.
@@ -83,4 +101,8 @@ Eso es todo — el `app.js` detecta la config y activa el modo real automáticam
 1. Crea un usuario de prueba en Supabase → Authentication → Add user.
 2. Abre la app, entra con ese correo/contraseña → deberías ver los proyectos de ejemplo.
 3. Cambia un valor, recarga → persiste desde la nube.
-4. En Supabase, pon `acceso_activo = false` a ese usuario → al reentrar, bloquea.
+4. **Sync total**: edita el perfil o el portafolio, espera ~1 s, y en Supabase →
+   **Table Editor → usuarios** revisa que la columna `snapshot` tenga un JSON con tus
+   datos (y un campo `_ts`). Prueba de fuego: cierra sesión, entra en otro navegador →
+   deberías ver tu portafolio y supuestos tal como los dejaste.
+5. En Supabase, pon `acceso_activo = false` a ese usuario → al reentrar, bloquea.
