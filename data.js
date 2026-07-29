@@ -64,13 +64,13 @@ export var PROJECT_FIELDS = ['id', 'name', 'location', 'moneda', 'valor', 'inici
      fija la tasa de ganancia y se activa el diferimiento donde aplica. */
 export var VEHICULOS = [
     { id: 'otro',      name: { es: 'Otro / manual', en: 'Other / manual' }, note: { es: 'Fija la tasa a mano.', en: 'Set the rate manually.' } },
-    { id: 'dubai',     name: { es: 'Dubái · 0%', en: 'Dubai · 0%' }, taxRate: 0, dif: true, ltv: 70, prepago: 1, note: { es: '0% a la ganancia de capital y a la renta.', en: '0% capital gains and income.' } },
-    { id: 'colombia',  name: { es: 'Colombia · AFC', en: 'Colombia · AFC' }, taxRate: 10, dif: true, ltv: 60, prepago: 0, note: { es: 'AFC: exención hasta 30% del ingreso / 3.800 UVT.', en: 'AFC: exemption up to 30% of income / 3,800 UVT.' } },
-    { id: 'usa',       name: { es: 'EE.UU. · 1031', en: 'USA · 1031' }, taxRate: 20, dif: true, ltv: 75, prepago: 4, note: { es: '1031 Exchange: difieres reinvirtiendo en 180 días.', en: '1031 Exchange: defer by reinvesting within 180 days.' } },
-    { id: 'rd',        name: { es: 'Rep. Dominicana · CONFOTUR', en: 'Dominican Rep. · CONFOTUR' }, taxRate: 0, dif: true, ltv: 70, prepago: 2, note: { es: 'CONFOTUR: 0% transferencia + IPI por 10–15 años.', en: 'CONFOTUR: 0% transfer + IPI for 10–15 years.' } },
-    { id: 'panama',    name: { es: 'Panamá · 1ª venta', en: 'Panama · 1st sale' }, taxRate: 10, dif: true, ltv: 70, prepago: 1, note: { es: 'Exención en la primera venta de inmueble nuevo.', en: 'Exemption on the first sale of a new property.' } },
-    { id: 'mexico',    name: { es: 'México · FIBRA', en: 'Mexico · FIBRA' }, taxRate: 25, dif: true, ltv: 50, prepago: 0, note: { es: 'Persona moral / FIBRA: difieren hasta la distribución.', en: 'Corporation / FIBRA: defer until distribution.' } },
-    { id: 'costarica', name: { es: 'Costa Rica · territorial', en: 'Costa Rica · territorial' }, taxRate: 15, dif: false, ltv: 70, prepago: 1, note: { es: 'Renta territorial: grava solo ingresos locales.', en: 'Territorial: taxes local income only.' } }
+    { id: 'dubai',     name: { es: 'Dubái · 0%', en: 'Dubai · 0%' }, taxRate: 0, dif: true, ltv: 70, prepago: 1, valoriz: 15, renta: 8, note: { es: '0% a la ganancia de capital y a la renta.', en: '0% capital gains and income.' } },
+    { id: 'colombia',  name: { es: 'Colombia · AFC', en: 'Colombia · AFC' }, taxRate: 10, dif: true, ltv: 60, prepago: 0, valoriz: 9, renta: 8, note: { es: 'AFC: exención hasta 30% del ingreso / 3.800 UVT.', en: 'AFC: exemption up to 30% of income / 3,800 UVT.' } },
+    { id: 'usa',       name: { es: 'EE.UU. · 1031', en: 'USA · 1031' }, taxRate: 20, dif: true, ltv: 75, prepago: 4, valoriz: 5, renta: 7, note: { es: '1031 Exchange: difieres reinvirtiendo en 180 días.', en: '1031 Exchange: defer by reinvesting within 180 days.' } },
+    { id: 'rd',        name: { es: 'Rep. Dominicana · CONFOTUR', en: 'Dominican Rep. · CONFOTUR' }, taxRate: 0, dif: true, ltv: 70, prepago: 2, valoriz: 9, renta: 11, note: { es: 'CONFOTUR: 0% transferencia + IPI por 10–15 años.', en: 'CONFOTUR: 0% transfer + IPI for 10–15 years.' } },
+    { id: 'panama',    name: { es: 'Panamá · 1ª venta', en: 'Panama · 1st sale' }, taxRate: 10, dif: true, ltv: 70, prepago: 1, valoriz: 7, renta: 8, note: { es: 'Exención en la primera venta de inmueble nuevo.', en: 'Exemption on the first sale of a new property.' } },
+    { id: 'mexico',    name: { es: 'México · FIBRA', en: 'Mexico · FIBRA' }, taxRate: 25, dif: true, ltv: 50, prepago: 0, valoriz: 9, renta: 9, note: { es: 'Persona moral / FIBRA: difieren hasta la distribución.', en: 'Corporation / FIBRA: defer until distribution.' } },
+    { id: 'costarica', name: { es: 'Costa Rica · territorial', en: 'Costa Rica · territorial' }, taxRate: 15, dif: false, ltv: 70, prepago: 1, valoriz: 6, renta: 8, note: { es: 'Renta territorial: grava solo ingresos locales.', en: 'Territorial: taxes local income only.' } }
   ];
 export function fxRisk(moneda) { var m = (moneda || '').toUpperCase().trim(); return m !== '' && m !== 'USD' && m !== 'AED'; }
 

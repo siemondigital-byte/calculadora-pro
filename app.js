@@ -1374,7 +1374,9 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       selV.appendChild(o);
     });
     var vObj = VEHICULOS.filter(function (v) { return v.id === (p.vehiculo || 'otro'); })[0] || VEHICULOS[0];
-    setText('veh-nota', vObj.note[s.lang]);
+    var vehNota = vObj.note[s.lang];
+    if (vObj.valoriz != null) vehNota += ' · ' + L.pnRefValoriz + ' ~' + vObj.valoriz + '% · ' + L.pnRefRenta + ' ~' + vObj.renta + '%';
+    setText('veh-nota', vehNota);
     // devaluation (only for local-currency projects)
     $('in-devaluacion').value = p.devaluacion || 0;
     setText('val-devaluacion', f.dec(p.devaluacion || 0, 0) + '%');
@@ -1649,6 +1651,10 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       if (v && v.id !== 'otro') {
         if (v.taxRate != null) p.taxRate = v.taxRate; if (v.dif != null) p.diferimiento = v.dif;
         if (v.ltv != null) p.ltvMax = v.ltv; if (v.prepago != null) p.prepagoPct = v.prepago;
+        // tabla maestra de mercados (Cap. 41-47): precarga valorización y renta
+        // típicas del mercado; el usuario las ajusta a su proyecto concreto.
+        if (v.valoriz != null) p.valorizacion = v.valoriz;
+        if (v.renta != null) p.rentaBruta = v.renta;
       }
       commit();
     });
