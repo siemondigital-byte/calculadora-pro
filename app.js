@@ -156,6 +156,7 @@
       portTitulo: 'Portafolio activo', portHelp: 'Registra tus propiedades en curso y monitorea avance, valor y ganancia.',
       portAdd: '+ Añadir propiedad',
       portNombre: 'Propiedad', portPrecio: 'Precio compra', portCuota: 'Cuota inicial', portMeses: 'Meses de obra', portMesActual: 'Mes actual', portValoriz: 'Valoriz. mensual %',
+      portValorReal: 'Avalúo actual (real)', portPagado: 'Pagado a la fecha (real)', portDesv: 'Desviación vs plan', portPagoPlan: 'Pagado / plan',
       portAvance: 'Avance', portValor: 'Valor actual', portGanancia: 'Ganancia',
       portSalida: '🔔 Preparar salida', portMonitor: '📊 Monitorear zona', portObra: '⏳ En construcción',
       portResumen: 'Resumen del portafolio', portActivos: 'Activos', portInvertido: 'Capital invertido', portValorTotal: 'Valor total', portGananciaTotal: 'Ganancia total', portVacio: 'Añade tu primera propiedad activa.',
@@ -316,6 +317,7 @@
       portTitulo: 'Active portfolio', portHelp: 'Register your ongoing properties and monitor progress, value and gain.',
       portAdd: '+ Add property',
       portNombre: 'Property', portPrecio: 'Purchase price', portCuota: 'Down payment', portMeses: 'Construction months', portMesActual: 'Current month', portValoriz: 'Monthly appr. %',
+      portValorReal: 'Current appraisal (real)', portPagado: 'Paid to date (real)', portDesv: 'Deviation vs plan', portPagoPlan: 'Paid / plan',
       portAvance: 'Progress', portValor: 'Current value', portGanancia: 'Gain',
       portSalida: '🔔 Prepare exit', portMonitor: '📊 Monitor area', portObra: '⏳ Under construction',
       portResumen: 'Portfolio summary', portActivos: 'Active', portInvertido: 'Capital invested', portValorTotal: 'Total value', portGananciaTotal: 'Total gain', portVacio: 'Add your first active property.',
@@ -352,7 +354,7 @@
   }
   function defaultPortafolio() {
     return [
-      { id: uid(), name: 'El Poblado 1204', precioCompra: 90000, cuotaInicial: 27000, mesesObra: 30, mesActual: 12, valoriz: 1 }
+      { id: uid(), name: 'El Poblado 1204', precioCompra: 90000, cuotaInicial: 27000, mesesObra: 30, mesActual: 12, valoriz: 1, valorReal: 0, pagado: 0 }
     ];
   }
   // Checklist de selección (Cap. 13 / hoja "Checklist y Scoring"): 8 criterios ponderados.
@@ -1402,25 +1404,40 @@
 
   // ---- Portafolio mensual ----
   function computePortafolio() {
+    // Punto 6: reales vs. plan. Si registras avalúo real o pagado real, se usan
+    // esos y se muestra la desviación contra la proyección del plan.
     var rows = state.portafolio.map(function (r) {
       var avance = r.mesesObra > 0 ? Math.min(r.mesActual / r.mesesObra, 1) : 0;
-      var valor = r.precioCompra > 0 ? r.precioCompra * Math.pow(1 + (r.valoriz != null ? r.valoriz : 1) / 100, r.mesActual || 0) : 0;
+      var valorPlan = r.precioCompra > 0 ? r.precioCompra * Math.pow(1 + (r.valoriz != null ? r.valoriz : 1) / 100, r.mesActual || 0) : 0;
+      var valorReal = r.valorReal > 0 ? r.valorReal : 0;
+      var valor = valorReal > 0 ? valorReal : valorPlan;              // real-preferido
       var gan = r.precioCompra > 0 ? valor - r.precioCompra : 0;
+      var desv = valorReal > 0 ? valorReal - valorPlan : null;        // real vs plan
+      var pagadoPlan = (r.cuotaInicial || 0) * avance;
+      var pagado = r.pagado > 0 ? r.pagado : pagadoPlan;
       var accion = r.precioCompra <= 0 ? '' : (avance >= 0.9 ? 'salida' : avance >= 0.6 ? 'monitor' : 'obra');
-      return { id: r.id, avance: avance, valor: valor, gan: gan, accion: accion, valid: r.precioCompra > 0 };
+      return { id: r.id, avance: avance, valor: valor, valorReal: valorReal, gan: gan, desv: desv,
+        pagado: pagado, pagadoPlan: pagadoPlan, accion: accion, valid: r.precioCompra > 0 };
     });
     var valids = rows.filter(function (x) { return x.valid; });
     return { rows: rows, activos: valids.length,
-      invertido: state.portafolio.reduce(function (a, b) { return a + (b.cuotaInicial || 0); }, 0),
+      invertido: valids.reduce(function (a, b) { return a + b.pagado; }, 0),   // pagado real (o plan)
       valorTotal: valids.reduce(function (a, b) { return a + b.valor; }, 0),
-      ganTotal: valids.reduce(function (a, b) { return a + b.gan; }, 0) };
+      ganTotal: valids.reduce(function (a, b) { return a + b.gan; }, 0),
+      desvTotal: valids.reduce(function (a, b) { return a + (b.desv || 0); }, 0) };
   }
   function paintPortafolio() {
     var c = computePortafolio(), f = makeFmt(state.lang), L = T[state.lang];
     c.rows.forEach(function (x) {
       setText('pod-avance-' + x.id, x.valid ? f.pct(x.avance, 0) + '%' : '—');
-      setText('pod-valor-' + x.id, x.valid ? f.fmt(x.valor) : '—');
+      setText('pod-valor-' + x.id, x.valid ? f.fmt(x.valor) + (x.valorReal > 0 ? ' ●' : '') : '—');
       setText('pod-gan-' + x.id, x.valid ? '+' + f.fmt(x.gan) : '—');
+      var dv = $('pod-desv-' + x.id);
+      if (dv) {
+        if (!x.valid || x.desv == null) { dv.textContent = '—'; dv.className = ''; }
+        else { dv.textContent = (x.desv >= 0 ? '+' : '') + f.fmt(x.desv) + ' USD'; dv.className = x.desv >= 0 ? 'pod-ok' : 'pod-bad'; }
+      }
+      setText('pod-pago-' + x.id, x.valid ? f.fmt(x.pagado) + ' / ' + f.fmt(x.pagadoPlan) + ' USD' : '—');
       var ac = $('pod-accion-' + x.id);
       if (ac) {
         ac.textContent = x.accion === 'salida' ? L.portSalida : x.accion === 'monitor' ? L.portMonitor : x.accion === 'obra' ? L.portObra : '—';
@@ -1444,11 +1461,17 @@
           regField('port', r.id, 'mesesObra', L.portMeses, '1', r.mesesObra) +
           regField('port', r.id, 'mesActual', L.portMesActual, '1', r.mesActual) +
           regField('port', r.id, 'valoriz', L.portValoriz, '0.1', r.valoriz) +
+          regField('port', r.id, 'valorReal', L.portValorReal, '1000', r.valorReal) +
+          regField('port', r.id, 'pagado', L.portPagado, '500', r.pagado) +
         '</div>' +
         '<div class="pn-mk-stats reg-out">' +
           '<div class="pn-stat"><div class="pn-stat-v" id="pod-avance-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.portAvance) + '</div></div>' +
           '<div class="pn-stat"><div class="pn-stat-v" id="pod-valor-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.portValor) + '</div></div>' +
           '<div class="pn-stat"><div class="pn-stat-v" id="pod-gan-' + r.id + '"></div><div class="pn-stat-l">' + escapeHtml(L.portGanancia) + '</div></div>' +
+        '</div>' +
+        '<div class="pod-lines">' +
+          '<div class="pod-line"><span>' + escapeHtml(L.portDesv) + '</span><span id="pod-desv-' + r.id + '"></span></div>' +
+          '<div class="pod-line"><span>' + escapeHtml(L.portPagoPlan) + '</span><span id="pod-pago-' + r.id + '"></span></div>' +
         '</div>' +
         '<div class="scen-verdict pod-accion" id="pod-accion-' + r.id + '"></div>' +
       '</div>';
@@ -1543,7 +1566,7 @@
     cont.querySelectorAll('[data-add]').forEach(function (b) {
       b.addEventListener('click', function () {
         if (b.getAttribute('data-add') === 'shop') { state.shopping.push({ id: uid(), name: '', m2: 0, precio: 0, inicialPct: 30, meses: 30, valoriz: 1 }); saveState(); renderComparar(); }
-        else { state.portafolio.push({ id: uid(), name: '', precioCompra: 0, cuotaInicial: 0, mesesObra: 30, mesActual: 0, valoriz: 1 }); saveState(); renderPortafolio(); }
+        else { state.portafolio.push({ id: uid(), name: '', precioCompra: 0, cuotaInicial: 0, mesesObra: 30, mesActual: 0, valoriz: 1, valorReal: 0, pagado: 0 }); saveState(); renderPortafolio(); }
       });
     });
   }

@@ -777,6 +777,11 @@ a { color: inherit; }
 .reg-out { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline); align-items: center; }
 .pn-stat-badge { display: flex; align-items: center; }
 .pod-accion { margin-top: 12px; }
+.pod-lines { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pod-line { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--muted); }
+.pod-line > span:last-child { font-weight: 600; color: var(--gray); white-space: nowrap; }
+.pod-line .pod-ok { color: var(--gold); }
+.pod-line .pod-bad { color: var(--alert); }
 /* checklist */
 .chk-list { display: flex; flex-direction: column; gap: 15px; margin: 14px 0 22px; }
 .chk-crit { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
