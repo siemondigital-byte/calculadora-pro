@@ -4,12 +4,15 @@
    - Estáticos propios (css/js/iconos/manifest): stale-while-revalidate.
    - Terceros (fonts, supabase-js CDN): se dejan pasar a la red, sin cachear.
    Sube CACHE_VERSION cuando cambies el shell para forzar actualización. */
-const CACHE_VERSION = 'crd-pwa-v1';
+const CACHE_VERSION = 'crd-pwa-v2';
 const CORE = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './i18n.js',
+  './data.js',
+  './finance.js',
   './config.js',
   './supabase.js',
   './reset.html',
