@@ -50,8 +50,13 @@
       secRenta: 'Renta (si conservas)', lblRentaBruta: 'Renta bruta anual', lblOcupacion: 'Ocupación',
       modRenta: 'Renta y flujo · ¿conservar?', modRentaHelp: 'Si estabilizas el activo para vivir del flujo (Fase C).',
       rentaCoC: 'Cash-on-Cash', rentaNetaLbl: 'Renta neta anual', rentaFlujoLbl: 'Flujo tras hipoteca', perYear: 'USD/año',
-      rentaConservar: 'Conservar · renta intensiva (bruta ≥ 12% y ocupación ≥ 70%).',
-      rentaVender: 'Vender · rota el capital. La renta no justifica conservar el activo.',
+      rentaConservar: 'Conservar · el flujo cubre la deuda con holgura (DSCR ≥ 1,2 y ocupación ≥ 70%).',
+      rentaVender: 'Vender · rota el capital. El flujo de renta no cubre la deuda con holgura.',
+      lblOpex: 'Gastos operativos (admin, HOA, mant.)', lblRentaTax: 'Impuesto a la renta',
+      rentaDscr: 'Cobertura de deuda (DSCR)', rentaDscrOk: 'holgado', rentaDscrJusto: 'ajustado', rentaDscrBajo: 'insuficiente',
+      rentaBreakeven: 'Ocupación de equilibrio', rentaBreakevenSuf: 'para cubrir la hipoteca',
+      rentaStress: 'Flujo con tasa +2 puntos (stress)',
+      rentaFxAviso: '⚠ Renta en moneda local frente a exposición cambiaria: la devaluación erosiona el flujo real. Considera cubrir o rentar/endeudarte en la misma moneda.',
       lblVehiculo: 'Vehículo fiscal / jurisdicción', lblDevaluacion: 'Devaluación anual esperada',
       tirUsdLbl: 'TIR real en USD', tirUsdNota: 'Tu TIR local, ajustada por la devaluación de la moneda.',
       refiLbl: 'Cash-out refi (sin vender)', refiNota: '~55% del valor, cada 3–5 años, sin evento fiscal.',
@@ -203,8 +208,13 @@
       secRenta: 'Rent (if you hold)', lblRentaBruta: 'Gross annual yield', lblOcupacion: 'Occupancy',
       modRenta: 'Rent & cash flow · hold?', modRentaHelp: 'If you stabilize the asset to live off the cash flow (Phase C).',
       rentaCoC: 'Cash-on-Cash', rentaNetaLbl: 'Net annual rent', rentaFlujoLbl: 'Cash flow after mortgage', perYear: 'USD/yr',
-      rentaConservar: 'Hold · income asset (yield ≥ 12% and occupancy ≥ 70%).',
-      rentaVender: 'Sell · rotate the capital. The rent doesn’t justify holding the asset.',
+      rentaConservar: 'Hold · cash flow covers the debt comfortably (DSCR ≥ 1.2 and occupancy ≥ 70%).',
+      rentaVender: 'Sell · rotate the capital. The rent cash flow doesn’t comfortably cover the debt.',
+      lblOpex: 'Operating expenses (mgmt, HOA, maint.)', lblRentaTax: 'Income tax',
+      rentaDscr: 'Debt coverage (DSCR)', rentaDscrOk: 'comfortable', rentaDscrJusto: 'tight', rentaDscrBajo: 'insufficient',
+      rentaBreakeven: 'Break-even occupancy', rentaBreakevenSuf: 'to cover the mortgage',
+      rentaStress: 'Cash flow at rate +2 pts (stress)',
+      rentaFxAviso: '⚠ Rent in local currency against FX exposure: devaluation erodes the real cash flow. Consider hedging or renting/borrowing in the same currency.',
       lblVehiculo: 'Tax vehicle / jurisdiction', lblDevaluacion: 'Expected annual devaluation',
       tirUsdLbl: 'Real IRR in USD', tirUsdNota: 'Your local IRR, adjusted for the currency’s devaluation.',
       refiLbl: 'Cash-out refi (without selling)', refiNota: '~55% of value, every 3–5 years, no tax event.',
@@ -692,17 +702,29 @@
       aniosLibertad = kk * cicloAnios;
     }
 
-    // --- rent & hold decision (Cap. 15/16, Fase C) ---
+    // --- rent & hold decision (Cap. 15/16, Fase C) — economía real (Punto 7) ---
+    var opexPct = (p.opexPct != null ? p.opexPct : 30) / 100;      // gastos operativos: admin, HOA, mantenimiento, seguro
+    var rentaTaxPct = (p.rentaTaxPct != null ? p.rentaTaxPct : 0) / 100; // impuesto a la renta
     var rentaAnualBruta = V * ((p.rentaBruta || 0) / 100);
-    var rentaEfectiva = rentaAnualBruta * ((p.ocupacion || 0) / 100);
-    var rentaNeta = rentaEfectiva * 0.70;                 // ~30% de gastos operativos
-    // depreciation shield (Cap. 3/39): 2,22%/año sobre el 80% del valor, deducible de la renta
-    var deprAnual = 0.0222 * 0.80 * V;
-    var escudoDepr = Math.min(deprAnual, Math.max(0, rentaNeta)) * ((p.taxRate || 0) / 100);
+    var rentaEfectiva = rentaAnualBruta * ((p.ocupacion || 0) / 100);   // ocupación = anti-vacancia
+    var rentaOperativa = rentaEfectiva * (1 - opexPct);                 // tras gastos operativos (NOI)
+    var deprAnual = 0.0222 * 0.80 * V;                                  // depreciación deducible
+    var rentaImpuesto = Math.max(0, rentaOperativa - deprAnual) * rentaTaxPct;
+    var escudoDepr = Math.min(deprAnual, Math.max(0, rentaOperativa)) * rentaTaxPct; // ahorro fiscal por depreciación
+    var rentaNeta = rentaOperativa - rentaImpuesto;
     var annualMortgage = cuotaHipotecaMes * 12;
     var flujoRenta = rentaNeta - annualMortgage;
-    var cashOnCash = (Vc * d) > 0 ? flujoRenta / (Vc * d) : 0;
-    var conservar = (p.rentaBruta || 0) >= 12 && (p.ocupacion || 0) >= 70;
+    var equityBase = Vc * d;
+    var cashOnCash = equityBase > 0 ? flujoRenta / equityBase : 0;
+    var dscr = annualMortgage > 0 ? rentaOperativa / annualMortgage : null;  // cobertura del servicio de deuda
+    // ocupación de equilibrio: la ocupación mínima para que el flujo tras hipoteca sea 0
+    var rentaNeta100 = V * ((p.rentaBruta || 0) / 100) * (1 - opexPct) * (1 - rentaTaxPct);
+    var ocupEquilibrio = rentaNeta100 > 0 ? Math.min(100, annualMortgage / rentaNeta100 * 100) : null;
+    // stress de tasa: la hipoteca a +2 puntos
+    var flujoStress2 = rentaNeta - cuotaCredito(saldoHipoteca, p.finTasa + 2, p.finPlazo) * 12;
+    // riesgo cambiario en renta: la renta es local pero la deuda puede ser dura (o al revés)
+    var rentaFxRiesgo = fxRisk(p.moneda) && (p.devaluacion || 0) > 0;
+    var conservar = dscr != null && dscr >= 1.2 && (p.ocupacion || 0) >= 70;
 
     // --- cash-out refi (Cap. 39/40): extract equity without selling ---
     var currentValueRefi = V * Math.pow(1 + g, hold);
@@ -790,6 +812,8 @@
       cicloAnios: cicloAnios, wealthCiclos: wealthCiclos, patrimonioFinal: patrimonioFinal,
       maxWealth: maxWealth, aniosLibertad: aniosLibertad, nCiclos: nCiclos,
       rentaNeta: rentaNeta, flujoRenta: flujoRenta, cashOnCash: cashOnCash, conservar: conservar, escudoDepr: escudoDepr,
+      rentaOperativa: rentaOperativa, dscr: dscr, ocupEquilibrio: ocupEquilibrio, flujoStress2: flujoStress2, rentaFxRiesgo: rentaFxRiesgo,
+      opexPct: p.opexPct != null ? p.opexPct : 30, rentaTaxPct: p.rentaTaxPct != null ? p.rentaTaxPct : 0,
       refiExtraible: refiExtraible, nPaises: nPaises, nMonedas: nMonedas, pctUsd: pctUsd, duraOk: duraOk, holdingRec: holdingRec,
       tir: tirDisplay, tirUsd: tirUsd, esFx: esFx, roi: real.roi, tirSin: tirSin, multiple: lev.multiple, verdict: verdict,
       reinvNeto: reinvNeto, reinvDiferido: reinvDiferido, ventaja: ventaja, maxReinv: maxReinv,
@@ -1717,6 +1741,10 @@
     $('in-ocupacion').value = p.ocupacion;
     setText('val-rentabruta', f.dec(p.rentaBruta, 0) + '%');
     setText('val-ocupacion', f.dec(p.ocupacion, 0) + '%');
+    $('in-opex').value = c.opexPct;
+    setText('val-opex', f.dec(c.opexPct, 0) + '%');
+    $('in-rentatax').value = c.rentaTaxPct;
+    setText('val-rentatax', f.dec(c.rentaTaxPct, 0) + '%');
     setText('val-fintasa', f.dec(p.finTasa, p.finTasa % 1 ? 1 : 0) + '%');
     setText('val-finplazo', p.finPlazo + ' ' + L.unitYears);
     setText('fin-nota', p.finType === 'constructora' ? L.finConstructoraNota : L.finBancoNota);
@@ -1815,8 +1843,13 @@
     var rv = $('renta-verdict');
     rv.textContent = c.conservar ? L.rentaConservar : L.rentaVender;
     rv.className = 'scen-verdict' + (c.conservar ? '' : ' mid');
+    setText('renta-dscr', c.dscr == null ? '—' : f.dec(c.dscr, 2) + '× ' + (c.dscr >= 1.25 ? L.rentaDscrOk : c.dscr >= 1 ? L.rentaDscrJusto : L.rentaDscrBajo));
+    setText('renta-breakeven', c.ocupEquilibrio == null ? '—' : f.dec(c.ocupEquilibrio, 0) + '% ' + L.rentaBreakevenSuf);
+    setText('renta-stress', f.fmt(c.flujoStress2) + ' ' + L.perYear);
     setText('renta-depr', f.fmt(c.escudoDepr) + ' ' + L.perYearShort);
     setText('renta-refi', f.fmt(c.refiExtraible) + ' USD');
+    var rfx = $('renta-fx');
+    if (rfx) { rfx.hidden = !c.rentaFxRiesgo; rfx.className = 'scen-verdict warn'; rfx.textContent = L.rentaFxAviso; }
 
     // scenarios
     var scenList = $('scen-list');
@@ -1938,7 +1971,7 @@
     $('in-valor').addEventListener('input', function (e) { activeProject().valor = parseNum(e.target.value); commit(); });
     [['in-inicial', 'inicialPct'], ['in-plan', 'planMeses'], ['in-valoriz', 'valorizacion'],
      ['in-cierre', 'costoCierre'], ['in-margen', 'margenError'], ['in-entpremium', 'entradaPremium'],
-     ['in-rentabruta', 'rentaBruta'], ['in-ocupacion', 'ocupacion'], ['in-devaluacion', 'devaluacion'],
+     ['in-rentabruta', 'rentaBruta'], ['in-ocupacion', 'ocupacion'], ['in-opex', 'opexPct'], ['in-rentatax', 'rentaTaxPct'], ['in-devaluacion', 'devaluacion'],
      ['in-tax', 'taxRate'], ['in-fintasa', 'finTasa'], ['in-finplazo', 'finPlazo'], ['in-ltv', 'ltvMax']]
       .forEach(function (pair) {
         $(pair[0]).addEventListener('input', function (e) { activeProject()[pair[1]] = parseFloat(e.target.value); commit(); });

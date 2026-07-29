@@ -353,6 +353,14 @@
             <div class="slider-head"><span class="input-label" data-i18n="lblOcupacion"></span><span class="slider-val" id="val-ocupacion"></span></div>
             <input class="rng" id="in-ocupacion" type="range" min="0" max="100" step="5">
           </div>
+          <div class="input-group">
+            <div class="slider-head"><span class="input-label" data-i18n="lblOpex"></span><span class="slider-val" id="val-opex"></span></div>
+            <input class="rng" id="in-opex" type="range" min="0" max="50" step="1">
+          </div>
+          <div class="input-group">
+            <div class="slider-head"><span class="input-label" data-i18n="lblRentaTax"></span><span class="slider-val" id="val-rentatax"></span></div>
+            <input class="rng" id="in-rentatax" type="range" min="0" max="40" step="1">
+          </div>
 
           <div class="hairline"></div>
 
@@ -546,8 +554,12 @@
               <div><div class="foot-num-sm" id="renta-flujo"></div><div class="foot-cap" data-i18n="rentaFlujoLbl"></div></div>
             </div>
             <div class="scen-verdict" id="renta-verdict"></div>
+            <div class="sub-line cap-poder-line renta-refi-line"><span data-i18n="rentaDscr"></span>: <span id="renta-dscr"></span></div>
+            <div class="sub-line cap-poder-line renta-refi-line"><span data-i18n="rentaBreakeven"></span>: <span id="renta-breakeven"></span></div>
+            <div class="sub-line cap-poder-line renta-refi-line"><span data-i18n="rentaStress"></span>: <span id="renta-stress"></span></div>
             <div class="sub-line cap-poder-line renta-refi-line"><span data-i18n="rentaDepr"></span>: <span id="renta-depr"></span></div>
             <div class="sub-line cap-poder-line renta-refi-line"><span data-i18n="refiLbl"></span>: <span id="renta-refi"></span></div>
+            <div class="scen-verdict" id="renta-fx" hidden></div>
           </div>
 
           <!-- Project comparison -->
