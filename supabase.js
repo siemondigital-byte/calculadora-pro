@@ -93,6 +93,26 @@
     return client().from('usuarios').upsert(row).then(function (r) { if (r.error) throw r.error; return true; });
   }
 
+  /* ---- Snapshot completo (sync total) -------------------------------------
+     Guarda TODO el estado que no cabe en columnas (supuestos, shopping,
+     portafolio, checklist, pestañas). Requiere una columna jsonb en `usuarios`:
+       ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS snapshot jsonb;
+     Si la columna no existe, el upsert falla silenciosamente (se ignora) y la
+     app sigue funcionando con localStorage. */
+  var SNAP_KEYS = ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta',
+    'inflacion', 'view', 'panelTab', 'projTab', 'shopping', 'portafolio', 'checklist'];
+  function saveSnapshot(uid, state) {
+    var snap = {};
+    SNAP_KEYS.forEach(function (k) { if (state[k] !== undefined) snap[k] = state[k]; });
+    snap._ts = new Date().toISOString();
+    return client().from('usuarios').upsert({ id: uid, snapshot: snap })
+      .then(function (r) { if (r.error) throw r.error; return true; });
+  }
+  function loadSnapshot(uid) {
+    return client().from('usuarios').select('snapshot').eq('id', uid).single()
+      .then(function (r) { return (r.error || !r.data) ? null : r.data.snapshot; });
+  }
+
   /* ---- Proyectos ----------------------------------------------------------- */
   function loadProjects(uid) {
     return client().from('proyectos').select('*').eq('usuario_id', uid).order('orden', { ascending: true })
@@ -116,6 +136,7 @@
     signIn: signIn, signUp: signUp, resetPassword: resetPassword, signOut: signOut,
     currentUser: currentUser, onAuthChange: onAuthChange, checkAccess: checkAccess,
     loadProfile: loadProfile, saveProfile: saveProfile,
+    saveSnapshot: saveSnapshot, loadSnapshot: loadSnapshot,
     loadProjects: loadProjects, upsertProject: upsertProject, deleteProject: deleteProject, saveAllProjects: saveAllProjects,
     _map: { projToDb: projToDb, projFromDb: projFromDb }
   };
