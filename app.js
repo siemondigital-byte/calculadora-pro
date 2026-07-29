@@ -114,6 +114,7 @@
       pnIngresoRecurrente: 'Ingreso recurrente (renta neta)', pnRefiLiquidez: 'Liquidez por refinanciación', pnRefiNota: 'cada 3–5 años, sin evento fiscal',
       pnPatActivas: 'Incluye tu patrimonio en propiedades activas', pnImpulsoDeals: 'Impulso potencial de tus proyectos en análisis',
       pnDatos: 'Copia de seguridad', pnExportar: '↓ Exportar mis datos', pnImportar: '↑ Importar',
+      pnCsv: '↧ Exportar CSV', pnPdf: '🖨 Informe PDF',
       pnImportOk: 'Datos importados correctamente.', pnImportErr: 'Archivo no válido.',
       pnResumen: 'Resumen', pnFlujoLibre: 'Flujo libre mensual', pnPoder: 'Poder de inversión total',
       pnPropMax: 'Propiedad máxima accesible', pnNse: 'Número de Seguridad Económica',
@@ -275,6 +276,7 @@
       pnIngresoRecurrente: 'Recurring income (net rent)', pnRefiLiquidez: 'Refinancing liquidity', pnRefiNota: 'every 3–5 years, no tax event',
       pnPatActivas: 'Includes your net worth in active properties', pnImpulsoDeals: 'Potential boost from projects under analysis',
       pnDatos: 'Backup', pnExportar: '↓ Export my data', pnImportar: '↑ Import',
+      pnCsv: '↧ Export CSV', pnPdf: '🖨 PDF report',
       pnImportOk: 'Data imported successfully.', pnImportErr: 'Invalid file.',
       pnResumen: 'Summary', pnFlujoLibre: 'Free monthly cash flow', pnPoder: 'Total investing power',
       pnPropMax: 'Max accessible property', pnNse: 'Economic Security Number',
@@ -483,6 +485,7 @@
         try {
           window.CRDSupabase.saveProfile(_authUser.id, state);
           window.CRDSupabase.saveAllProjects(_authUser.id, state.projects);
+          if (window.CRDSupabase.saveSnapshot) window.CRDSupabase.saveSnapshot(_authUser.id, state);   // sync total
         } catch (e) { /* ignore */ }
       }, 800);
     }
@@ -509,6 +512,14 @@
       if (profile) {
         ['ingreso', 'gasto', 'deudas', 'capital', 'horizonte'].forEach(function (f) { if (profile[f] != null) state[f] = profile[f]; });
         if (profile.idioma) state.lang = profile.idioma;
+        // sync total: aplica el snapshot (supuestos, shopping, portafolio, checklist…)
+        var snap = profile.snapshot;
+        if (snap && typeof snap === 'object') {
+          ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'inflacion', 'view', 'panelTab', 'projTab'].forEach(function (k) { if (snap[k] != null) state[k] = snap[k]; });
+          if (Array.isArray(snap.shopping)) state.shopping = snap.shopping;
+          if (Array.isArray(snap.portafolio)) state.portafolio = snap.portafolio;
+          if (snap.checklist) state.checklist = snap.checklist;
+        }
       }
       return window.CRDSupabase.loadProjects(user.id).then(function (projs) {
         if (projs && projs.length) { state.projects = projs; state.activeId = projs[0].id; }
@@ -1609,6 +1620,57 @@
     reader.readAsText(file);
   }
 
+  /* Punto 8: exportar CSV (portafolio + shopping) para socios/asesores/Excel. */
+  function csvCell(v) {
+    if (v == null) v = '';
+    v = String(v);
+    return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function csvRow(arr) { return arr.map(csvCell).join(';'); }
+  function exportCSV() {
+    try {
+      var L = T[state.lang], lines = [];
+      var cp = computePortafolio();
+      // --- Portafolio en marcha ---
+      lines.push(csvRow([L.projPortafolio || 'Portafolio']));
+      lines.push(csvRow([L.portNombre, L.portPrecio, L.portCuota, 'Avance %',
+        'Valor', 'Ganancia', 'Desv. vs plan', L.portPagado || 'Pagado', 'Plan']));
+      state.portafolio.forEach(function (r, i) {
+        var x = cp.rows[i] || {};
+        lines.push(csvRow([r.name, r.precioCompra, r.cuotaInicial,
+          x.valid ? Math.round((x.avance || 0) * 100) : '',
+          x.valid ? Math.round(x.valor) : '', x.valid ? Math.round(x.gan) : '',
+          (x.desv == null ? '' : Math.round(x.desv)),
+          x.valid ? Math.round(x.pagado) : '', x.valid ? Math.round(x.pagadoPlan) : '']));
+      });
+      lines.push(csvRow([L.portTotal || 'Total', '', '', '', Math.round(cp.valorTotal),
+        Math.round(cp.ganTotal), Math.round(cp.desvTotal), Math.round(cp.invertido), '']));
+      lines.push('');
+      // --- Shopping inmobiliario ---
+      lines.push(csvRow([L.projComparar || 'Shopping']));
+      lines.push(csvRow([L.shopNombre || 'Proyecto', 'm²', L.shopPrecio || 'Precio',
+        'Inicial %', L.shopMeses || 'Meses', L.shopValoriz || 'Valoriz %/mes', 'USD/m²']));
+      (state.shopping || []).forEach(function (s) {
+        lines.push(csvRow([s.name, s.m2, s.precio, s.inicialPct, s.meses, s.valoriz,
+          (s.m2 > 0 ? Math.round(s.precio / s.m2) : '')]));
+      });
+      var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'viabilidad-portafolio-' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    } catch (e) { /* ignore */ }
+  }
+
+  /* Punto 8: informe PDF — abre el Resumen y usa el diálogo de impresión del
+     navegador (Guardar como PDF). El CSS @media print limpia la vista. */
+  function printReport() {
+    state.view = 'panel'; state.panelTab = 'resumen';
+    saveState(); render();
+    setTimeout(function () { window.print(); }, 250);
+  }
+
   function renderStaticText() {
     var L = T[state.lang];
     document.documentElement.lang = state.lang;
@@ -2089,6 +2151,8 @@
     $('pn-rendrenta').addEventListener('input', function (e) { state.rendRenta = parseFloat(e.target.value); commit(); });
     // respaldo (export/import JSON)
     if ($('pn-export')) $('pn-export').addEventListener('click', exportData);
+    if ($('pn-csv')) $('pn-csv').addEventListener('click', exportCSV);
+    if ($('pn-pdf')) $('pn-pdf').addEventListener('click', printReport);
     if ($('pn-import-btn')) $('pn-import-btn').addEventListener('click', function () { $('pn-import-file').click(); });
     if ($('pn-import-file')) $('pn-import-file').addEventListener('change', function (e) { if (e.target.files && e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
     $('pn-inflacion').addEventListener('input', function (e) { state.inflacion = parseFloat(e.target.value); commit(); });

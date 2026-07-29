@@ -806,3 +806,21 @@ a { color: inherit; }
   .pn-perfil-grid { grid-template-columns: 1fr; }
   .pn-simult-n { font-size: 38px; }
 }
+
+/* ---- Informe PDF (window.print → Guardar como PDF) --------------------- */
+@media print {
+  html, body { background: #fff !important; color: #14213d !important; }
+  body::before, body::after { display: none !important; }
+  .app-header-actions, .app-nav, .pn-subnav, .proj-subnav,
+  .pn-datos, .lang-switch, .lang-btn, .app-footer { display: none !important; }
+  .app-shell, .card, .results-grid, .result-card { box-shadow: none !important; }
+  .card, .result-card {
+    background: #fff !important; color: #14213d !important;
+    border: 1px solid #cdd5e0 !important; break-inside: avoid;
+  }
+  .eyebrow, .stat-label, .input-label, .sec-note { color: #55607a !important; }
+  h1, h2, h3, .stat-value, .pn-stat-v, .tile-v { color: #14213d !important; }
+  .app-header { border: none !important; margin-bottom: 8px; }
+  a[href]::after { content: '' !important; }
+  @page { margin: 14mm; }
+}
