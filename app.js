@@ -113,6 +113,8 @@
       pnCapitalPropio: 'Capital propio', pnCapCredito: 'Capacidad de crédito', pnPropMaxReal: 'Propiedad máx. realista',
       pnIngresoRecurrente: 'Ingreso recurrente (renta neta)', pnRefiLiquidez: 'Liquidez por refinanciación', pnRefiNota: 'cada 3–5 años, sin evento fiscal',
       pnPatActivas: 'Incluye tu patrimonio en propiedades activas', pnImpulsoDeals: 'Impulso potencial de tus proyectos en análisis',
+      pnDatos: 'Copia de seguridad', pnExportar: '↓ Exportar mis datos', pnImportar: '↑ Importar',
+      pnImportOk: 'Datos importados correctamente.', pnImportErr: 'Archivo no válido.',
       pnResumen: 'Resumen', pnFlujoLibre: 'Flujo libre mensual', pnPoder: 'Poder de inversión total',
       pnPropMax: 'Propiedad máxima accesible', pnNse: 'Número de Seguridad Económica',
       pnAnios: 'Años para la libertad', pnPatY5: 'Patrimonio año 5', pnPatY10: 'Patrimonio año 10',
@@ -271,6 +273,8 @@
       pnCapitalPropio: 'Own capital', pnCapCredito: 'Credit capacity', pnPropMaxReal: 'Realistic max property',
       pnIngresoRecurrente: 'Recurring income (net rent)', pnRefiLiquidez: 'Refinancing liquidity', pnRefiNota: 'every 3–5 years, no tax event',
       pnPatActivas: 'Includes your net worth in active properties', pnImpulsoDeals: 'Potential boost from projects under analysis',
+      pnDatos: 'Backup', pnExportar: '↓ Export my data', pnImportar: '↑ Import',
+      pnImportOk: 'Data imported successfully.', pnImportErr: 'Invalid file.',
       pnResumen: 'Summary', pnFlujoLibre: 'Free monthly cash flow', pnPoder: 'Total investing power',
       pnPropMax: 'Max accessible property', pnNse: 'Economic Security Number',
       pnAnios: 'Years to freedom', pnPatY5: 'Net worth year 5', pnPatY10: 'Net worth year 10',
@@ -1544,6 +1548,44 @@
     });
   }
 
+  /* Punto 8: respaldo — exportar/importar todo el estado como JSON (un clic). */
+  var BACKUP_KEYS = ['lang', 'view', 'panelTab', 'projTab', 'perfilNombre', 'ingreso', 'gasto', 'deudas',
+    'capital', 'horizonte', 'inflacion', 'valorizacionEsp', 'gastoLibertad', 'rendRenta',
+    'projects', 'activeId', 'shopping', 'portafolio', 'checklist'];
+  function exportData() {
+    try {
+      var data = { _app: 'crd-calc', _v: 2, _ts: new Date().toISOString() };
+      BACKUP_KEYS.forEach(function (k) { data[k] = state[k]; });
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'calculadora-viabilidad-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    } catch (e) { /* ignore */ }
+  }
+  function importData(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var msg = $('pn-import-msg');
+      try {
+        var data = JSON.parse(e.target.result);
+        BACKUP_KEYS.forEach(function (k) {
+          if (data[k] == null) return;
+          if (k === 'projects' || k === 'shopping' || k === 'portafolio') { if (Array.isArray(data[k])) state[k] = data[k]; }
+          else state[k] = data[k];
+        });
+        if (!state.projects || !state.projects.length) state.projects = defaultProjects();
+        if (!state.activeId || !state.projects.some(function (p) { return p.id === state.activeId; })) state.activeId = state.projects[0].id;
+        saveState(); render();
+        if (msg) { msg.textContent = T[state.lang].pnImportOk; msg.className = 'sec-note pn-import-ok'; }
+      } catch (err) {
+        if (msg) { msg.textContent = T[state.lang].pnImportErr; msg.className = 'sec-note pn-import-err'; }
+      }
+    };
+    reader.readAsText(file);
+  }
+
   function renderStaticText() {
     var L = T[state.lang];
     document.documentElement.lang = state.lang;
@@ -2022,6 +2064,10 @@
     });
     $('pn-valoriz').addEventListener('input', function (e) { state.valorizacionEsp = parseFloat(e.target.value); commit(); });
     $('pn-rendrenta').addEventListener('input', function (e) { state.rendRenta = parseFloat(e.target.value); commit(); });
+    // respaldo (export/import JSON)
+    if ($('pn-export')) $('pn-export').addEventListener('click', exportData);
+    if ($('pn-import-btn')) $('pn-import-btn').addEventListener('click', function () { $('pn-import-file').click(); });
+    if ($('pn-import-file')) $('pn-import-file').addEventListener('change', function (e) { if (e.target.files && e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
     $('pn-inflacion').addEventListener('input', function (e) { state.inflacion = parseFloat(e.target.value); commit(); });
 
     document.querySelectorAll('.lang-btn').forEach(function (b) {
