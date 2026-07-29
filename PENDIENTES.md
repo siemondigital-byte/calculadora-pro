@@ -28,13 +28,13 @@ Prioridad: 🔴 alta · 🟡 media · 🟢 baja / cosmético.
 - ✅ **Valorización explosiva parametrizable** (valorización mensual editable por proyecto). *(refinamiento)*
 - ✅ **Tracking real vs. plan** en el portafolio en marcha (avalúo/pagado reales, desviación). *(Cap. 18/47)*
 - 🟡 **Gasto de Libertad por categorías** (desglose editable que sume al gasto total). *(Cap. 7)*
-- 🟡 **Triángulo de Inversiones Inteligentes**: gate de 3 checks (TIR>20% ✓ ya · <2 h/mes de gestión · fiduciaria+constructora verificada). *(Cap. 2)*
+- ✅ **Triángulo de Inversiones Inteligentes**: gate de 3 vértices (TIR>20% automático · gestión <2 h/mes · fiducia+constructora verificada) con veredicto en el analizador. *(Cap. 2)*
 - 🟡 **Salud del desarrollador / señales de alerta**: scorecard de due diligence (5+ proyectos entregados, >60% preventa, penalidad >3%, presión 24‑48h, fiduciaria propia). *(Cap. 50/52)*
 - 🟢 **Nº de propiedades por ciclo** (1‑2 → 2‑3 → 4‑5) según poder de inversión. *(Cap. 18)*
 - 🟢 **Retención transfronteriza / tratados** (>5% participación → 0%; sin CDI hasta 25‑30%). *(Cap. 38)*
 - 🟢 **Cálculo fiscal del Holding** (DSCR ≥1,25, reinvertir 100%): hoy solo la *alerta* de salto. *(Cap. 31/34)*
 - 🟢 **Reserva de liquidez** (3 meses de cuotas / fondo 6 meses) y **capital mínimo** ($20‑50k) como validaciones. *(Cap. 18/19/50)*
-- 🟢 **Tabla maestra de mercados** que precargue un proyecto al elegir país (valorización, renta, vehículo, LTV, costos). *(Cap. 41‑47)*
+- ✅ **Tabla maestra de mercados**: al elegir país/vehículo precarga valorización, renta, LTV, tasa fiscal, diferimiento y penalidad de prepago. *(Cap. 41‑47)*
 - 🟢 **Ahorro fiscal inmediato 15‑40%** (simulador AFC por salario). *(Cap. 25/32)*
 
 ## 2 · Producto / producción
