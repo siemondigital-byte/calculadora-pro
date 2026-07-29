@@ -457,6 +457,25 @@ a { color: inherit; }
 .scen-verdict.mid { border-left-color: rgba(215,215,217,0.5); background: rgba(215,215,217,0.05); color: var(--gray); }
 
 /* 5 P — deal quality checklist */
+/* Triángulo de Inversiones Inteligentes */
+.tri-list { list-style: none; margin: 6px 0 4px; padding: 0; display: flex; flex-direction: column; }
+.tri-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--hairline);
+  font-size: 14px; color: var(--cream);
+}
+.tri-item:last-child { border-bottom: none; }
+.tri-lbl { flex: 1; min-width: 0; }
+.tri-mark {
+  flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted);
+}
+.tri-item.ok .tri-mark { background: #6FCF97; }
+.tri-item.no .tri-mark { background: #E0A458; }
+.tri-state { flex-shrink: 0; font-weight: 700; }
+.tri-item.ok .tri-state { color: #6FCF97; }
+.tri-item.no .tri-state { color: #E0A458; }
+
 .p5-list { display: flex; flex-direction: column; margin-top: 6px; }
 .p5-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;

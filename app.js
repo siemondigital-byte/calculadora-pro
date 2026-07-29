@@ -304,6 +304,16 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     var p5Verdict = p5.red ? { text: L.p5Roja, cls: 'warn' }
       : (p5.sum === p5.max ? { text: L.p5Alta, cls: '' } : { text: L.p5Media, cls: 'mid' });
 
+    // Triángulo de Inversiones Inteligentes (Cap. 2): tres vértices que deben
+    // cumplirse a la vez — rentabilidad (TIR real en USD > 20%), gestión pasiva
+    // (< 2 h/mes) y respaldo verificado (fiduciaria + constructora). Los dos
+    // últimos son confirmaciones de due-diligence del usuario.
+    var triC1 = tirUsd >= 0.20, triC2 = !!p.gestionPasiva, triC3 = !!p.respaldoVerificado;
+    var triAll = triC1 && triC2 && triC3;
+    var triVerdict = triAll ? { text: L.triOk, cls: '' }
+      : { text: (!triC1 ? L.triNoRent : !triC3 ? L.triNoResp : L.triNoGest), cls: 'warn' };
+    var triangulo = { c1: triC1, c2: triC2, c3: triC3, all: triAll, verdict: triVerdict };
+
     // --- project comparison (viability of each project the user added) ---
     var projView = s.projects.map(function (pr) {
       var bz = dealBasis(pr, H);
@@ -348,7 +358,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       chartPts: pts, chartArea: chartArea, axisYears: axisYears,
       chartStart: { x: X(0), y: Y(vals[0]) }, chartEnd: { x: X(Hp), y: Y(vals[Hp]) }, endVal: vals[Hp],
       scenarios: scenarios, maxScenTir: maxScenTir, reglaOro: reglaOro,
-      p5: p5, p5Verdict: p5Verdict,
+      p5: p5, p5Verdict: p5Verdict, triangulo: triangulo,
       projView: projView, maxTir: maxTir
     };
   }
@@ -1221,7 +1231,8 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         valor: 120000, inicialPct: 30, planMeses: 36, valorizacion: 8,
         entryModel: 'cero', entradaPremium: 12, exitStrategy: 'flip', rentaBruta: 8, ocupacion: 70,
         costoCierre: 3, margenError: 15, vehiculo: 'otro', taxRate: 30, diferimiento: true, devaluacion: 0,
-        finType: 'banco', finTasa: 10, finPlazo: 20, ltvMax: 70, prepagoPct: 0, p5: defaultP5() };
+        finType: 'banco', finTasa: 10, finPlazo: 20, ltvMax: 70, prepagoPct: 0,
+        gestionPasiva: false, respaldoVerificado: false, p5: defaultP5() };
       state.projects.push(np);
       state.activeId = np.id;
       commit();
@@ -1540,6 +1551,20 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     p5v.textContent = c.p5Verdict.text;
     p5v.className = 'scen-verdict' + (c.p5Verdict.cls ? ' ' + c.p5Verdict.cls : '');
 
+    // Triángulo de Inversiones Inteligentes
+    var tri = c.triangulo;
+    [['tri-c1', tri.c1], ['tri-c2', tri.c2], ['tri-c3', tri.c3]].forEach(function (pair) {
+      var li = $(pair[0]); if (!li) return;
+      li.className = 'tri-item ' + (pair[1] ? 'ok' : 'no');
+      setText(pair[0] + '-state', pair[1] ? '✓' : '✗');
+    });
+    var tg = $('tri-gest-toggle');
+    if (tg) { tg.classList.toggle('on', !!p.gestionPasiva); tg.setAttribute('aria-checked', p.gestionPasiva ? 'true' : 'false'); }
+    var tr = $('tri-resp-toggle');
+    if (tr) { tr.classList.toggle('on', !!p.respaldoVerificado); tr.setAttribute('aria-checked', p.respaldoVerificado ? 'true' : 'false'); }
+    var triv = $('tri-verdict');
+    if (triv) { triv.textContent = tri.verdict.text; triv.className = 'scen-verdict' + (tri.verdict.cls ? ' ' + tri.verdict.cls : ''); }
+
     // project comparison
     var list = $('market-list');
     list.innerHTML = '';
@@ -1614,6 +1639,8 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       });
 
     $('dif-toggle').addEventListener('click', function () { var p = activeProject(); p.diferimiento = !p.diferimiento; commit(); });
+    if ($('tri-gest-toggle')) $('tri-gest-toggle').addEventListener('click', function () { var p = activeProject(); p.gestionPasiva = !p.gestionPasiva; commit(); });
+    if ($('tri-resp-toggle')) $('tri-resp-toggle').addEventListener('click', function () { var p = activeProject(); p.respaldoVerificado = !p.respaldoVerificado; commit(); });
 
     // tax vehicle preset (sets tax rate + deferral for the chosen jurisdiction)
     $('sel-vehiculo').addEventListener('change', function (e) {
