@@ -107,6 +107,7 @@
       pnRendRenta: 'Rendimiento neto de renta (anual)',
       pnCapitalPropio: 'Capital propio', pnCapCredito: 'Capacidad de crédito', pnPropMaxReal: 'Propiedad máx. realista',
       pnIngresoRecurrente: 'Ingreso recurrente (renta neta)', pnRefiLiquidez: 'Liquidez por refinanciación', pnRefiNota: 'cada 3–5 años, sin evento fiscal',
+      pnPatActivas: 'Incluye tu patrimonio en propiedades activas', pnImpulsoDeals: 'Impulso potencial de tus proyectos en análisis',
       pnResumen: 'Resumen', pnFlujoLibre: 'Flujo libre mensual', pnPoder: 'Poder de inversión total',
       pnPropMax: 'Propiedad máxima accesible', pnNse: 'Número de Seguridad Económica',
       pnAnios: 'Años para la libertad', pnPatY5: 'Patrimonio año 5', pnPatY10: 'Patrimonio año 10',
@@ -255,6 +256,7 @@
       pnRendRenta: 'Net rental yield (annual)',
       pnCapitalPropio: 'Own capital', pnCapCredito: 'Credit capacity', pnPropMaxReal: 'Realistic max property',
       pnIngresoRecurrente: 'Recurring income (net rent)', pnRefiLiquidez: 'Refinancing liquidity', pnRefiNota: 'every 3–5 years, no tax event',
+      pnPatActivas: 'Includes your net worth in active properties', pnImpulsoDeals: 'Potential boost from projects under analysis',
       pnResumen: 'Summary', pnFlujoLibre: 'Free monthly cash flow', pnPoder: 'Total investing power',
       pnPropMax: 'Max accessible property', pnNse: 'Economic Security Number',
       pnAnios: 'Years to freedom', pnPatY5: 'Net worth year 5', pnPatY10: 'Net worth year 10',
@@ -819,14 +821,31 @@
     var flujoLibre = Math.max(0, I - G - Dm);       // ingreso − gasto − deudas
     var flujoAnual = flujoLibre * 12;
 
+    // Punto 4 (conexión de módulos): el patrimonio de partida incluye el equity
+    // ya comprometido en tus propiedades activas (Portafolio) + su plusvalía.
+    var portfolioEquity = 0;
+    (s.portafolio || []).forEach(function (r) {
+      if (r.precioCompra > 0) {
+        var valorAc = r.precioCompra * Math.pow(1 + (r.valoriz != null ? r.valoriz : 1) / 100, r.mesActual || 0);
+        portfolioEquity += (r.cuotaInicial || 0) + Math.max(0, valorAc - r.precioCompra);
+      }
+    });
+    var patInicial = C + portfolioEquity;
+    // impulso potencial (aún no comprometido) de los proyectos que estás analizando
+    var dealsGain = 0;
+    (s.projects || []).forEach(function (pr) {
+      var bz = dealBasis(pr, H);
+      var lv = tirApalancada(bz.Vc, bz.V, pr.inicialPct / 100, bz.hold, pr.valorizacion / 100);
+      if (lv.ganancia > 0) dealsGain += lv.ganancia;
+    });
+
     // Punto 1/2: el Número de Seguridad se mide contra la RENTA NETA (lo gastable),
     // NO contra la plusvalía. El patrimonio CRECE por valorización + ahorro (g);
     // eres libre cuando su renta neta (rr) cubre tu gasto de libertad.
     var NSE = rr > 0 ? (libertad * 12) / rr : 0;
-    var aniosLibertad = null;
-    if (g > 0 && flujoAnual > 0 && NSE > 0) aniosLibertad = Math.log((NSE * g) / flujoAnual + 1) / Math.log(1 + g);
+    var aniosLibertad = pnFreedomYears2(patInicial, flujoAnual, g, NSE);
 
-    function pat(t) { return g === 0 ? C + flujoAnual * t : C * Math.pow(1 + g, t) + flujoAnual * (Math.pow(1 + g, t) - 1) / g; }
+    function pat(t) { return g === 0 ? patInicial + flujoAnual * t : patInicial * Math.pow(1 + g, t) + flujoAnual * (Math.pow(1 + g, t) - 1) / g; }
     var serie = [];
     for (var t = 0; t <= H; t++) { var v = pat(t); serie.push({ t: t, val: v, pasivo: v * rr / 12, prog: NSE > 0 ? Math.min(v / NSE, 1) : 0 }); }
     var patFinal = serie[serie.length - 1].val;
@@ -870,6 +889,7 @@
 
     var infl = (s.inflacion != null ? s.inflacion : 3) / 100;
     return { f: f, L: L, H: H, g: g, rr: rr, infl: infl, capital: C, flujoLibre: flujoLibre,
+      patInicial: patInicial, portfolioEquity: portfolioEquity, dealsGain: dealsGain,
       capitalPropio: capitalPropio, capacidadCredito: capacidadCredito, propiedadMaxReal: propiedadMaxReal,
       propiedadMax: propiedadMaxReal, ingresoRentaMes: ingresoRentaMes, refiLiquidez: refiLiquidez,
       NSE: NSE, aniosLibertad: aniosLibertad, serie: serie,
@@ -886,6 +906,13 @@
   function pnFreedomYears(flujoAnual, g, NSE) {
     if (!(g > 0 && flujoAnual > 0 && NSE > 0)) return null;
     return Math.log((NSE * g) / flujoAnual + 1) / Math.log(1 + g);
+  }
+  // años a la libertad partiendo de un patrimonio inicial W0 (no de cero)
+  function pnFreedomYears2(W0, flujoAnual, g, NSE) {
+    if (!(g > 0 && NSE > 0)) return null;
+    var k = flujoAnual / g, ratio = (NSE + k) / ((W0 || 0) + k);
+    if (ratio <= 1) return 0;
+    return Math.log(ratio) / Math.log(1 + g);
   }
 
   function panelChartSVG(c) {
@@ -998,6 +1025,8 @@
               '<span class="pn-line-val">' + f.fmt(c.ingresoRentaMes) + ' <small>' + escapeHtml(L.perMonth) + '</small></span></div>' +
             '<div class="pn-line"><span class="pn-line-lbl">' + escapeHtml(L.pnRefiLiquidez) + ' <small>· ' + escapeHtml(L.pnRefiNota) + '</small></span>' +
               '<span class="pn-line-val pn-line-soft">' + f.fmt(c.refiLiquidez) + ' USD</span></div>' +
+            (c.portfolioEquity > 0 ? '<div class="pn-line"><span class="pn-line-lbl">' + escapeHtml(L.pnPatActivas) + '</span>' +
+              '<span class="pn-line-val pn-line-soft">' + f.fmt(c.portfolioEquity) + ' USD</span></div>' : '') +
           '</div>' +
           '<p class="card-help pn-hero-note">' + escapeHtml(L.pnResumenNota) + '</p>' +
           '<div class="verdict ' + c.verdict.cls + '">' + escapeHtml(c.verdict.text) + '</div>' +
@@ -1103,7 +1132,7 @@
         '</div>';
 
     } else if (tab === 'conclusiones') {
-      var C = s.capital || 0, flujoAnual = c.flujoLibre * 12, gBase = c.g, libertad = s.gastoLibertad || 0, H = c.H;
+      var C = c.patInicial, flujoAnual = c.flujoLibre * 12, gBase = c.g, libertad = s.gastoLibertad || 0, H = c.H;
 
       // --- escenarios predictivos (conservador / base / optimista) ---
       var scen = [
@@ -1113,7 +1142,7 @@
       ].map(function (sc) {
         // El Número de Seguridad se mide contra la renta neta (rr), constante entre escenarios;
         // lo que cambia por escenario es la VELOCIDAD de crecimiento del patrimonio (sc.g).
-        return { key: sc.key, label: sc.label, g: sc.g, patH: pnPatAt(C, flujoAnual, sc.g, H), fy: pnFreedomYears(flujoAnual, sc.g, c.NSE) };
+        return { key: sc.key, label: sc.label, g: sc.g, patH: pnPatAt(C, flujoAnual, sc.g, H), fy: pnFreedomYears2(C, flujoAnual, sc.g, c.NSE) };
       });
       var maxPat = Math.max.apply(null, scen.map(function (x) { return x.patH; }).concat([1]));
       var scenRows = scen.map(function (sc) {
@@ -1129,7 +1158,7 @@
       // --- palancas (sensibilidad desde la situación actual) ---
       var baseFy = c.aniosLibertad, basePatH = pnPatAt(C, flujoAnual, gBase, H);
       function levAporte() {
-        var fy2 = pnFreedomYears((c.flujoLibre + 500) * 12, gBase, c.NSE);
+        var fy2 = pnFreedomYears2(C, (c.flujoLibre + 500) * 12, gBase, c.NSE);
         if (fy2 == null || baseFy == null) return L.pnLevNada;
         var d = baseFy - fy2;
         return d > 0.05 ? L.pnLevAdelanta + ' ' + f.dec(d, 1) + ' ' + L.unitYears : L.pnLevNada;
@@ -1157,7 +1186,8 @@
         ? '<div class="pn-tiles pn-tiles-2">' +
             tile(L.pnMejorProy, escapeHtml(best.name) + ' · ' + f.pct(best.tir, 0) + '%', '') +
             tile(L.pnViablesN, nViables + ' ' + escapeHtml(L.pnDe) + ' ' + pv.length, '') +
-          '</div>'
+          '</div>' +
+          (c.dealsGain > 0 ? '<div class="cap-poder-line sub-line" style="margin-top:12px"><span>' + escapeHtml(L.pnImpulsoDeals) + '</span>: <span>+' + f.fmt(c.dealsGain) + ' USD</span></div>' : '')
         : '<p class="card-help">' + escapeHtml(L.pnSinProy) + '</p>';
 
       html =
