@@ -21,6 +21,21 @@ DOMINIO="atlantisglobalrealty.com"
 CONT=$(docker ps --format '{{.Names}}' | grep -m1 '^centro-de-mando-motor' || true)
 [ -n "$CONT" ] || { echo "ERROR: no encuentro el contenedor centro-de-mando-motor"; exit 1; }
 
+# credenciales FTP: si el contenedor no las tiene (p. ej. se recreo sin ellas),
+# tomarlas del .env del centro de mando y pasarlas con -e
+ENV_CM="$(cd "$(dirname "$0")/.." && pwd)/.env"
+FTP_ENV=()
+for v in FTP_HOST FTP_PORT FTP_USER FTP_PASS FTP_DIR; do
+  if ! docker exec "$CONT" sh -c "printenv $v >/dev/null 2>&1"; then
+    val=$(grep -m1 "^$v=" "$ENV_CM" 2>/dev/null | cut -d= -f2- || true)
+    val="${val%\"}"; val="${val#\"}"
+    [ -n "$val" ] && FTP_ENV+=(-e "$v=$val")
+  fi
+done
+
+if docker exec "$CONT" test -f /tmp/fotos-banco/index.html 2>/dev/null; then
+  echo "== Candidatas ya descargadas en el contenedor; paso directo a publicar =="
+else
 docker exec "$CONT" rm -rf /tmp/fotos-banco
 docker exec -i "$CONT" python3 - <<'PY'
 import json
@@ -92,17 +107,28 @@ figcaption b{{color:#E6C788;font-size:16px}}figcaption span{{color:#8a8f98}}</st
 </body></html>""")
 print(f"OK: {len(creditos)} candidatas listas para publicar")
 PY
+fi
 
 # publicar la galeria en el sitio (mismo FTP del motor)
-docker exec -i "$CONT" python3 - <<'PY'
+docker exec -i "${FTP_ENV[@]}" "$CONT" python3 - <<'PY'
 import os
+import sys
 from ftplib import FTP
 from pathlib import Path
 
+host = (os.environ.get("FTP_HOST") or "").replace("ftp://", "")
+if not host or not os.environ.get("FTP_PASS"):
+    print("ERROR: faltan credenciales FTP (ni el contenedor ni centro-de-mando/.env")
+    print("las tienen). Agrega estas lineas a /root/atlantis/centro-de-mando/.env:")
+    print("  FTP_HOST=88.223.85.106")
+    print("  FTP_USER=u428247534.atlantisglobalrealty.com")
+    print("  FTP_PASS=<la contrasena FTP de Hostinger>")
+    print("y re-corre este script (las fotos descargadas se conservan).")
+    sys.exit(3)
+
 paquete = Path("/tmp/fotos-banco")
 f = FTP()
-f.connect(os.environ["FTP_HOST"].replace("ftp://", ""),
-          int(os.environ.get("FTP_PORT", "21")), timeout=30)
+f.connect(host, int(os.environ.get("FTP_PORT", "21")), timeout=30)
 f.login(os.environ.get("FTP_USER", ""), os.environ.get("FTP_PASS", ""))
 destino = (os.environ.get("FTP_DIR") or "").strip().rstrip("/")
 if destino:
