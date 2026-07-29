@@ -675,6 +675,26 @@ a { color: inherit; }
 .pn-line-val small { font-family: var(--sans); font-size: 11px; font-weight: 500; color: var(--muted); }
 .pn-line-val.pn-line-soft { color: var(--cream); }
 
+/* calendario de caja (liquidez) */
+.pn-tiles-3 { grid-template-columns: repeat(3, 1fr); }
+.pn-liq-chart { position: relative; margin: 20px 0 10px; padding-top: 10px; }
+.pn-liq-cols { display: flex; align-items: flex-end; gap: 3px; height: 180px; }
+.pn-liq-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.pn-liq-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; }
+.pn-liq-bar.ok { background: var(--gold); }
+.pn-liq-bar.mid { background: var(--gold-deep); }
+.pn-liq-bar.red { background: var(--alert); }
+.pn-liq-tick { margin-top: 5px; font-size: 9px; color: var(--hint); text-align: center; height: 12px; }
+.pn-liq-flow { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed var(--muted); z-index: 2; pointer-events: none; }
+.pn-liq-flow span { position: absolute; right: 0; top: -14px; font-size: 10px; color: var(--muted); background: var(--navy); padding: 0 4px; }
+.pn-liq-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+.pn-liq-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+.pn-liq-legend .dot.ok { background: var(--gold); }
+.pn-liq-legend .dot.mid { background: var(--gold-deep); }
+.pn-liq-legend .dot.red { background: var(--alert); }
+.pn-liq-safe { color: var(--gold); font-size: 18px; }
+.pn-liq-warn { color: var(--alert); font-size: 22px; }
+
 /* projection chart */
 .pn-chart { margin: 16px 0 10px; }
 .pn-chart-svg { display: block; height: 210px; width: 100%; }

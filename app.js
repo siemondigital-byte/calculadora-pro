@@ -126,7 +126,11 @@
       pnVerdictAccel: '🟢 Perfil acelerado — la libertad financiera está a 5 años o menos. Ejecuta con disciplina.',
       pnVerdictSolido: '🟡 Perfil sólido — el ciclo funciona para ti. Optimiza tu flujo mensual para acelerar.',
       pnVerdictConstru: '🔴 Perfil en construcción — sube tu capital inicial o tu flujo mensual, o monetiza activos inactivos.',
-      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabProys: 'Inversión', pnTabFiscal: 'Fiscal', pnTabConcl: 'Conclusiones',
+      pnTabInfo: 'Información', pnTabResumen: 'Resumen', pnTabProy: 'Proyección', pnTabDeuda: 'Endeudamiento', pnTabLiquidez: 'Liquidez', pnTabProys: 'Inversión', pnTabFiscal: 'Fiscal', pnTabConcl: 'Conclusiones',
+      pnLiqEyebrow: 'Calendario de caja · liquidez', pnLiqHelp: 'Suma mes a mes las cuotas de obra de tus propiedades activas frente a tu flujo libre. Registra propiedades en Proyectos → Portafolio.',
+      pnLiqPico: 'Compromiso pico', pnLiqRiesgo: 'Primer mes en riesgo', pnLiqSinRiesgo: 'Sin riesgo', pnLiqMesLbl: 'Mes',
+      pnLiqVacio: 'Aún no tienes propiedades activas. Regístralas en Proyectos → Portafolio y aquí verás tu calendario de caja.',
+      pnLiqOk: 'Cubierto por tu flujo', pnLiqMid: 'Cubierto con tu capital/ahorros', pnLiqRed: 'Supera tu capacidad', pnLiqFlujoRef: 'tu flujo libre',
       pnProyTablaHelp: 'Año a año: patrimonio nominal, valor real (ajustado por inflación), ingreso pasivo y avance a la libertad.',
       pnReal: 'Real (infl.)', pnPasivo: 'Ingreso pasivo', pnStProgreso: 'Libertad',
       pnRefValoriz: 'Valoriz.', pnRefRenta: 'Renta', pnRefTax: 'Impuesto', pnRefDifer: 'Diferim.',
@@ -275,7 +279,11 @@
       pnVerdictAccel: '🟢 Accelerated profile — financial freedom is 5 years away or less. Execute with discipline.',
       pnVerdictSolido: '🟡 Solid profile — the cycle works for you. Optimize your monthly flow to accelerate.',
       pnVerdictConstru: '🔴 Building profile — raise your starting capital or monthly flow, or monetize idle assets.',
-      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabProys: 'Investing', pnTabFiscal: 'Tax', pnTabConcl: 'Conclusions',
+      pnTabInfo: 'Information', pnTabResumen: 'Summary', pnTabProy: 'Projection', pnTabDeuda: 'Borrowing', pnTabLiquidez: 'Liquidity', pnTabProys: 'Investing', pnTabFiscal: 'Tax', pnTabConcl: 'Conclusions',
+      pnLiqEyebrow: 'Cash-flow calendar · liquidity', pnLiqHelp: 'Adds up your active properties’ construction installments month by month vs. your free cash flow. Register properties in Projects → Portfolio.',
+      pnLiqPico: 'Peak commitment', pnLiqRiesgo: 'First month at risk', pnLiqSinRiesgo: 'No risk', pnLiqMesLbl: 'Month',
+      pnLiqVacio: 'No active properties yet. Register them in Projects → Portfolio and your cash-flow calendar will appear here.',
+      pnLiqOk: 'Covered by your flow', pnLiqMid: 'Covered from your capital/savings', pnLiqRed: 'Exceeds your capacity', pnLiqFlujoRef: 'your free flow',
       pnProyTablaHelp: 'Year by year: nominal net worth, real value (inflation-adjusted), passive income and progress to freedom.',
       pnReal: 'Real (infl.)', pnPasivo: 'Passive income', pnStProgreso: 'Freedom',
       pnRefValoriz: 'Appr.', pnRefRenta: 'Yield', pnRefTax: 'Tax', pnRefDifer: 'Deferral',
@@ -915,6 +923,31 @@
     return Math.log(ratio) / Math.log(1 + g);
   }
 
+  // Punto 3: calendario de caja — cuotas de obra de las propiedades activas
+  // (Portafolio) mes a mes vs. tu flujo libre. Semáforo de liquidez por mes.
+  function computeCashCalendar(flujoLibre, capital) {
+    var props = (state.portafolio || []).filter(function (r) { return r.precioCompra > 0 && r.mesesObra > 0; });
+    var horizon = 0;
+    props.forEach(function (r) { var rem = Math.max(0, r.mesesObra - (r.mesActual || 0)); if (rem > horizon) horizon = rem; });
+    horizon = Math.min(horizon, 36);
+    var months = [], cumDeficit = 0, firstRed = null, peak = 0;
+    for (var m = 1; m <= horizon; m++) {
+      var total = 0;
+      props.forEach(function (r) {
+        var cur = (r.mesActual || 0) + m;
+        if (cur <= r.mesesObra) total += (r.cuotaInicial || 0) / r.mesesObra;
+      });
+      cumDeficit += Math.max(0, total - flujoLibre);
+      var estado;
+      if (total <= flujoLibre) estado = 'ok';
+      else if (cumDeficit <= capital) estado = 'mid';
+      else { estado = 'red'; if (firstRed == null) firstRed = m; }
+      if (total > peak) peak = total;
+      months.push({ m: m, total: total, estado: estado });
+    }
+    return { months: months, peak: peak, firstRed: firstRed, active: props.length };
+  }
+
   function panelChartSVG(c) {
     // área de patrimonio año a año + línea de meta (NSE)
     var W = 600, Hh = 210, padL = 6, padR = 6, padT = 18, padB = 8;
@@ -1069,6 +1102,43 @@
           '<div class="bar-track bar-track-6"><div class="bar-fill" style="width:' + Math.min(c.dti / 0.35 * 100, 100).toFixed(0) + '%;background:' + (c.dti > 0.35 ? '#d98b6a' : '#E6C788') + '"></div></div>' +
           '<div class="usage-status ' + c.dtiCls + '">' + escapeHtml(c.dtiTxt) + '</div></div>' +
         '</div>';
+
+    } else if (tab === 'liquidez') {
+      var cal = computeCashCalendar(c.flujoLibre, c.capital);
+      if (!cal.active) {
+        html = '<div class="panel card card-span pn-solo"><div class="eyebrow">' + escapeHtml(L.pnLiqEyebrow) + '</div>' +
+          '<p class="card-help">' + escapeHtml(L.pnLiqVacio) + '</p></div>';
+      } else {
+        var maxBar = Math.max(cal.peak, c.flujoLibre, 1);
+        var flowPct = (c.flujoLibre / maxBar * 100);
+        var bars = cal.months.map(function (mo) {
+          var h = (mo.total / maxBar * 100).toFixed(1);
+          var cls = mo.estado === 'ok' ? 'ok' : mo.estado === 'mid' ? 'mid' : 'red';
+          var tip = L.pnLiqMesLbl + ' ' + mo.m + ': ' + f.fmt(mo.total) + ' USD';
+          return '<div class="pn-liq-col" title="' + escapeHtml(tip) + '"><div class="pn-liq-bar ' + cls + '" style="height:' + h + '%"></div>' +
+            (mo.m % 6 === 0 ? '<div class="pn-liq-tick">' + mo.m + '</div>' : '<div class="pn-liq-tick"></div>') + '</div>';
+        }).join('');
+        var riesgoTxt = cal.firstRed == null
+          ? '<span class="pn-liq-safe">' + escapeHtml(L.pnLiqSinRiesgo) + '</span>'
+          : '<span class="pn-liq-warn">' + escapeHtml(L.pnLiqMesLbl) + ' ' + cal.firstRed + '</span>';
+        html =
+          '<div class="panel card card-span pn-solo">' +
+            '<div class="eyebrow">' + escapeHtml(L.pnLiqEyebrow) + '</div>' +
+            '<p class="card-help card-help-mb">' + escapeHtml(L.pnLiqHelp) + '</p>' +
+            '<div class="pn-tiles pn-tiles-3">' +
+              tile(L.pnFlujoLibre, f.fmt(c.flujoLibre), 'USD') +
+              tile(L.pnLiqPico, f.fmt(cal.peak), 'USD') +
+              '<div class="pn-tile"><div class="pn-tile-val">' + riesgoTxt + '</div><div class="pn-tile-lbl">' + escapeHtml(L.pnLiqRiesgo) + '</div></div>' +
+            '</div>' +
+            '<div class="pn-liq-chart"><div class="pn-liq-flow" style="bottom:' + flowPct.toFixed(1) + '%"><span>' + escapeHtml(L.pnLiqFlujoRef) + '</span></div>' +
+              '<div class="pn-liq-cols">' + bars + '</div></div>' +
+            '<div class="pn-liq-legend">' +
+              '<span><i class="dot ok"></i>' + escapeHtml(L.pnLiqOk) + '</span>' +
+              '<span><i class="dot mid"></i>' + escapeHtml(L.pnLiqMid) + '</span>' +
+              '<span><i class="dot red"></i>' + escapeHtml(L.pnLiqRed) + '</span>' +
+            '</div>' +
+          '</div>';
+      }
 
     } else if (tab === 'proyectos') {
       var mkRows = c.mkView.map(function (m) {
