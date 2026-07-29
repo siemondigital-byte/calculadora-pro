@@ -104,6 +104,9 @@
       pnSub: 'Carga tu información y descubre tu capacidad de inversión y cuándo alcanzas la libertad.',
       pnPerfil: 'Tu información', pnPerfilNota: 'Estos datos alimentan todo el panel y tus proyectos.',
       pnNombre: 'Tu nombre', pnValoriz: 'Valorización anual esperada', pnLibertad: 'Gasto mensual en libertad',
+      pnRendRenta: 'Rendimiento neto de renta (anual)',
+      pnCapitalPropio: 'Capital propio', pnCapCredito: 'Capacidad de crédito', pnPropMaxReal: 'Propiedad máx. realista',
+      pnIngresoRecurrente: 'Ingreso recurrente (renta neta)', pnRefiLiquidez: 'Liquidez por refinanciación', pnRefiNota: 'cada 3–5 años, sin evento fiscal',
       pnResumen: 'Resumen', pnFlujoLibre: 'Flujo libre mensual', pnPoder: 'Poder de inversión total',
       pnPropMax: 'Propiedad máxima accesible', pnNse: 'Número de Seguridad Económica',
       pnAnios: 'Años para la libertad', pnPatY5: 'Patrimonio año 5', pnPatY10: 'Patrimonio año 10',
@@ -159,7 +162,7 @@
       pnConclVeredicto: 'Veredicto', pnDe: 'de',
       pnRecomienda: 'Recomendación', pnAbrirProyecto: 'Analizar un proyecto →',
       pnMercados: { colombia: 'Colombia', rd: 'Rep. Dominicana', mexico: 'México', dubai: 'Dubái' },
-      pnResumenNota: 'Para vivir de tu patrimonio: rinde ~1%/mes con un margen de seguridad de 1,25×.',
+      pnResumenNota: 'La libertad se mide contra la renta neta (lo gastable), con el rendimiento que fijes arriba. La plusvalía se muestra aparte como liquidez por refinanciación — no se suma al ingreso.',
       disclaimer: 'Interfaz y valores ilustrativos. No constituye proyección de retorno ni asesoría financiera, legal o tributaria.'
     },
     en: {
@@ -249,6 +252,9 @@
       pnSub: 'Load your information and discover your investing capacity and when you reach freedom.',
       pnPerfil: 'Your information', pnPerfilNota: 'This data feeds the whole dashboard and your projects.',
       pnNombre: 'Your name', pnValoriz: 'Expected annual appreciation', pnLibertad: 'Monthly freedom spend',
+      pnRendRenta: 'Net rental yield (annual)',
+      pnCapitalPropio: 'Own capital', pnCapCredito: 'Credit capacity', pnPropMaxReal: 'Realistic max property',
+      pnIngresoRecurrente: 'Recurring income (net rent)', pnRefiLiquidez: 'Refinancing liquidity', pnRefiNota: 'every 3–5 years, no tax event',
       pnResumen: 'Summary', pnFlujoLibre: 'Free monthly cash flow', pnPoder: 'Total investing power',
       pnPropMax: 'Max accessible property', pnNse: 'Economic Security Number',
       pnAnios: 'Years to freedom', pnPatY5: 'Net worth year 5', pnPatY10: 'Net worth year 10',
@@ -304,7 +310,7 @@
       pnConclVeredicto: 'Verdict', pnDe: 'of',
       pnRecomienda: 'Recommendation', pnAbrirProyecto: 'Analyze a project →',
       pnMercados: { colombia: 'Colombia', rd: 'Dominican Rep.', mexico: 'Mexico', dubai: 'Dubai' },
-      pnResumenNota: 'To live off your net worth: it yields ~1%/mo with a 1.25× safety margin.',
+      pnResumenNota: 'Freedom is measured against net rent (what you can spend), at the yield you set above. Appreciation is shown separately as refinancing liquidity — it is not added to income.',
       disclaimer: 'Illustrative interface and values. Not a return projection or financial, legal or tax advice.'
     }
   };
@@ -405,7 +411,7 @@
       lang: (function () { try { return /^en/i.test(navigator.language || navigator.userLanguage || '') ? 'en' : 'es'; } catch (e) { return 'es'; } })(),
       screen: 'login', mobileTab: 'datos', view: 'panel', panelTab: 'resumen', projTab: 'analizar',
       perfilNombre: '', ingreso: 6000, gasto: 2800, deudas: 400, capital: 35000,
-      horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000,
+      horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000, rendRenta: 6,
       projects: null, activeId: null, shopping: null, portafolio: null, checklist: null
     };
     try {
@@ -413,7 +419,7 @@
       if (raw) {
         var saved = JSON.parse(raw);
         ['perfilNombre', 'ingreso', 'gasto', 'deudas', 'capital', 'horizonte', 'inflacion',
-         'valorizacionEsp', 'gastoLibertad', 'lang', 'view', 'panelTab', 'projTab'].forEach(function (k) {
+         'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'lang', 'view', 'panelTab', 'projTab'].forEach(function (k) {
           if (saved[k] != null) base[k] = saved[k];
         });
         if (Array.isArray(saved.projects) && saved.projects.length) base.projects = saved.projects;
@@ -439,7 +445,7 @@
         lang: state.lang, view: state.view, panelTab: state.panelTab, projTab: state.projTab, perfilNombre: state.perfilNombre,
         ingreso: state.ingreso, gasto: state.gasto, deudas: state.deudas,
         capital: state.capital, horizonte: state.horizonte, inflacion: state.inflacion,
-        valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad,
+        valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad, rendRenta: state.rendRenta,
         projects: state.projects, activeId: state.activeId,
         shopping: state.shopping, portafolio: state.portafolio, checklist: state.checklist
       }));
@@ -806,30 +812,40 @@
     var s = state, L = T[s.lang], f = makeFmt(s.lang);
     var I = s.ingreso || 0, G = s.gasto || 0, Dm = s.deudas || 0, C = s.capital || 0;
     var H = s.horizonte || 10;
-    var g = (s.valorizacionEsp != null ? s.valorizacionEsp : 10) / 100;
+    var g = (s.valorizacionEsp != null ? s.valorizacionEsp : 10) / 100;   // plusvalía: crecimiento del patrimonio
+    var rr = (s.rendRenta != null ? s.rendRenta : 6) / 100;               // renta neta anual (caja gastable) — input
     var libertad = s.gastoLibertad || 0;
 
     var flujoLibre = Math.max(0, I - G - Dm);       // ingreso − gasto − deudas
     var flujoAnual = flujoLibre * 12;
-    var poderInversion = C + flujoLibre * 36;        // capital + 36 meses de flujo
-    var propiedadMax = poderInversion / 0.3;         // con 30% de cuota inicial
-    var NSE = g > 0 ? (libertad * 12) / g : 0;        // Número de Seguridad Económica
 
+    // Punto 1/2: el Número de Seguridad se mide contra la RENTA NETA (lo gastable),
+    // NO contra la plusvalía. El patrimonio CRECE por valorización + ahorro (g);
+    // eres libre cuando su renta neta (rr) cubre tu gasto de libertad.
+    var NSE = rr > 0 ? (libertad * 12) / rr : 0;
     var aniosLibertad = null;
-    if (g > 0 && flujoAnual > 0) aniosLibertad = Math.log((NSE * g) / flujoAnual + 1) / Math.log(1 + g);
+    if (g > 0 && flujoAnual > 0 && NSE > 0) aniosLibertad = Math.log((NSE * g) / flujoAnual + 1) / Math.log(1 + g);
 
     function pat(t) { return g === 0 ? C + flujoAnual * t : C * Math.pow(1 + g, t) + flujoAnual * (Math.pow(1 + g, t) - 1) / g; }
     var serie = [];
-    for (var t = 0; t <= H; t++) { var v = pat(t); serie.push({ t: t, val: v, pasivo: v * g / 12, prog: NSE > 0 ? Math.min(v / NSE, 1) : 0 }); }
+    for (var t = 0; t <= H; t++) { var v = pat(t); serie.push({ t: t, val: v, pasivo: v * rr / 12, prog: NSE > 0 ? Math.min(v / NSE, 1) : 0 }); }
     var patFinal = serie[serie.length - 1].val;
     var patY5 = pat(5), patY10 = pat(10);
     var progreso = NSE > 0 ? Math.min(patFinal / NSE, 1) : 0;
+
+    // Punto 2: renta recurrente (gastable) y liquidez por refinanciación, SEPARADAS
+    var ingresoRentaMes = patFinal * rr / 12;
+    var refiLiquidez = 0.55 * patFinal;              // extraíble por refi, cada 3–5 años, sin evento fiscal
 
     // capacidad de endeudamiento (regla del 35% del ingreso − deudas)
     var maxCuota = Math.max(0, 0.35 * I - Dm);
     var dti = I > 0 ? Dm / I : 0;
     var rTyp = 0.10 / 12, nTyp = 20 * 12;             // hipoteca típica 20 años ~10%
     var maxHipoteca = maxCuota > 0 ? maxCuota * (1 - Math.pow(1 + rTyp, -nTyp)) / rTyp : 0;
+    // Punto 5: NUNCA un número único que mezcle equity y deuda. Se separan:
+    var capitalPropio = C;                            // tu efectivo (lo que pones tú)
+    var capacidadCredito = maxHipoteca;               // lo que el banco financia y tú puedes servir
+    var propiedadMaxReal = C + maxHipoteca;           // alcance real: tu efectivo + crédito servible
     var dtiCls, dtiTxt;
     if (dti < 0.30) { dtiCls = ''; dtiTxt = L.pnDtiSano; }
     else if (dti <= 0.35) { dtiCls = 'mid'; dtiTxt = L.pnDtiAjustado; }
@@ -853,8 +869,10 @@
     else verdict = { text: L.pnVerdictConstru, cls: 'warn' };
 
     var infl = (s.inflacion != null ? s.inflacion : 3) / 100;
-    return { f: f, L: L, H: H, g: g, infl: infl, capital: C, flujoLibre: flujoLibre, poderInversion: poderInversion,
-      propiedadMax: propiedadMax, NSE: NSE, aniosLibertad: aniosLibertad, serie: serie,
+    return { f: f, L: L, H: H, g: g, rr: rr, infl: infl, capital: C, flujoLibre: flujoLibre,
+      capitalPropio: capitalPropio, capacidadCredito: capacidadCredito, propiedadMaxReal: propiedadMaxReal,
+      propiedadMax: propiedadMaxReal, ingresoRentaMes: ingresoRentaMes, refiLiquidez: refiLiquidez,
+      NSE: NSE, aniosLibertad: aniosLibertad, serie: serie,
       patFinal: patFinal, patY5: patY5, patY10: patY10, progreso: progreso,
       maxCuota: maxCuota, dti: dti, maxHipoteca: maxHipoteca, dtiCls: dtiCls, dtiTxt: dtiTxt,
       mkView: mkView, nSimult: nSimult, verdict: verdict };
@@ -922,6 +940,10 @@
     setText('pn-val-valoriz', f.dec(s.valorizacionEsp, 1) + '%');
     $('pn-inflacion').value = s.inflacion;
     setText('pn-val-inflacion', f.dec(s.inflacion, s.inflacion % 1 ? 1 : 0) + '%');
+    if ($('pn-rendrenta')) {
+      $('pn-rendrenta').value = s.rendRenta;
+      setText('pn-val-rendrenta', f.dec(s.rendRenta, s.rendRenta % 1 ? 1 : 0) + '%');
+    }
 
     // horizon segmented
     var segH = $('pn-seg-horizonte');
@@ -954,13 +976,14 @@
     var html = '';
 
     if (tab === 'resumen') {
+      // Punto 5: capital propio / crédito / alcance real — nunca un número que los mezcle.
       var tiles =
+        tile(L.pnCapitalPropio, f.fmt(c.capitalPropio), 'USD') +
+        tile(L.pnCapCredito, f.fmt(c.capacidadCredito), 'USD') +
+        tile(L.pnPropMaxReal, f.fmt(c.propiedadMaxReal), 'USD') +
         tile(L.pnFlujoLibre, f.fmt(c.flujoLibre), 'USD') +
-        tile(L.pnPoder, f.fmt(c.poderInversion), 'USD') +
-        tile(L.pnPropMax, f.fmt(c.propiedadMax), 'USD') +
         tile(L.pnNse, f.fmt(c.NSE), 'USD') +
-        tile(L.pnAnios, anios, L.unitYears) +
-        tile(L.pnPatY10, f.fmt(c.patY10), 'USD');
+        tile(L.pnAnios, anios, L.unitYears);
       html =
         '<div class="panel card card-accent card-span pn-hero">' +
           '<div class="eyebrow">' + escapeHtml(L.pnResumen) + '</div>' +
@@ -969,6 +992,13 @@
           '<div class="usage"><div class="usage-head"><span class="usage-label">' + escapeHtml(L.pnProgreso) + '</span>' +
           '<span class="usage-pct">' + f.pct(c.progreso, 0) + '%</span></div>' +
           '<div class="bar-track bar-track-8"><div class="bar-fill bar-fill-gold" style="width:' + (c.progreso * 100).toFixed(0) + '%"></div></div></div>' +
+          // Punto 2: renta recurrente (gastable) y liquidez por refi, SEPARADAS
+          '<div class="pn-two-lines">' +
+            '<div class="pn-line"><span class="pn-line-lbl">' + escapeHtml(L.pnIngresoRecurrente) + '</span>' +
+              '<span class="pn-line-val">' + f.fmt(c.ingresoRentaMes) + ' <small>' + escapeHtml(L.perMonth) + '</small></span></div>' +
+            '<div class="pn-line"><span class="pn-line-lbl">' + escapeHtml(L.pnRefiLiquidez) + ' <small>· ' + escapeHtml(L.pnRefiNota) + '</small></span>' +
+              '<span class="pn-line-val pn-line-soft">' + f.fmt(c.refiLiquidez) + ' USD</span></div>' +
+          '</div>' +
           '<p class="card-help pn-hero-note">' + escapeHtml(L.pnResumenNota) + '</p>' +
           '<div class="verdict ' + c.verdict.cls + '">' + escapeHtml(c.verdict.text) + '</div>' +
         '</div>';
@@ -1081,8 +1111,9 @@
         { key: 'base', label: L.scenBase, g: gBase },
         { key: 'opt',  label: L.scenOpt,  g: gBase * 1.4 }
       ].map(function (sc) {
-        var NSEs = sc.g > 0 ? (libertad * 12) / sc.g : 0;
-        return { key: sc.key, label: sc.label, g: sc.g, patH: pnPatAt(C, flujoAnual, sc.g, H), fy: pnFreedomYears(flujoAnual, sc.g, NSEs) };
+        // El Número de Seguridad se mide contra la renta neta (rr), constante entre escenarios;
+        // lo que cambia por escenario es la VELOCIDAD de crecimiento del patrimonio (sc.g).
+        return { key: sc.key, label: sc.label, g: sc.g, patH: pnPatAt(C, flujoAnual, sc.g, H), fy: pnFreedomYears(flujoAnual, sc.g, c.NSE) };
       });
       var maxPat = Math.max.apply(null, scen.map(function (x) { return x.patH; }).concat([1]));
       var scenRows = scen.map(function (sc) {
@@ -1857,6 +1888,7 @@
       $(pair[0]).addEventListener('input', function (e) { state[pair[1]] = parseNum(e.target.value); commit(); });
     });
     $('pn-valoriz').addEventListener('input', function (e) { state.valorizacionEsp = parseFloat(e.target.value); commit(); });
+    $('pn-rendrenta').addEventListener('input', function (e) { state.rendRenta = parseFloat(e.target.value); commit(); });
     $('pn-inflacion').addEventListener('input', function (e) { state.inflacion = parseFloat(e.target.value); commit(); });
 
     document.querySelectorAll('.lang-btn').forEach(function (b) {
