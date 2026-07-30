@@ -457,6 +457,26 @@ a { color: inherit; }
 .scen-verdict.mid { border-left-color: rgba(215,215,217,0.5); background: rgba(215,215,217,0.05); color: var(--gray); }
 
 /* 5 P — deal quality checklist */
+/* Gasto de Libertad por categorías */
+.lc-details { margin-top: 8px; }
+.lc-details > summary {
+  cursor: pointer; font-size: 12px; color: var(--muted);
+  list-style: none; user-select: none; padding: 2px 0;
+}
+.lc-details > summary::-webkit-details-marker { display: none; }
+.lc-details > summary::before { content: '▸ '; }
+.lc-details[open] > summary::before { content: '▾ '; }
+.lc-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.lc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lc-lbl { font-size: 13px; color: var(--cream); }
+.num-wrap-sm { max-width: 130px; }
+.lc-total {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline);
+  font-size: 13px; color: var(--muted);
+}
+.lc-total strong { color: var(--cream); }
+
 /* Triángulo de Inversiones Inteligentes */
 .tri-list { list-style: none; margin: 6px 0 4px; padding: 0; display: flex; flex-direction: column; }
 .tri-item {

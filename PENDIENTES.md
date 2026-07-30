@@ -27,9 +27,9 @@ Prioridad: 🔴 alta · 🟡 media · 🟢 baja / cosmético.
 - ✅ **Renta como input** (rendimiento neto parametrizable por proyecto/mercado, no fijo). *(refinamiento honesto)*
 - ✅ **Valorización explosiva parametrizable** (valorización mensual editable por proyecto). *(refinamiento)*
 - ✅ **Tracking real vs. plan** en el portafolio en marcha (avalúo/pagado reales, desviación). *(Cap. 18/47)*
-- 🟡 **Gasto de Libertad por categorías** (desglose editable que sume al gasto total). *(Cap. 7)*
+- ✅ **Gasto de Libertad por categorías**: desglose editable (vivienda, alimentación, salud, transporte, ocio, otros) cuya suma alimenta el gasto total; el total reescala las categorías. *(Cap. 7)*
 - ✅ **Triángulo de Inversiones Inteligentes**: gate de 3 vértices (TIR>20% automático · gestión <2 h/mes · fiducia+constructora verificada) con veredicto en el analizador. *(Cap. 2)*
-- 🟡 **Salud del desarrollador / señales de alerta**: scorecard de due diligence (5+ proyectos entregados, >60% preventa, penalidad >3%, presión 24‑48h, fiduciaria propia). *(Cap. 50/52)*
+- ✅ **Salud del desarrollador / señales de alerta**: scorecard de due diligence (5+ entregas, >60% preventa, respaldo fiduciario, penalidad >3% auto, presión 24‑48h) con veredicto en el analizador. *(Cap. 50/52)*
 - 🟢 **Nº de propiedades por ciclo** (1‑2 → 2‑3 → 4‑5) según poder de inversión. *(Cap. 18)*
 - 🟢 **Retención transfronteriza / tratados** (>5% participación → 0%; sin CDI hasta 25‑30%). *(Cap. 38)*
 - 🟢 **Cálculo fiscal del Holding** (DSCR ≥1,25, reinvertir 100%): hoy solo la *alerta* de salto. *(Cap. 31/34)*

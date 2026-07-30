@@ -15,7 +15,8 @@
 
 import { T } from './i18n.js';
 import { LS_KEY, uid, defaultShopping, defaultPortafolio, CHECKLIST_CRIT, defaultChecklist,
-  defaultProjects, PROJECT_FIELDS, VEHICULOS, fxRisk, P5KEYS, P5_DEFS, defaultP5, p5Eval } from './data.js';
+  defaultProjects, PROJECT_FIELDS, VEHICULOS, fxRisk, P5KEYS, P5_DEFS, defaultP5, p5Eval,
+  LIBERTAD_CATS, defaultLibertadCats } from './data.js';
 import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.js';
 
 'use strict';
@@ -26,7 +27,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       screen: 'login', mobileTab: 'datos', view: 'panel', panelTab: 'resumen', projTab: 'analizar',
       perfilNombre: '', ingreso: 6000, gasto: 2800, deudas: 400, capital: 35000,
       horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000, rendRenta: 6,
-      projects: null, activeId: null, shopping: null, portafolio: null, checklist: null
+      projects: null, activeId: null, shopping: null, portafolio: null, checklist: null, libertadCats: null
     };
     try {
       var raw = window.localStorage.getItem(LS_KEY);
@@ -41,6 +42,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         if (Array.isArray(saved.shopping)) base.shopping = saved.shopping;
         if (Array.isArray(saved.portafolio)) base.portafolio = saved.portafolio;
         if (saved.checklist) base.checklist = saved.checklist;
+        if (Array.isArray(saved.libertadCats)) base.libertadCats = saved.libertadCats;
       }
     } catch (e) { /* ignore storage errors */ }
     if (!base.projects) base.projects = defaultProjects();
@@ -50,6 +52,9 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     if (!base.shopping) base.shopping = defaultShopping();
     if (!base.portafolio) base.portafolio = defaultPortafolio();
     if (!base.checklist) base.checklist = defaultChecklist();
+    if (!Array.isArray(base.libertadCats) || base.libertadCats.length !== LIBERTAD_CATS.length) {
+      base.libertadCats = defaultLibertadCats(base.gastoLibertad);
+    }
     return base;
   }
 
@@ -61,7 +66,8 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         capital: state.capital, horizonte: state.horizonte, inflacion: state.inflacion,
         valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad, rendRenta: state.rendRenta,
         projects: state.projects, activeId: state.activeId,
-        shopping: state.shopping, portafolio: state.portafolio, checklist: state.checklist
+        shopping: state.shopping, portafolio: state.portafolio, checklist: state.checklist,
+        libertadCats: state.libertadCats
       }));
     } catch (e) { /* ignore */ }
     // sincronización en la nube (debounced) si hay sesión Supabase
@@ -105,6 +111,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
           if (Array.isArray(snap.shopping)) state.shopping = snap.shopping;
           if (Array.isArray(snap.portafolio)) state.portafolio = snap.portafolio;
           if (snap.checklist) state.checklist = snap.checklist;
+          if (Array.isArray(snap.libertadCats)) state.libertadCats = snap.libertadCats;
         }
       }
       return window.CRDSupabase.loadProjects(user.id).then(function (projs) {
@@ -569,6 +576,10 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     setNumIfIdle('pn-deudas', s.deudas);
     setNumIfIdle('pn-capital', s.capital);
     setNumIfIdle('pn-libertad', s.gastoLibertad);
+    // desglose del gasto de libertad por categorías
+    var lcArr = s.libertadCats || [];
+    LIBERTAD_CATS.forEach(function (_cat, i) { setNumIfIdle('pn-lc-' + i, lcArr[i] || 0); });
+    setText('pn-lc-total', f.fmt(lcArr.reduce(function (a, b) { return a + (+b || 0); }, 0)) + ' USD');
     $('pn-valoriz').value = s.valorizacionEsp;
     setText('pn-val-valoriz', f.dec(s.valorizacionEsp, 1) + '%');
     $('pn-inflacion').value = s.inflacion;
@@ -1117,7 +1128,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
   /* Punto 8: respaldo — exportar/importar todo el estado como JSON (un clic). */
   var BACKUP_KEYS = ['lang', 'view', 'panelTab', 'projTab', 'perfilNombre', 'ingreso', 'gasto', 'deudas',
     'capital', 'horizonte', 'inflacion', 'valorizacionEsp', 'gastoLibertad', 'rendRenta',
-    'projects', 'activeId', 'shopping', 'portafolio', 'checklist'];
+    'projects', 'activeId', 'shopping', 'portafolio', 'checklist', 'libertadCats'];
   function exportData() {
     try {
       var data = { _app: 'crd-calc', _v: 2, _ts: new Date().toISOString() };
@@ -1138,7 +1149,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         var data = JSON.parse(e.target.result);
         BACKUP_KEYS.forEach(function (k) {
           if (data[k] == null) return;
-          if (k === 'projects' || k === 'shopping' || k === 'portafolio') { if (Array.isArray(data[k])) state[k] = data[k]; }
+          if (k === 'projects' || k === 'shopping' || k === 'portafolio' || k === 'libertadCats') { if (Array.isArray(data[k])) state[k] = data[k]; }
           else state[k] = data[k];
         });
         if (!state.projects || !state.projects.length) state.projects = defaultProjects();
@@ -1718,8 +1729,27 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     // panel — personal profile inputs (shared global state)
     $('pn-nombre').addEventListener('input', function (e) { state.perfilNombre = e.target.value; saveState(); });
     [['pn-ingreso', 'ingreso'], ['pn-gasto', 'gasto'], ['pn-deudas', 'deudas'],
-     ['pn-capital', 'capital'], ['pn-libertad', 'gastoLibertad']].forEach(function (pair) {
+     ['pn-capital', 'capital']].forEach(function (pair) {
       $(pair[0]).addEventListener('input', function (e) { state[pair[1]] = parseNum(e.target.value); commit(); });
+    });
+    // Gasto de libertad: el total reescala las categorías proporcionalmente;
+    // editar una categoría recalcula el total como su suma.
+    if (!Array.isArray(state.libertadCats)) state.libertadCats = defaultLibertadCats(state.gastoLibertad);
+    $('pn-libertad').addEventListener('input', function (e) {
+      var nuevo = parseNum(e.target.value);
+      var cats = state.libertadCats, viejo = cats.reduce(function (a, b) { return a + (+b || 0); }, 0);
+      if (viejo > 0) state.libertadCats = cats.map(function (v) { return Math.round((+v || 0) * nuevo / viejo); });
+      else { state.libertadCats = LIBERTAD_CATS.map(function () { return 0; }); state.libertadCats[LIBERTAD_CATS.length - 1] = nuevo; }
+      state.gastoLibertad = nuevo; commit();
+    });
+    LIBERTAD_CATS.forEach(function (_cat, i) {
+      var el = $('pn-lc-' + i); if (!el) return;
+      el.addEventListener('input', function (e) {
+        if (!Array.isArray(state.libertadCats)) state.libertadCats = defaultLibertadCats(state.gastoLibertad);
+        state.libertadCats[i] = parseNum(e.target.value);
+        state.gastoLibertad = state.libertadCats.reduce(function (a, b) { return a + (+b || 0); }, 0);
+        commit();
+      });
     });
     $('pn-valoriz').addEventListener('input', function (e) { state.valorizacionEsp = parseFloat(e.target.value); commit(); });
     $('pn-rendrenta').addEventListener('input', function (e) { state.rendRenta = parseFloat(e.target.value); commit(); });

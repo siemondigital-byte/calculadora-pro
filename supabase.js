@@ -100,7 +100,7 @@
      Si la columna no existe, el upsert falla silenciosamente (se ignora) y la
      app sigue funcionando con localStorage. */
   var SNAP_KEYS = ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta',
-    'inflacion', 'view', 'panelTab', 'projTab', 'shopping', 'portafolio', 'checklist'];
+    'inflacion', 'view', 'panelTab', 'projTab', 'shopping', 'portafolio', 'checklist', 'libertadCats'];
   function saveSnapshot(uid, state) {
     var snap = {};
     SNAP_KEYS.forEach(function (k) { if (state[k] !== undefined) snap[k] = state[k]; });

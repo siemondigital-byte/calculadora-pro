@@ -78,6 +78,14 @@ export var VEHICULOS = [
   ];
 export function fxRisk(moneda) { var m = (moneda || '').toUpperCase().trim(); return m !== '' && m !== 'USD' && m !== 'AED'; }
 
+/* Gasto de Libertad por categorías (Cap. 7): desglose editable cuya suma
+   alimenta el gasto mensual de libertad. Los pesos reparten un total dado. */
+export var LIBERTAD_CATS = ['vivienda', 'alimentacion', 'salud', 'transporte', 'ocio', 'otros'];
+export function defaultLibertadCats(total) {
+  var w = [0.30, 0.20, 0.12, 0.13, 0.15, 0.10];
+  return w.map(function (x) { return Math.round((total || 0) * x); });
+}
+
   /* Método de las 5 P (Cap. 13) — checklist puntuable de calidad del deal.
      Cada P: 2=Cumple, 1=Parcial, 0=Falla. Regla del libro: una P en 0 lo descarta. */
 export var P5KEYS = ['punto', 'precio', 'producto', 'proceso', 'personas', 'proposito'];
