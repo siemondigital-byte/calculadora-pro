@@ -111,8 +111,27 @@ export default function App() {
   const [errorCarga, setErrorCarga] = useState("");
   const guardandoRef = useRef(0);
   const ultimaEdicionRef = useRef(0);
+  // aviso de dos ventanas abiertas: aunque el motor ya fusiona (blindaje _rev),
+  // trabajar en una sola ventana sigue siendo lo sano; esto lo hace visible.
+  const [otraVentana, setOtraVentana] = useState(false);
 
   const ws = data?.workspace === "cicloderiqueza" ? "cicloderiqueza" : "atlantis";
+
+  useEffect(() => {
+    let bc = null;
+    try {
+      bc = new BroadcastChannel("atlantis-cm-ventanas");
+      const idv = Math.random().toString(36).slice(2);
+      bc.onmessage = (ev) => {
+        if (ev.data === "ping") {
+          setOtraVentana(true);
+          try { bc.postMessage({ pong: idv }); } catch { /* nada */ }
+        } else if (ev.data && ev.data.pong && ev.data.pong !== idv) setOtraVentana(true);
+      };
+      bc.postMessage("ping");
+    } catch { /* navegador sin BroadcastChannel */ }
+    return () => { try { bc && bc.close(); } catch { /* nada */ } };
+  }, []);
 
   useEffect(() => {
     loadData()
@@ -200,6 +219,12 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
+      {otraVentana && (
+        <div className="fixed inset-x-0 top-0 z-50 bg-red-700 px-4 py-2 text-center text-xs font-medium text-white">
+          Tienes el Centro de Mando abierto en otra ventana. Cierra una para no
+          pisarte los cambios (el sistema fusiona, pero mejor una sola).
+        </div>
+      )}
       {/* barra superior movil */}
       <div className="flex items-center gap-3 border-b border-gris/10 p-4 md:hidden">
         <button
@@ -616,6 +641,24 @@ function Prospeccion({ data, ws, recargar }) {
   const [manual, setManual] = useState({ nombre: "", email: "" });
   const [estado, setEstado] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [saludo, setSaludo] = useState(null); // {nombre, texto}
+
+  const generarSaludo = async (p) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/saludo_linkedin", {
+        nombre: p.titulo || p.nombre || p.canal || "",
+        bio: p.descripcion || "",
+        workspace: ws,
+      });
+      setSaludo({ nombre: p.titulo || p.nombre || p.canal, texto: r.saludo, url: p.redes?.linkedin });
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
 
   const llamar = async (ruta, body, mensajeOk) => {
     setCargando(true);
@@ -698,6 +741,29 @@ function Prospeccion({ data, ws, recargar }) {
 
       {estado && <p className="mb-4 text-sm text-oro">{estado}</p>}
 
+      {saludo && (
+        <div className="tarjeta mb-4">
+          <div className="mb-1 text-sm font-semibold">Saludo LinkedIn · {saludo.nombre}</div>
+          <p className="whitespace-pre-wrap text-sm text-crema/90">{saludo.texto}</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              className="boton-secundario !px-3 !py-1 text-xs"
+              onClick={() => navigator.clipboard?.writeText(saludo.texto)}
+            >
+              Copiar
+            </button>
+            {saludo.url && (
+              <a href={saludo.url} target="_blank" rel="noreferrer" className="boton-secundario !px-3 !py-1 text-xs">
+                Abrir perfil
+              </a>
+            )}
+            <button className="boton-secundario !px-3 !py-1 text-xs" onClick={() => setSaludo(null)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[680px] text-sm">
           <thead>
@@ -721,6 +787,25 @@ function Prospeccion({ data, ws, recargar }) {
                   ) : (
                     p.titulo || p.nombre || p.canal || p.email
                   )}
+                  {(p.email || p.web || p.redes) && (
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-gris">
+                      {p.email && <span>{p.email}</span>}
+                      {p.web && (
+                        <a href={p.web} target="_blank" rel="noreferrer" className="hover:text-oro">
+                          web
+                        </a>
+                      )}
+                      {["instagram", "linkedin", "tiktok", "twitter", "facebook"].map(
+                        (red) =>
+                          p.redes?.[red] && (
+                            <a key={red} href={p.redes[red]} target="_blank" rel="noreferrer" className="hover:text-oro">
+                              {red}
+                            </a>
+                          )
+                      )}
+                    </div>
+                  )}
+                  {p.nota && <div className="mt-1 text-xs text-red-400">{p.nota}</div>}
                 </td>
                 <td className="p-2 text-gris">{p.vertical || "-"}</td>
                 <td className="p-2 text-gris">{p.subs ? p.subs.toLocaleString() : "-"}</td>
@@ -730,6 +815,15 @@ function Prospeccion({ data, ws, recargar }) {
                 <td className="p-2 text-gris">{p.estado}</td>
                 <td className="p-2">
                   <div className="flex gap-2">
+                    {p.redes?.linkedin && (
+                      <button
+                        className="boton-secundario !px-2 !py-1 text-xs"
+                        disabled={cargando}
+                        onClick={() => generarSaludo(p)}
+                      >
+                        Saludo LinkedIn
+                      </button>
+                    )}
                     {p.estado !== "promovido" && (
                       <button
                         className="boton-secundario !px-2 !py-1 text-xs"
@@ -837,10 +931,22 @@ function Correo({ data, ws, recargar }) {
         titulo="Correo"
         sub="Respuestas clasificadas por IA · el cron lee la bandeja cada 15 min"
       />
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <button className="boton" disabled={cargando} onClick={leerAhora}>
           {cargando ? "Trabajando..." : "Leer bandeja ahora"}
         </button>
+        {(() => {
+          // conteo honesto de envios de HOY sobre el tope anti-spam (~40/dia por buzon)
+          const hoy = hoyISO();
+          const n = (data[ws]?.enviados || []).filter(
+            (e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === hoy
+          ).length;
+          return (
+            <span className={`text-xs ${n >= 40 ? "text-red-400" : "text-gris"}`}>
+              hoy: {n}/40 correos
+            </span>
+          );
+        })()}
         {estado && <span className="text-sm text-oro">{estado}</span>}
       </div>
 
@@ -863,9 +969,9 @@ function Correo({ data, ws, recargar }) {
           {abierto === h.email && (
             <div className="mt-3 space-y-2 border-t border-gris/10 pt-3">
               {(h.conversacion || []).map((m, i) => (
-                <div key={i} className="rounded-lg bg-negro/40 p-3">
+                <div key={i} className={`rounded-lg p-3 ${m.de === "mi" ? "bg-oro/10" : "bg-negro/40"}`}>
                   <div className="text-xs text-gris">
-                    {m.de} · {m.asunto}
+                    {m.de === "mi" ? "tú" : m.de} · {m.asunto}
                   </div>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-crema/90">
                     {(m.texto || "").slice(0, 600)}
@@ -1123,9 +1229,81 @@ function Seguimiento({ data, commit, ws }) {
     commit(siguiente);
   };
 
+  // actividad comercial (portado del cockpit de Siemon #99): enviados por día,
+  // enviados vs respondidos y embudo por etapa, todo desde los datos reales
+  const graf = (() => {
+    const enviados = data[ws]?.enviados || [];
+    const outreach = data[ws]?.outreach || [];
+    const dias = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      dias.push({
+        dia: iso.slice(5),
+        n: enviados.filter((e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === iso).length,
+      });
+    }
+    const totalEnv = enviados.length;
+    const respondieron = outreach.filter((h) =>
+      (h.conversacion || []).some((m) => m.de && m.de !== "mi")
+    ).length;
+    const etapas = (cfg(data, ws).stages || []).map((et) => ({
+      etapa: et,
+      n: (data[ws]?.leads || []).filter((l) => l.etapa === et).length,
+    }));
+    const max = Math.max(1, ...dias.map((d) => d.n));
+    const maxEt = Math.max(1, ...etapas.map((e) => e.n));
+    return { dias, max, totalEnv, respondieron, etapas, maxEt };
+  })();
+
   return (
     <div>
       <Encabezado titulo="Seguimiento" sub="Tareas por fecha de próximo toque" />
+
+      <div className="mb-6 grid gap-3 lg:grid-cols-3">
+        <div className="tarjeta !p-4">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">Correos por día · 2 semanas</div>
+          <div className="flex h-20 items-end gap-1">
+            {graf.dias.map((d, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${d.dia}: ${d.n}`}>
+                <div
+                  className={`w-full rounded-t ${d.n ? "bg-oro/70" : "bg-gris/15"}`}
+                  style={{ height: `${Math.max(4, (d.n / graf.max) * 64)}px` }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between text-[9px] text-gris">
+            <span>{graf.dias[0]?.dia}</span>
+            <span>hoy</span>
+          </div>
+        </div>
+        <div className="tarjeta !p-4">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">Enviados vs respondidos</div>
+          <div className="text-2xl font-semibold">{graf.totalEnv}<span className="ml-1 text-xs text-gris">enviados</span></div>
+          <div className="mt-1 text-sm text-oro">{graf.respondieron} contactos respondieron</div>
+          <div className="mt-2 h-2 overflow-hidden rounded bg-gris/15">
+            <div className="h-full bg-oro" style={{ width: `${graf.totalEnv ? Math.min(100, (graf.respondieron / graf.totalEnv) * 100) : 0}%` }} />
+          </div>
+          <div className="mt-1 text-xs text-gris">tasa {graf.totalEnv ? Math.round((graf.respondieron / graf.totalEnv) * 100) : 0}%</div>
+        </div>
+        <div className="tarjeta !p-4">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">Embudo por etapa</div>
+          <div className="flex flex-col gap-1.5">
+            {graf.etapas.map((e) => (
+              <div key={e.etapa} className="flex items-center gap-2 text-xs">
+                <span className="w-28 shrink-0 truncate text-gris">{e.etapa}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded bg-gris/15">
+                  <div className="h-full bg-oro/70" style={{ width: `${(e.n / graf.maxEt) * 100}%` }} />
+                </div>
+                <span className="w-5 text-right">{e.n}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {Object.entries(grupos).map(([grupo, lista]) => (
         <div key={grupo} className="mb-6">
           <h2

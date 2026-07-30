@@ -4,9 +4,24 @@ candidatos normalizados y el pipeline los deduplica, puntua y guarda.
 Guardarrailes (skill prospeccion): solo datos publicos de negocios/creadores,
 respetar ToS y rate limits, nada de scraping agresivo.
 """
+import re
+import urllib.parse
+
 import httpx
 
 YT_API = "https://www.googleapis.com/youtube/v3"
+
+UA_NAV = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/122.0 Safari/537.36")
+_MAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+_MAIL_SKIP = ("example.", "sentry", "wixpress", "google.com", "youtube.com", "ytimg",
+              "gstatic", "schema.org", "w3.org", "doubleclick", "domain.com",
+              "email.com", "googlemail")
+# enlaces de anuncios/agregadores: jamas son la web propia del creador
+_LINK_SKIP = ("youtube.com", "youtu.be", "spotify", "apple.co", "discord", "t.me",
+              "whatsapp", "wa.me", "patreon", "amazon", "amzn", "bit.ly", "linktr",
+              "beacons", "googleadservices", "googlesyndication", "doubleclick",
+              "/aclk", "/pagead", "adservice", "adclick", "safelinks", "/url?")
 
 # Las 5 verticales del programa de afiliados (CLAUDE.md §1)
 VERTICALES = [
@@ -56,6 +71,103 @@ def youtube_buscar_canales(api_key, consulta, max_resultados=12, idioma="es"):
                 "url": f"https://www.youtube.com/channel/{c['id']}",
             })
         return canales
+
+
+def about_links(channel_url):
+    """Enlaces del panel 'Acerca de' del canal via la API interna de YouTube
+    (los del HTML estatico desaparecieron en 2026; portado del nucleo Siemon #106).
+    Devuelve lista de URLs externas publicas."""
+    cab = {"User-Agent": UA_NAV, "Accept-Language": "es"}
+    try:
+        with httpx.Client(timeout=15, follow_redirects=True) as cliente:
+            html = cliente.get(channel_url + "/about", headers=cab).text
+    except Exception:
+        return []
+
+    def _extraer(t):
+        out = []
+        # enlaces envueltos en el redirect de YouTube (q=https...)
+        for q in re.findall(r'q(?:=|%3D)(https?[^&"\\\\]+)', t):
+            u = urllib.parse.unquote(urllib.parse.unquote(q))
+            if u not in out:
+                out.append(u)
+        # layout 2026: los links vienen DIRECTOS en channelExternalLinkViewModel,
+        # a veces sin esquema ("exphub.in")
+        for c in re.findall(r'"channelExternalLinkViewModel":\{.*?"link":\{"content":"([^"]+)"', t):
+            u = c if c.startswith("http") else "https://" + c
+            if u not in out:
+                out.append(u)
+        return out
+
+    directo = _extraer(html)   # a veces ya vienen en el HTML inicial
+    mkey = re.search(r'"INNERTUBE_API_KEY":"([^"]+)"', html)
+    if not mkey:
+        return directo
+    toks = re.findall(r'"continuationCommand":\{"token":"([^"]+)"', html)
+    for tok in toks[:10]:
+        body = {"context": {"client": {"clientName": "WEB",
+                                       "clientVersion": "2.20240101.00.00",
+                                       "hl": "es"}}, "continuation": tok}
+        try:
+            with httpx.Client(timeout=15) as cliente:
+                t = cliente.post(
+                    "https://www.youtube.com/youtubei/v1/browse?key=" + mkey.group(1),
+                    json=body, headers=cab,
+                ).text
+        except Exception:
+            continue
+        if "aboutChannelViewModel" not in t and "channelExternalLinkViewModel" not in t:
+            continue
+        found = _extraer(t)
+        if found:
+            return found
+    return directo
+
+
+def enriquecer_contacto(canal):
+    """Completa el prospecto con los enlaces PUBLICOS del 'Acerca de' (redes + web
+    propia) y, si hay web propia, busca el email publico en ella (YouTube esconde
+    el correo tras captcha). Muta y devuelve el dict del canal."""
+    url = canal.get("url")
+    if not url:
+        return canal
+    redes = canal.setdefault("redes", {})
+    web_externa = ""
+    for u in about_links(url):
+        low = u.lower()
+        if "instagram.com" in low:
+            redes.setdefault("instagram", u)
+        elif "tiktok.com" in low:
+            redes.setdefault("tiktok", u)
+        elif "twitter.com" in low or "//x.com" in low:
+            redes.setdefault("twitter", u)
+        elif "facebook.com" in low:
+            redes.setdefault("facebook", u)
+        elif "linkedin.com" in low:
+            redes.setdefault("linkedin", u)
+        elif not any(s in low for s in _LINK_SKIP):
+            if not web_externa:
+                web_externa = u
+    if web_externa:
+        canal["web"] = web_externa
+    if not canal.get("email") and web_externa:
+        base = web_externa.rstrip("/")
+        for ruta in ("", "/contacto", "/contact", "/about"):
+            try:
+                with httpx.Client(timeout=8, follow_redirects=True) as cliente:
+                    ht = cliente.get(base + ruta, headers={"User-Agent": UA_NAV}).text
+            except Exception:
+                continue
+            cands = sorted(
+                {m.lower() for m in _MAIL.findall(ht)
+                 if not any(s in m.lower() for s in _MAIL_SKIP)
+                 and not m.lower().endswith((".png", ".jpg", ".gif", ".webp", ".svg"))},
+                key=len,
+            )
+            if cands:
+                canal["email"] = cands[0]
+                break
+    return canal
 
 
 def ambassador_fit_score(canal, vertical=""):

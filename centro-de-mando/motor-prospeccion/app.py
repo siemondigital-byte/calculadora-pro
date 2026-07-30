@@ -38,6 +38,62 @@ WORKSPACES = ("atlantis", "cicloderiqueza")
 # Listas con lapida: clave de la lista -> campo identificador del item
 _LISTAS_CON_LAPIDA = {"competidores": "url", "enlacesUTM": "id", "leads": "id"}
 
+# Blindaje anti-pisado (portado del nucleo Siemon #105): si dos ventanas estan
+# abiertas, la que guarda con copia VIEJA no debe borrar lo que la otra creo.
+# Cada guardado sube data._rev; el cliente manda _baseRev (la version que leyo).
+# Si coincide con el disco se le confia tal cual (borrar funciona); si no, se
+# hace UNION por id: sus items ganan, los del servidor que le faltan se conservan.
+# Listas por workspace -> campos identificadores candidatos (en orden).
+_ID_COLS = {
+    "leads": ("id",),
+    "prospectos": ("id", "canalId"),
+    "consultas": ("id", "email", "fecha"),
+    "proyectos": ("slug", "id"),
+    "compradores": ("transaccion", "email"),
+    "afiliados": ("id", "email", "canalId"),
+    "app_usuarios": ("email", "id"),
+    "enlacesUTM": ("id",),
+    "competidores": ("url",),
+}
+
+
+def _clave_item(x, keys):
+    for k in keys:
+        if isinstance(x, dict) and x.get(k):
+            return k + ":" + str(x[k])
+    return None
+
+
+def _union_por_id(entrante, actual):
+    """Conserva en el payload los items que el servidor tiene y el escritor no,
+    en cada workspace, sin resucitar items con lapida."""
+    try:
+        for ws in WORKSPACES:
+            s_in = entrante.get(ws)
+            s_srv = (actual or {}).get(ws) or {}
+            if not isinstance(s_in, dict) or not isinstance(s_srv, dict):
+                continue
+            borrados = s_in.get("borrados") or {}
+            for col, keys in _ID_COLS.items():
+                arr_srv = s_srv.get(col)
+                arr_in = s_in.get(col)
+                if not isinstance(arr_srv, list) or not arr_srv or not isinstance(arr_in, list):
+                    continue
+                campo_lapida = _LISTAS_CON_LAPIDA.get(col)
+                muertos = set(borrados.get(col) or []) if campo_lapida else set()
+                claves_in = {k for k in (_clave_item(x, keys) for x in arr_in) if k}
+                for x in arr_srv:
+                    k = _clave_item(x, keys)
+                    if not k or k in claves_in:
+                        continue
+                    if campo_lapida and isinstance(x, dict) and x.get(campo_lapida) in muertos:
+                        continue
+                    arr_in.append(x)
+                s_in[col] = arr_in
+    except Exception:
+        pass
+    return entrante
+
 app = FastAPI(title="Centro de Mando - Atlantis")
 app.add_middleware(
     CORSMiddleware,
@@ -122,10 +178,14 @@ def _merge_con_servidor(entrante):
 
 
 def guardar_seguro(data):
-    """Unica puerta de escritura al store. Merge contra disco al momento de guardar."""
-    merged = _merge_con_servidor(data)
-    crm_store.guardar(merged)
-    return merged
+    """Unica puerta de escritura al store. Merge contra disco al momento de guardar.
+    Los flujos del motor (crons, leer->procesar->guardar) siempre pueden traer copia
+    vieja, asi que ademas del merge se aplica la UNION por id y se sube la version."""
+    actual = crm_store.leer() or {}
+    fusion = _union_por_id(_merge_con_servidor(data), actual)
+    fusion["_rev"] = int((actual or {}).get("_rev") or 0) + 1
+    crm_store.guardar(fusion)
+    return fusion
 
 
 # ---------------------------------------------------------------- helpers IA
@@ -294,7 +354,8 @@ def login(body: dict = Body(...)):
 @app.get("/crm/data")
 def crm_data_get(authorization: str = Header(None)):
     _auth(authorization)
-    return {"data": crm_store.leer()}
+    d = crm_store.leer()
+    return {"data": d, "rev": int((d or {}).get("_rev") or 0)}
 
 
 @app.put("/crm/data")
@@ -303,8 +364,21 @@ def crm_data_put(body: dict = Body(...), authorization: str = Header(None)):
     data = body.get("data")
     if not isinstance(data, dict):
         raise HTTPException(400, "falta data")
-    guardar_seguro(data)
-    return {"ok": True}
+    base = data.pop("_baseRev", None)
+    actual = crm_store.leer() or {}
+    rev = int((actual or {}).get("_rev") or 0)
+    fusion = _merge_con_servidor(data)
+    # ventana al dia (su base == la del servidor): se confia tal cual (borrar funciona).
+    # ventana desactualizada (o cliente viejo sin version): union por id para no perder nada.
+    try:
+        desactualizada = (base is None) or (int(base) != rev)
+    except Exception:
+        desactualizada = True
+    if desactualizada:
+        fusion = _union_por_id(fusion, actual)
+    fusion["_rev"] = rev + 1
+    crm_store.guardar(fusion)
+    return {"ok": True, "rev": rev + 1, "fusionado": bool(desactualizada)}
 
 
 @app.post("/crm/lead")
@@ -364,6 +438,48 @@ def crm_lead(body: dict = Body(...)):
 
 # ------------------------------------------------------- prospeccion (F4)
 
+def _curaduria_filtrar(cands, slice_ws):
+    """La prospeccion APRENDE de la curaduria del dueno (nucleo Siemon #108):
+    compara los candidatos nuevos contra el patron de sus descartados (y el de
+    los que si promovio): los similares a lo rechazado llegan con score bajo y
+    una nota visible, asi no encabezan la lista pero el dueno decide."""
+    try:
+        desc = list(slice_ws.get("descartadosPerfil") or [])[-40:]
+        if len(desc) < 5 or not cands:
+            return cands
+        positivos = [
+            {"n": p.get("titulo") or p.get("nombre"), "t": p.get("vertical")}
+            for p in (slice_ws.get("prospectos") or [])
+            if (p.get("estado") or "") in ("promovido", "respondio", "contactado")
+        ]
+        lista = [
+            {"i": i, "n": c.get("titulo") or c.get("nombre"), "t": c.get("vertical"),
+             "s": c.get("subs"), "b": (c.get("descripcion") or "")[:110]}
+            for i, c in enumerate(cands[:60])
+        ]
+        u = ("Curaduria de prospeccion del dueno de Atlantis. El DESCARTO estos perfiles; "
+             "capta el PATRON de por que no le sirven (tipo de canal, tamano, enfoque):\n"
+             + json.dumps(desc[-30:], ensure_ascii=False)
+             + (("\n\nY ESTOS SI le interesan (los promovio o le respondieron):\n"
+                 + json.dumps(positivos[-25:], ensure_ascii=False)) if positivos else "")
+             + "\n\nCANDIDATOS NUEVOS:\n" + json.dumps(lista, ensure_ascii=False)
+             + '\n\nDevuelve SOLO JSON: {"evitar":[{"i":indice,"razon":"<max 8 palabras: '
+             'a que patron descartado se parece>"}]}. SOLO marca evitar si el candidato '
+             "CLARAMENTE pertenece al mismo tipo que los descartados; ante la duda NO lo "
+             "marques (mejor que el dueno decida).")
+        d = _claude_json(u, max_tokens=4000)
+        for it in (d or {}).get("evitar") or []:
+            try:
+                c = cands[int(it.get("i"))]
+                c["score"] = min(int(c.get("score") or 0), 35)
+                c["nota"] = "Similar a tus descartados: " + (it.get("razon") or "mismo patrón")
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        pass
+    return cands
+
+
 @app.post("/prospectar")
 def prospectar(body: dict = Body(...), authorization: str = Header(None)):
     """Descubre canales de YouTube de una vertical y los guarda como
@@ -392,11 +508,11 @@ def prospectar(body: dict = Body(...), authorization: str = Header(None)):
     descartados = set(slice_ws.get("descartados") or [])
     existentes = {p.get("canalId") for p in prospectos if p.get("canalId")}
 
-    nuevos = 0
+    candidatos = []
     for canal in canales:
         if canal["canalId"] in existentes or canal["canalId"] in descartados:
             continue
-        prospectos.append({
+        candidatos.append({
             "id": f"pros-{uuid.uuid4().hex[:10]}",
             **canal,
             "vertical": vertical,
@@ -405,10 +521,18 @@ def prospectar(body: dict = Body(...), authorization: str = Header(None)):
             "estado": "nuevo",
             "creado": int(time.time()),
         })
-        nuevos += 1
+    # aprende de la curaduria previa; los "similar a tus descartados" no se enriquecen
+    candidatos = _curaduria_filtrar(candidatos, slice_ws)
+    for c in candidatos:
+        if not c.get("nota"):
+            try:
+                collectors.enriquecer_contacto(c)   # redes + web propia + email publico
+            except Exception:  # noqa: BLE001
+                pass
+    prospectos.extend(candidatos)
     prospectos.sort(key=lambda p: -(p.get("score") or 0))
     guardar_seguro(data)
-    return {"ok": True, "nuevos": nuevos, "total": len(prospectos)}
+    return {"ok": True, "nuevos": len(candidatos), "total": len(prospectos)}
 
 
 @app.post("/prospectos/capturar")
@@ -486,9 +610,60 @@ def prospectos_descartar(body: dict = Body(...), authorization: str = Header(Non
         descartados = slice_ws.setdefault("descartados", [])
         if bloqueo not in descartados:
             descartados.append(bloqueo)
+    # ficha compacta del descarte: alimenta _curaduria_filtrar (el sistema aprende
+    # que tipo de perfil NO le sirve al dueno y lo marca en proximas busquedas)
+    perfil = slice_ws.setdefault("descartadosPerfil", [])
+    perfil.append({
+        "n": prospecto.get("titulo") or prospecto.get("nombre") or prospecto.get("canal"),
+        "t": prospecto.get("vertical"),
+        "s": prospecto.get("subs"),
+        "b": (prospecto.get("descripcion") or "")[:120],
+    })
+    del perfil[:-200]
     slice_ws["prospectos"] = [p for p in prospectos if p.get("id") != pid]
     guardar_seguro(data)
     return {"ok": True}
+
+
+@app.post("/saludo_linkedin")
+def saludo_linkedin(body: dict = Body(...), authorization: str = Header(None)):
+    """Saludo de conexion en LinkedIn (portado del nucleo Siemon): mensaje personal
+    de max 200 caracteres, en el idioma del perfil, sin vender ni pedir nada."""
+    _auth(authorization)
+    nombre = str(body.get("nombre", "")).strip()
+    bio = str(body.get("bio", "")).strip()
+    extra = str(body.get("extra", "")).strip()
+    if not nombre and not bio:
+        raise HTTPException(400, "nombre o bio requerido")
+    u = ("Escribe un SALUDO DE CONEXION EN LINKEDIN de entre 140 y 200 CARACTERES "
+         "(limite duro 200; usa el espacio, no lo desperdicies con un saludo raquitico). "
+         "Es un mensaje PERSONAL del dueno de Atlantis Global Realty al conectar. CALIDAD EXIGIDA:\n"
+         "1) UN DETALLE CONCRETO Y VERIFICABLE de su perfil (un tema especifico que trata, una cifra, "
+         "su enfoque particular, algo que construyo). Que al leerlo piense 'de verdad vio lo mio'. "
+         "PROHIBIDO lo generico que le serviria a cualquiera ('vi tu contenido', 'tu enfoque').\n"
+         "2) SALUDA POR EL NOMBRE DE PILA DE LA PERSONA (obligatorio buscarlo): extraelo de donde "
+         "aparezca: del nombre de la ficha ('ExpHub - Prashant Kirad' -> Prashant; 'Finanzas con "
+         "Ross' -> Ross), de la bio ('soy Jose Maria...' -> Jose Maria), o del handle si es un nombre "
+         "real. SOLO si de verdad no hay ninguna persona identificable, abre natural sin nombre "
+         "(JAMAS saludes con el nombre de la marca o canal).\n"
+         "3) VARIA la estructura: puede abrir con el detalle, con una mini observacion del nicho, o "
+         "con que lo encontro buscando X. PROHIBIDAS las formulas gastadas: 'me resono', 'me encanto', "
+         "'me parecio muy valioso', 'un gusto conectar' como unica sustancia.\n"
+         "4) PROHIBIDO ofrecer, vender, mencionar servicios, agendar o pedir algo: SOLO un saludo "
+         "humano (la confianza primero, el negocio nunca en el primer mensaje). Sin hashtags, sin "
+         "links, sin asunto. Tuteo cercano y neutro LATAM; que suene a una persona con criterio, no a bot.\n"
+         "5) DETECTA el idioma real del perfil (bio/titulo) y escribe el saludo EN ESE idioma.\n\n"
+         f"PERFIL:\nNombre/canal: {nombre}\nBio: {bio[:800]}\n"
+         + (f"Contexto extra: {extra[:400]}\n" if extra else "")
+         + '\nDevuelve SOLO JSON: {"saludo": str}.')
+    r = _claude_json(u, max_tokens=4000)
+    saludo = _sin_em_dash(str((r or {}).get("saludo") or "")).strip()
+    if len(saludo) > 200:
+        corte = saludo[:200]
+        saludo = corte[:corte.rfind(" ")] if " " in corte else corte
+    if not saludo:
+        raise HTTPException(502, "no se pudo generar el saludo")
+    return {"ok": True, "saludo": saludo}
 
 
 # ------------------------------------------------------- contenido IA (F5)
@@ -604,6 +779,88 @@ def _claude_texto(prompt, max_tokens=1500, system=None):
     return "".join(
         b.text for b in respuesta.content if getattr(b, "type", "") == "text"
     ).strip()
+
+
+# Como se publica BIEN en cada red: formato nativo, lienzo y reglas del copy.
+# El adaptador usa esto para convertir UNA idea en la publicacion correcta de
+# CADA red (portado del nucleo Siemon #101).
+_REDES_GUIA = {
+    "linkedin":  "LinkedIn: audiencia profesional. Formato estrella: CARRUSEL editorial (lienzo 4:5) o imagen 1:1. "
+                 "Copy 900-1300 caracteres, 1a linea = gancho fuerte (para el 'ver mas'), parrafos de 1-2 lineas, "
+                 "cierre con pregunta o CTA suave. Maximo 3 hashtags o ninguno.",
+    "instagram": "Instagram: visual primero. CARRUSEL 4:5 (educativo) o REEL 9:16 (alcance). Copy: gancho corto arriba, "
+                 "valor en 3-5 lineas, CTA ('guarda esto', 'comenta X'), 5-8 hashtags de nicho al final.",
+    "facebook":  "Facebook: conversacional y cercano. Imagen 4:5 o video. Copy medio (300-600 caracteres), tono de "
+                 "conversacion, pregunta al final para comentarios. Pocos hashtags.",
+    "x":         "X (Twitter): brevedad y opinion. HILO de 3-6 tuits (el 1o < 260 caracteres, gancho con dato) "
+                 "o un tuit + imagen 16:9. Sin hashtags o 1. Cada tuit se sostiene solo.",
+    "threads":   "Threads: casual y directo. Texto corto (< 400 caracteres) + imagen 4:5 opcional. Sin hashtags.",
+    "tiktok":    "TikTok: VIDEO vertical 9:16 de 20-40s. Gancho en los primeros 2 segundos, ritmo rapido, subtitulos, "
+                 "cierre con CTA. Copy corto (1-2 lineas) + 3-5 hashtags.",
+    "youtube":   "YouTube (Shorts): VIDEO vertical 9:16 de 30-60s. Gancho inmediato, promesa clara, entrega el valor, "
+                 "CTA a suscribirse. Titulo con keyword.",
+    "pinterest": "Pinterest: buscador visual. PIN vertical (9:16 o 4:5) con titulo GRANDE legible en la imagen. "
+                 "Titulo SEO (< 100 caracteres) + descripcion con keywords naturales (200-400 caracteres).",
+    "bluesky":   "Bluesky: en INGLES. Texto < 280 caracteres, tono inteligente y directo, imagen 16:9 opcional. Sin hashtags.",
+}
+
+
+@app.post("/contenido/adaptar")
+def contenido_adaptar(body: dict = Body(...), authorization: str = Header(None)):
+    """ADAPTADOR POR RED: desde UNA idea devuelve, por CADA red elegida, la
+    publicacion COMPLETA nativa: formato ideal (imagen | carrusel | video |
+    texto), copy nativo y plan de la pieza visual. Voz de marca siempre."""
+    _auth(authorization)
+    idea = str(body.get("idea") or body.get("tema") or "").strip()
+    if not idea:
+        raise HTTPException(400, "falta la idea o el tema")
+    redes = [r for r in (body.get("redes") or []) if r in _REDES_GUIA] or ["linkedin", "instagram", "x"]
+    idioma = (body.get("idioma") or "es").strip()
+    guia = "\n".join("- " + _REDES_GUIA[r] for r in redes)
+    u = ("Eres el estratega de contenido de Atlantis. Toma ESTA idea y adaptala como publicacion NATIVA "
+         "para cada red (no el mismo post repetido: cada red tiene su formato, su tono y su pieza visual).\n\n"
+         f"IDEA:\n{idea[:1800]}\n\n"
+         f"REDES Y SUS REGLAS:\n{guia}\n\n"
+         "Para CADA red decide el FORMATO ideal PARA ESTA IDEA (imagen | carrusel | video | texto) segun lo "
+         "que mejor rinde en esa red Y lo que la idea pide (un paso a paso -> carrusel; una historia/demo -> "
+         "video; una opinion -> texto/hilo; un dato potente -> imagen). Y arma:\n"
+         "- copy: el texto COMPLETO nativo de esa red (respeta sus reglas de longitud, gancho, hashtags), en "
+         f"{'ingles' if idioma == 'en' else 'espanol con tildes'} (bluesky SIEMPRE en ingles).\n"
+         "- pieza: el plan del diseno:\n"
+         "  * si formato=imagen: titulo (max 8 palabras), subtitulo (max 14 palabras), cta corto.\n"
+         "  * si formato=carrusel: formato_lista (ej. '5 pasos', '3 errores') y laminas: 4 a 6 objetos "
+         "{titulo (max 7 palabras), texto (max 20 palabras)}.\n"
+         "  * si formato=video: guion: 4 a 6 escenas {texto (max 15 palabras)}, y gancho.\n"
+         "  * siempre: lienzo ('4:5'|'1:1'|'16:9'|'9:16' segun la red) y estilo_visual (5-8 palabras).\n"
+         'Devuelve SOLO JSON: {"adaptaciones":[{"red":"...","formato":"imagen|carrusel|video|texto",'
+         '"razon":"<1 frase>","copy":"...","pieza":{"titulo":"","subtitulo":"","cta":"","formato_lista":"",'
+         '"laminas":[],"guion":[],"gancho":"","lienzo":"4:5","estilo_visual":""}}]}')
+    d = _claude_json(u, max_tokens=6000, system=_VOZ_MARCA)
+    ads = (d or {}).get("adaptaciones") if isinstance(d, dict) else None
+    if not ads or not isinstance(ads, list):
+        raise HTTPException(502, "el adaptador no devolvio nada util")
+    out, vistos = [], set()
+    for a in ads:
+        if not isinstance(a, dict):
+            continue
+        # normaliza el nombre de la red (la IA a veces devuelve "Twitter", "LinkedIn"...)
+        rr = (a.get("red") or "").strip().lower()
+        if "twitter" in rr or rr == "x":
+            rr = "x"
+        else:
+            rr = next((b for b in _REDES_GUIA if b in rr), rr)
+        if rr not in redes or rr in vistos:
+            continue
+        vistos.add(rr)
+        a["red"] = rr
+        a["copy"] = _sin_em_dash(a.get("copy") or "")
+        pz = a.get("pieza") or {}
+        for k in ("titulo", "subtitulo", "cta", "gancho"):
+            pz[k] = _sin_em_dash(pz.get(k) or "")
+        pz.setdefault("lienzo", "4:5")
+        a["pieza"] = pz
+        out.append(a)
+    return {"ok": True, "adaptaciones": out, "idea": idea[:300]}
 
 
 @app.post("/generar_contenido")
@@ -871,6 +1128,83 @@ def ads_plan(body: dict = Body(...), authorization: str = Header(None)):
     if not isinstance(d, dict):
         return {"ok": False, "error": "sin_json"}
     return {"ok": True, "plan": d}
+
+
+# Estructura NATIVA de cada plataforma de pauta (portado del nucleo Siemon #102)
+_ADS_GUIA = {
+    "meta":     "Meta Ads (Facebook/Instagram): campana -> conjuntos de anuncios -> anuncios. Objetivos: OUTCOME_LEADS, "
+                "OUTCOME_TRAFFIC, OUTCOME_AWARENESS, OUTCOME_SALES. Metodo: 4-5 conjuntos con UN interes por conjunto + "
+                "1 amplio (Advantage+). Creativos nativos/UGC por temperatura (frio nombra el problema; templado ensena; "
+                "caliente oferta directa para retargeting). Texto principal 90-125 palabras con gancho, titular ~40 chars, "
+                "CTA del catalogo de Meta. Piezas: imagen 1:1 o 4:5, video 9:16 (reels), carrusel 1:1.",
+    "google":   "Google Ads (Busqueda): campana -> grupos de anuncios por INTENCION de busqueda -> anuncios adaptables "
+                "(RSA). Por grupo: 10-15 keywords (concordancia de frase y exacta, incluir negativas). Por RSA: 8-12 "
+                "TITULARES de max 30 caracteres y 4 DESCRIPCIONES de max 90 caracteres (variedad: beneficio, dolor, "
+                "prueba social, CTA). Tambien 1 campana de Display/Demand Gen opcional con imagen 1:1 y 16:9.",
+    "linkedin": "LinkedIn Ads: campana -> audiencias B2B (cargo + industria + tamano de empresa; nada de intereses "
+                "vagos). Formatos: single image 1:1, carrusel, video. Copy consultivo y directo al dolor del rol "
+                "(90-150 palabras), titular < 70 chars. CPCs altos: pocos publicos, muy precisos.",
+    "tiktok":   "TikTok Ads: campana -> grupos de anuncios (intereses + comportamientos + hashtags) -> anuncios SOLO "
+                "video 9:16 estilo UGC nativo (que NO parezca anuncio): gancho en 1-2s, ritmo rapido, subtitulos, "
+                "voz cercana. Guion de 20-35s por creativo. Texto del ad corto (< 100 chars).",
+}
+
+
+@app.post("/ads/campana")
+def ads_campana(body: dict = Body(...), authorization: str = Header(None)):
+    """GENERADOR DE CAMPANAS: desde la oferta + presupuesto arma la campana COMPLETA
+    y NATIVA de cada plataforma (conjuntos/grupos, publicos o keywords, presupuesto
+    repartido, anuncios con variantes de copy y plan de cada pieza), lista para
+    copiar el brief o crearla pausada en Meta."""
+    _auth(authorization)
+    oferta = str(body.get("oferta") or "").strip()
+    if not oferta:
+        raise HTTPException(400, "cuentame que quieres promocionar (la oferta)")
+    landing = str(body.get("landing") or "https://atlantisglobalrealty.com").strip()
+    presu = float(body.get("presupuesto_dia") or 10)
+    mercados = body.get("mercados") or ["US", "MX", "CO", "PA"]
+    plats = [p for p in (body.get("plataformas") or []) if p in _ADS_GUIA] or ["meta", "google"]
+    idioma = (body.get("idioma") or "es").strip()
+    guia = "\n".join("- " + _ADS_GUIA[p] for p in plats)
+    u = ("Eres media buyer senior. Disena la CAMPANA COMPLETA y NATIVA de cada plataforma para esta "
+         "oferta (cada plataforma con SU estructura y SU lenguaje, no un plan generico repetido). "
+         "Cumple las reglas de la marca: disclaimer educativo, riesgos nombrados, cero promesas de "
+         "retornos, cero escasez artificial.\n\n"
+         f"OFERTA: {oferta}\nLANDING: {landing}\nPRESUPUESTO TOTAL: {presu} USD/dia (repartelo entre "
+         f"las plataformas segun donde mas convenga esta oferta)\nMERCADOS: {', '.join(mercados)}\n"
+         f"IDIOMA: {'ingles' if idioma == 'en' else 'espanol con tildes'}\n\n"
+         f"PLATAFORMAS Y SUS REGLAS:\n{guia}\n\n"
+         "Para CADA plataforma: nombre de campana (convencion clara), objetivo NATIVO, presupuesto_dia "
+         "asignado, estructura (3-5 conjuntos/grupos: nombre, publico O keywords segun la plataforma, "
+         "por_que, presupuesto_dia), y 2-3 anuncios (nombre, temperatura, texto_principal, titulares "
+         "(los que pida la plataforma), descripciones si aplica, cta, y pieza: {tipo: imagen|carrusel|"
+         "video, lienzo: '1:1'|'4:5'|'16:9'|'9:16', titulo (max 8 palabras), subtitulo (max 14), "
+         "laminas: [{titulo,texto}] si carrusel, guion: [{texto}] + gancho si video, estilo_visual}). "
+         "Y notas: 2-3 avisos de politicas/cumplimiento de ESA plataforma para esta oferta.\n"
+         'Devuelve SOLO JSON: {"campanas":[{"plataforma":"meta","nombre":"...","objetivo":"...",'
+         '"presupuesto_dia":0,"estructura":[{"nombre":"...","publico":"...","keywords":[],"por_que":"...",'
+         '"presupuesto_dia":0}],"anuncios":[{"nombre":"...","temperatura":"...","texto_principal":"...",'
+         '"titulares":[],"descripciones":[],"cta":"...","pieza":{"tipo":"imagen","lienzo":"1:1","titulo":"",'
+         '"subtitulo":"","laminas":[],"guion":[],"gancho":"","estilo_visual":""}}],"notas":["..."]}]}')
+    d = _claude_json(u, max_tokens=8000, system=_VOZ_MARCA)
+    cams = (d or {}).get("campanas") if isinstance(d, dict) else None
+    if not cams or not isinstance(cams, list):
+        raise HTTPException(502, "el generador no devolvio campanas")
+    out, vistos = [], set()
+    for c in cams:
+        if not isinstance(c, dict):
+            continue
+        pl = (c.get("plataforma") or "").strip().lower()
+        pl = next((b for b in _ADS_GUIA if b in pl), pl)
+        if pl not in plats or pl in vistos:
+            continue
+        vistos.add(pl)
+        c["plataforma"] = pl
+        for a in (c.get("anuncios") or []):
+            if isinstance(a, dict):
+                a["texto_principal"] = _sin_em_dash(a.get("texto_principal") or "")
+        out.append(c)
+    return {"ok": True, "campanas": out, "oferta": oferta, "landing": landing}
 
 
 @app.get("/ads/config")
@@ -3612,11 +3946,35 @@ def enviar_correo(body: dict = Body(...), authorization: str = Header(None)):
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"no se pudo enviar: {str(e)[:200]}")
     data = crm_store.leer() or {"workspace": "atlantis"}
-    data.setdefault(ws, {}).setdefault("enviados", []).append({
+    slice_ws = data.setdefault(ws, {})
+    slice_ws.setdefault("enviados", []).append({
         "para": para, "asunto": asunto, "fecha": int(time.time()),
+    })
+    # historial por contacto: lo ENVIADO tambien queda en el hilo, asi la vista
+    # Correo muestra la conversacion completa (entrantes + salientes)
+    outreach = slice_ws.setdefault("outreach", [])
+    hilo = next((o for o in outreach if o.get("email") == para.lower()), None)
+    if not hilo:
+        hilo = {"email": para.lower(), "conversacion": []}
+        outreach.append(hilo)
+    hilo["conversacion"].append({
+        "de": "mi",
+        "asunto": asunto,
+        "texto": re.sub(r"<[^>]+>", " ", body.get("cuerpo") or "")[:2000].strip(),
+        "fecha": "",
+        "enviado": int(time.time()),
     })
     guardar_seguro(data)
     return {"ok": True}
+
+
+# asuntos tipicos de autoresponders (ES/EN); complementa las cabeceras RFC 3834
+_ASUNTOS_AUTO = (
+    "automatic reply", "auto reply", "auto-reply", "autoreply",
+    "respuesta automática", "respuesta automatica", "fuera de oficina",
+    "out of office", "away from", "vacation", "thank you for your inquiry",
+    "has been submitted", "acknowledg", "do not reply",
+)
 
 
 def _clasificar_respuesta(asunto, texto):
@@ -3661,6 +4019,15 @@ def leer_correos(body: dict = Body(None), authorization: str = Header(None)):
             resumen["leidos"] += 1
             de = str(correo.get("de", "")).lower()
             if not de or de == b["email"]:
+                continue
+            # AUTORESPUESTAS: se ignoran por completo (no entran al hilo ni
+            # cuentan como respuesta; solo inflarian las tasas). Cabeceras
+            # RFC 3834 + remitentes no humanos + asuntos tipicos.
+            asunto_low = (correo.get("asunto") or "").lower()
+            if (correo.get("auto")
+                    or de.startswith(("no-reply", "noreply", "no_reply",
+                                      "mailer-daemon", "postmaster"))
+                    or any(s in asunto_low for s in _ASUNTOS_AUTO)):
                 continue
             for ws in WORKSPACES:
                 slice_ws = data.setdefault(ws, {})

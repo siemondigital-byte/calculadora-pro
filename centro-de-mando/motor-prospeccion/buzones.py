@@ -170,12 +170,22 @@ def leer_bandeja(buzon_email=None, desde_uid=0, max_correos=200):
             if not crudo:
                 continue
             mensaje = email_mod.message_from_bytes(crudo)
+            # marca de AUTORESPUESTA por cabeceras estandar (RFC 3834): estas
+            # respuestas no son humanas y solo inflan las tasas si se cuentan
+            auto_sub = str(mensaje.get("Auto-Submitted", "")).lower().strip()
+            preced = str(mensaje.get("Precedence", "")).lower()
+            es_auto = bool(
+                (auto_sub and auto_sub != "no")
+                or preced in ("auto_reply", "bulk", "junk")
+                or mensaje.get("X-Autoreply") or mensaje.get("X-Autorespond")
+            )
             resultado.append({
                 "uid": uid,
                 "de": parseaddr(mensaje.get("From", ""))[1].lower(),
                 "asunto": _decodificar(mensaje.get("Subject", "")),
                 "texto": _extraer_texto(mensaje)[:4000],
                 "fecha": mensaje.get("Date", ""),
+                "auto": es_auto,
             })
     finally:
         try:

@@ -29,6 +29,9 @@ services:
       - TOKEN_SECRET=${TOKEN_SECRET:?definir en .env}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_MODEL=claude-sonnet-5
+      # backend de datos: 'json' (legado) o 'sqlite' (crm.db + espejo crm.json).
+      # Se cambia en el .env del VPS cuando la migracion este verificada.
+      - CRM_BACKEND=${CRM_BACKEND:-json}
       - MOTOR_URL=${MOTOR_URL:-https://motor.atlantisglobalrealty.com}
       # push web: la privada es la RUTA al PEM dentro del volumen /data
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}

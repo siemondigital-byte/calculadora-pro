@@ -27,6 +27,8 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
   const selInit = useRef(false);
   const toggleRed = (i) => setSelRedes((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
   const [copysRed, setCopysRed] = useState({});    // copy propio por red: { instagram: "...", linkedin: "..." }
+  const [adapt, setAdapt] = useState({});          // adaptación por red: { linkedin: {formato, razon, pieza} }
+  const [adaptBusy, setAdaptBusy] = useState(false);
   const [genRedBusy, setGenRedBusy] = useState("");
   const [langRed, setLangRed] = useState({});      // idioma por red: { bluesky: "en", ... }
   const langDe = (netId) => langRed[netId] || ((netId || "").toLowerCase().includes("bluesky") ? "en" : "es");
@@ -229,6 +231,29 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
     if (!tema.trim()) return flash("Escribe el tema arriba primero.");
     for (const net of nets) { /* eslint-disable-next-line no-await-in-loop */ await generarRed(net.id, net.label || net.id); }
   }
+  // Adaptador por red: UNA idea → formato ideal + copy nativo + plan de pieza por red
+  async function adaptarRedes() {
+    const nets = netsSeleccionadas();
+    if (!nets.length) return flash("Elige al menos una red.");
+    if (!tema.trim()) return flash("Escribe el tema arriba primero.");
+    setAdaptBusy(true);
+    try {
+      const r = await fetch(MOTOR + "/contenido/adaptar", {
+        method: "POST", headers: { "content-type": "application/json", Authorization: "Bearer " + getToken() },
+        body: JSON.stringify({ idea: tema, redes: nets.map((n) => n.id) }),
+      });
+      const d = await r.json();
+      if (d.ok && Array.isArray(d.adaptaciones)) {
+        const mapa = {};
+        const copies = {};
+        d.adaptaciones.forEach((a) => { mapa[a.red] = a; if (a.copy) copies[a.red] = a.copy; });
+        setAdapt(mapa);
+        setCopysRed((m) => ({ ...m, ...copies }));
+        flash("Adaptado: cada red tiene su formato y su copy. Revisa y ajusta.");
+      } else flash(d.detail || d.error || "No pude adaptar la idea.");
+    } catch { flash("No pude conectar con el motor."); }
+    finally { setAdaptBusy(false); }
+  }
   function mkItem(net, estado, extra = {}) {
     const id = uid();
     const utmCampaign = "pub_" + id.slice(0, 8);
@@ -256,7 +281,7 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
     }
     if (nuevos.length) commit({ ...data, [ws]: { ...data[ws], publicaciones: [...nuevos, ...publicaciones] } });
     setPubBusy(false);
-    if (ok) { setSubtab("publicaciones"); setMediaUrl(""); setMediaUrls([]); setCopysRed({}); }
+    if (ok) { setSubtab("publicaciones"); setMediaUrl(""); setMediaUrls([]); setCopysRed({}); setAdapt({}); }
     flash(ok ? `Publicado en ${ok} red(es). Aparece en Publicaciones (tarda 1-2 min en salir en la red).${errs.length ? " Fallaron: " + errs.join(" · ") : ""}` : "No se publicó. " + errs.join(" · "));
   }
   async function programar() {
@@ -282,7 +307,7 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
     }
     if (nuevos.length) commit({ ...data, [ws]: { ...data[ws], publicaciones: [...nuevos, ...publicaciones] } });
     setPubBusy(false);
-    if (ok) { setSubtab("publicaciones"); setMediaUrl(""); setMediaUrls([]); setCopysRed({}); }
+    if (ok) { setSubtab("publicaciones"); setMediaUrl(""); setMediaUrls([]); setCopysRed({}); setAdapt({}); }
     flash(ok ? `Programado en ${ok} red(es) para ${fechaProg}.${!postizOn ? " (se enviarán al conectar Postiz)" : ""}${errs.length ? " Fallaron: " + errs.join(" · ") : ""}` : "No se programó. " + errs.join(" · "));
   }
 
@@ -382,9 +407,12 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
           </div>
           {selRedes.length > 0 && (
             <div className="mt-4 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <label style={{ color: C.ash, fontFamily: MONO }} className="fs-10 uppercase">Copy por red · genera, edita o déjalo así</label>
-                <button onClick={generarTodasRed} disabled={!!genRedBusy} style={{ color: C.aether2, opacity: genRedBusy ? 0.6 : 1 }} className="fs-10 inline-flex items-center gap-1"><Sparkles size={11} /> {genRedBusy ? "generando…" : "Generar todas"}</button>
+                <div className="flex items-center gap-3">
+                  <button onClick={adaptarRedes} disabled={adaptBusy} title="Decide el formato ideal por red (imagen/carrusel/video/texto) y escribe el copy nativo" style={{ color: C.aether2, opacity: adaptBusy ? 0.6 : 1 }} className="fs-10 inline-flex items-center gap-1"><Sparkles size={11} /> {adaptBusy ? "adaptando…" : "Adaptar por red (formato + copy)"}</button>
+                  <button onClick={generarTodasRed} disabled={!!genRedBusy} style={{ color: C.aether2, opacity: genRedBusy ? 0.6 : 1 }} className="fs-10 inline-flex items-center gap-1"><Sparkles size={11} /> {genRedBusy ? "generando…" : "Generar todas"}</button>
+                </div>
               </div>
               {netsSeleccionadas().map((net) => (
                 <div key={net.id} style={{ background: C.carbon, border: `1px solid ${C.line}` }} className="rounded-lg p-3">
@@ -400,6 +428,21 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
                       <button onClick={() => generarRed(net.id, net.label || net.id)} disabled={genRedBusy === net.id} style={{ color: C.aether2, opacity: genRedBusy === net.id ? 0.6 : 1 }} className="fs-10 inline-flex items-center gap-1"><Sparkles size={11} /> {genRedBusy === net.id ? "generando…" : (copysRed[net.id] ? "regenerar" : "generar")}</button>
                     </div>
                   </div>
+                  {adapt[net.id] && (
+                    <div style={{ color: C.ash }} className="fs-10 mb-1.5 leading-snug">
+                      <span style={{ color: C.aether2, fontWeight: 600 }} className="uppercase">{adapt[net.id].formato}</span>
+                      {adapt[net.id].pieza?.lienzo ? ` · ${adapt[net.id].pieza.lienzo}` : ""} · {adapt[net.id].razon}
+                      {adapt[net.id].formato === "carrusel" && (adapt[net.id].pieza?.laminas || []).length > 0 && (
+                        <span> · {(adapt[net.id].pieza.laminas || []).length} láminas: {(adapt[net.id].pieza.laminas || []).map((l) => l.titulo).filter(Boolean).join(" / ")}</span>
+                      )}
+                      {adapt[net.id].formato === "video" && (adapt[net.id].pieza?.guion || []).length > 0 && (
+                        <span> · guion de {(adapt[net.id].pieza.guion || []).length} escenas</span>
+                      )}
+                      {adapt[net.id].formato === "imagen" && adapt[net.id].pieza?.titulo && (
+                        <span> · lienzo: “{adapt[net.id].pieza.titulo}”</span>
+                      )}
+                    </div>
+                  )}
                   <textarea value={copysRed[net.id] || ""} onChange={(e) => setCopysRed((m) => ({ ...m, [net.id]: e.target.value }))} placeholder={`Copy para ${net.label || net.id}. Pulsa "generar" o escríbelo tú.`} style={{ ...inS, minHeight: 88, whiteSpace: "pre-wrap", lineHeight: 1.5 }} />
                 </div>
               ))}

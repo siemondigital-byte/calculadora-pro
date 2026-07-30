@@ -43,10 +43,17 @@ export async function login(clave) {
   return true;
 }
 
+// Blindaje anti-pisado (nucleo Siemon #105): esta ventana recuerda la version
+// que leyo (_rev) y la manda como _baseRev en cada guardado. Si otra ventana
+// guardo entre medio, el motor hace union por id en vez de dejar que esta copia
+// vieja borre lo de la otra.
+let _rev = null;
+
 export async function loadData() {
   const r = await fetch(`${MOTOR}/crm/data`, { headers: cabeceras() });
   if (!r.ok) throw new Error(`GET /crm/data ${r.status}`);
   const j = await r.json();
+  if (j && j.rev != null) _rev = j.rev;
   return j.data || seed();
 }
 
@@ -54,9 +61,13 @@ export async function saveData(data) {
   const r = await fetch(`${MOTOR}/crm/data`, {
     method: "PUT",
     headers: cabeceras(),
-    body: JSON.stringify({ data }), // SIEMPRE el objeto completo
+    body: JSON.stringify({ data: { ...data, _baseRev: _rev } }), // SIEMPRE el objeto completo
   });
   if (!r.ok) throw new Error(`PUT /crm/data ${r.status}`);
+  // solo se avanza la version si el motor confio en esta copia tal cual; si hubo
+  // fusion (fusionado:true) la ventana sigue "vieja" hasta recargar datos.
+  const j = await r.json().catch(() => null);
+  if (j && j.rev != null && !j.fusionado) _rev = j.rev;
 }
 
 export async function guardarSecreto(clave, valor) {

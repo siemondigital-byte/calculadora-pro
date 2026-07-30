@@ -138,6 +138,37 @@ export default function AdsView({ data, commit, ws }) {
     try { navigator.clipboard.writeText(t); flash("Plan copiado (pégalo donde lo montes)."); } catch {}
   }
 
+  // --- Generador de campañas completas por plataforma (núcleo Siemon #102) ---
+  const campFull = data[ws].adsCampanaFull || null;
+  const [campPlats, setCampPlats] = useState(["meta", "google"]);
+  const [campPresu, setCampPresu] = useState(10);
+  const [campLanding, setCampLanding] = useState("");
+  const [busyCamp, setBusyCamp] = useState(false);
+  async function generarCampana() {
+    if (!tema.trim()) return flash("Escribe primero el tema/oferta de la campaña (arriba).");
+    if (!campPlats.length) return flash("Elige al menos una plataforma.");
+    setBusyCamp(true);
+    try {
+      const r = await fetch(MOTOR + "/ads/campana", { method: "POST", headers: H(), body: JSON.stringify({ oferta: tema, presupuesto_dia: Number(campPresu) || 10, plataformas: campPlats, landing: campLanding.trim() || undefined }) });
+      const d = await r.json();
+      if (!d.ok) return flash("No pude generar la campaña: " + (d.detail || d.error || ""));
+      patch({ adsCampanaFull: { ...d, fecha: new Date().toISOString().slice(0, 10) } });
+      flash("Campaña nativa lista por plataforma: estructura, públicos, anuncios y piezas.");
+    } catch { flash("No pude conectar con el motor."); }
+    finally { setBusyCamp(false); }
+  }
+  function copiarBrief(c) {
+    const lineas = [
+      `CAMPAÑA ${c.plataforma.toUpperCase()} · ${c.nombre} · objetivo ${c.objetivo} · $${c.presupuesto_dia}/día`,
+      "\n== ESTRUCTURA ==",
+      ...(c.estructura || []).map((g, i) => `Grupo ${i + 1}: ${g.nombre} · $${g.presupuesto_dia}/día\n  ${g.publico || (g.keywords || []).join(", ")}\n  Por qué: ${g.por_que}`),
+      "\n== ANUNCIOS ==",
+      ...(c.anuncios || []).map((a) => `[${(a.temperatura || "").toUpperCase()}] ${a.nombre}\nTexto: ${a.texto_principal}\nTitulares: ${(a.titulares || []).join(" | ")}${(a.descripciones || []).length ? `\nDescripciones: ${a.descripciones.join(" | ")}` : ""}\nCTA: ${a.cta} · Pieza: ${a.pieza?.tipo} ${a.pieza?.lienzo}${a.pieza?.titulo ? ` · "${a.pieza.titulo}"` : ""}\n`),
+      ...(c.notas || []).length ? ["== NOTAS DE CUMPLIMIENTO ==", ...(c.notas || []).map((n) => `- ${n}`)] : [],
+    ];
+    try { navigator.clipboard.writeText(lineas.join("\n")); flash("Brief copiado (pégalo en el administrador de anuncios)."); } catch {}
+  }
+
   async function cargar() { try { const r = await fetch(MOTOR + "/ads/config", { headers: H() }); setCfg(await r.json()); } catch {} }
   useEffect(() => { cargar(); }, []);
 
@@ -309,6 +340,65 @@ export default function AdsView({ data, commit, ws }) {
             ? <span style={{ color: C.ok }} className="fs-11">✓ Análisis del {audit.fecha} ({audit.global}/100) · sus hallazgos fundamentan el plan de abajo</span>
             : <span style={{ color: C.ash }} className="fs-11">Sin análisis aún: el plan saldrá genérico. Córrelo en Estudio de mercado → Análisis e insights.</span>}
         </div>
+      </div>
+
+      {/* generador de campañas completas por plataforma (núcleo Siemon #102) */}
+      <div style={{ background: C.panel, border: `1px solid ${C.line}` }} className="rounded-xl p-4 mb-5">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <div style={{ color: C.aether500, fontFamily: MONO, letterSpacing: "0.16em" }} className="fs-10 uppercase flex items-center gap-1.5"><Rocket size={12} color={C.aether} /> Campaña completa por plataforma</div>
+          <button onClick={generarCampana} disabled={busyCamp} style={{ background: campFull ? "transparent" : C.aether, color: campFull ? C.aether2 : C.obsidian, border: `1px solid ${C.aetherLine}`, fontWeight: 600, opacity: busyCamp ? 0.6 : 1 }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg fs-12"><Sparkles size={13} /> {busyCamp ? "Armando…" : campFull ? "Regenerar" : "Generar campaña"}</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          {["meta", "google", "linkedin", "tiktok"].map((p) => {
+            const on = campPlats.includes(p);
+            return <button key={p} onClick={() => setCampPlats(on ? campPlats.filter((x) => x !== p) : [...campPlats, p])} style={{ background: on ? C.aetherSoft : C.carbon, border: `1px solid ${on ? C.aetherLine : C.line}`, color: on ? C.aether2 : C.mist }} className="px-2.5 py-1 rounded-lg fs-11 capitalize">{p}</button>;
+          })}
+          <label style={{ color: C.ash, fontFamily: MONO }} className="fs-10 uppercase ml-2">$/día total</label>
+          <input type="number" min="3" value={campPresu} onChange={(e) => setCampPresu(e.target.value)} style={{ background: C.carbon, border: `1px solid ${C.line}`, color: C.cream, width: 70 }} className="rounded-lg px-2 py-1 fs-12" />
+          <input value={campLanding} onChange={(e) => setCampLanding(e.target.value)} placeholder="Landing (vacío = atlantisglobalrealty.com)" style={{ background: C.carbon, border: `1px solid ${C.line}`, color: C.cream, minWidth: 220 }} className="rounded-lg px-2 py-1 fs-12 flex-1" />
+        </div>
+        {!campFull ? (
+          <div style={{ color: C.ash }} className="fs-11 leading-snug">Con la oferta de arriba arma la campaña NATIVA de cada plataforma: estructura de conjuntos o grupos, públicos o keywords, presupuesto repartido, 2-3 anuncios con sus variantes de copy y el plan de cada pieza creativa. Lista para copiar el brief al administrador de anuncios.</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div style={{ color: C.ash, fontFamily: MONO }} className="fs-10">{campFull.oferta} · {campFull.fecha} · landing: {campFull.landing}</div>
+            {(campFull.campanas || []).map((c, i) => (
+              <div key={i} style={{ background: C.carbon, border: `1px solid ${C.line}` }} className="rounded-lg p-3">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                  <div style={{ color: C.aether2, fontWeight: 600 }} className="fs-12 uppercase">{c.plataforma} · {c.nombre} · {c.objetivo} · ${c.presupuesto_dia}/día</div>
+                  <button onClick={() => copiarBrief(c)} style={{ color: C.aether2 }} className="inline-flex items-center gap-1 fs-11"><Copy size={12} /> Copiar brief</button>
+                </div>
+                <div className="grid lg:grid-cols-2 gap-3">
+                  <div>
+                    <div style={{ color: C.aether500, fontFamily: MONO }} className="fs-9 uppercase mb-1.5">// Estructura</div>
+                    {(c.estructura || []).map((g, j) => (
+                      <div key={j} style={{ borderLeft: `2px solid ${C.aetherLine}` }} className="pl-2 mb-1.5">
+                        <div style={{ color: C.cream }} className="fs-11"><b>{g.nombre}</b> · ${g.presupuesto_dia}/día</div>
+                        <div style={{ color: C.mist }} className="fs-10">{g.publico || (g.keywords || []).join(", ")}</div>
+                        <div style={{ color: C.ash }} className="fs-10">{g.por_que}</div>
+                      </div>
+                    ))}
+                    {(c.notas || []).length > 0 && (<>
+                      <div style={{ color: C.aether500, fontFamily: MONO }} className="fs-9 uppercase mt-2 mb-1">// Cumplimiento</div>
+                      {(c.notas || []).map((n, j) => <div key={j} style={{ color: C.warn }} className="fs-10">• {n}</div>)}
+                    </>)}
+                  </div>
+                  <div>
+                    <div style={{ color: C.aether500, fontFamily: MONO }} className="fs-9 uppercase mb-1.5">// Anuncios</div>
+                    {(c.anuncios || []).map((a, j) => (
+                      <div key={j} style={{ background: C.panel, border: `1px solid ${C.line}` }} className="rounded p-2 mb-1.5">
+                        <div style={{ color: C.cream, fontWeight: 600 }} className="fs-10">{a.nombre} <span style={{ color: C.ash }} className="uppercase">· {a.temperatura}</span></div>
+                        <div style={{ color: C.mist }} className="fs-10 mt-1 leading-snug">{a.texto_principal}</div>
+                        {(a.titulares || []).length > 0 && <div style={{ color: C.cream }} className="fs-10 mt-1">Titulares: {(a.titulares || []).join(" | ")}</div>}
+                        <div style={{ color: C.ash }} className="fs-10 mt-0.5">CTA: {a.cta} · pieza: {a.pieza?.tipo} {a.pieza?.lienzo}{a.pieza?.titulo ? ` · "${a.pieza.titulo}"` : ""}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* plan de lanzamiento (skill ads: testeo controlado + awareness amplio) */}
