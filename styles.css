@@ -457,6 +457,21 @@ a { color: inherit; }
 .scen-verdict.mid { border-left-color: rgba(215,215,217,0.5); background: rgba(215,215,217,0.05); color: var(--gray); }
 
 /* 5 P — deal quality checklist */
+/* Fase del ciclo · propiedades por ronda */
+.pn-fase { margin: 14px 0 4px; }
+.pn-fase-eyebrow { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.pn-fase-track { display: flex; gap: 8px; }
+.pn-fase-step {
+  flex: 1; text-align: center; padding: 10px 6px; border-radius: 10px;
+  background: rgba(215,215,217,0.05); border: 1px solid var(--hairline);
+  opacity: .5;
+}
+.pn-fase-step.on { opacity: 1; }
+.pn-fase-step.cur { border-color: #E6C788; background: rgba(230,199,136,0.10); }
+.pn-fase-n { display: block; font-size: 20px; font-weight: 700; color: var(--cream); }
+.pn-fase-step.cur .pn-fase-n { color: #E6C788; }
+.pn-fase-lbl { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
 /* Gasto de Libertad por categorías */
 .lc-details { margin-top: 8px; }
 .lc-details > summary {

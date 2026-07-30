@@ -763,12 +763,27 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
           '</div>' +
         '</div>';
       }).join('');
+      // Nº de propiedades por ciclo (Cap. 18): fase según poder de inversión.
+      // Escalamiento 1-2 → Recapitalización 2-3 → Consolidación 4-5.
+      var poder = c.poderInversion || 0;
+      var faseIdx = poder >= 300000 ? 2 : (poder >= 120000 ? 1 : 0);
+      var faseNombres = [L.pnFaseEscal, L.pnFaseRecap, L.pnFaseConsol];
+      var faseRangos = ['1–2', '2–3', '4–5'];
+      var faseSteps = [0, 1, 2].map(function (i) {
+        return '<div class="pn-fase-step' + (i <= faseIdx ? ' on' : '') + (i === faseIdx ? ' cur' : '') + '">' +
+          '<span class="pn-fase-n">' + faseRangos[i] + '</span>' +
+          '<span class="pn-fase-lbl">' + escapeHtml(faseNombres[i]) + '</span></div>';
+      }).join('');
+      var faseHtml = '<div class="pn-fase"><div class="pn-fase-eyebrow">' + escapeHtml(L.pnFaseTitulo) + '</div>' +
+        '<div class="pn-fase-track">' + faseSteps + '</div>' +
+        '<p class="card-help">' + escapeHtml(L.pnFaseNota) + '</p></div>';
       html =
         '<div class="panel card card-span pn-solo">' +
           '<div class="eyebrow">' + escapeHtml(L.pnProyectos) + '</div>' +
           '<p class="card-help card-help-mb">' + escapeHtml(L.pnProyectosHelp) + '</p>' +
           '<div class="pn-simult"><span class="pn-simult-n">' + c.nSimult + '</span>' +
           '<span class="pn-simult-lbl">' + escapeHtml(L.pnSimultaneos) + '</span></div>' +
+          faseHtml +
           '<div class="pn-mk-list">' + mkRows + '</div>' +
           '<div class="cap-poder-line sub-line"><span>' + escapeHtml(L.pnRangoTipo) + '</span>: <span>' + f.fmt(c.propiedadMax * 0.6) + ' – ' + f.fmt(c.propiedadMax) + ' USD</span></div>' +
           '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnMercadosFuente) + '</p>' +
@@ -803,6 +818,23 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
           '<div class="pn-mk-list">' + fisRows + '</div>' +
           '<div class="highlight"><span class="highlight-label">' + escapeHtml(L.pnFisExtra) + '</span>: <span class="highlight-val">+' + f.fmt(extra) + ' USD</span></div>' +
           '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnFisNota) + '</p>' +
+        '</div>';
+      // Ahorro fiscal inmediato (Cap. 25/32): aporte deducible tope 30% del
+      // ingreso (tipo AFC/AVC); el ahorro inmediato = aporte × tu tasa marginal
+      // (rango 15–40% según tramo). No es Colombia-específico: es la mecánica.
+      var afcIngAnual = (s.ingreso || 0) * 12;
+      var afcAporte = afcIngAnual * 0.30;
+      var afcMin = afcAporte * 0.15, afcMax = afcAporte * 0.40;
+      html +=
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnAfcEyebrow) + '</div>' +
+          '<p class="card-help card-help-mb">' + escapeHtml(L.pnAfcHelp) + '</p>' +
+          '<div class="pn-tiles pn-tiles-3">' +
+            tile(L.pnAfcAporte, f.fmt(afcAporte), 'USD') +
+            tile(L.pnAfcAhorro, f.fmt(afcMin) + ' – ' + f.fmt(afcMax), 'USD') +
+            tile(L.pnAfcTasa, '15–40%', '') +
+          '</div>' +
+          '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnAfcNota) + '</p>' +
         '</div>';
 
     } else if (tab === 'conclusiones') {
