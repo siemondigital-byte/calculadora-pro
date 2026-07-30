@@ -6,17 +6,31 @@ primeros N", y revoca el acceso en reembolso. Corre **en tu backend (n8n)** con 
 
 ## Qué hace (flujo)
 ```
-Webhook (compra) → Normalizar → ¿Acción?
-   ├─ compra    → Crear usuario Auth → registrar_compra → Enviar correo
-   ├─ reembolso → revocar_acceso
+Webhook (compra) → Normalizar (valida firma) → ¿Acción?
+   ├─ compra    → Crear usuario Auth → registrar_compra ─┬→ Enviar correo
+   │                                                     └→ Armar CRM → Sync CRM
+   ├─ reembolso → revocar_acceso → Armar CRM → Sync CRM
    └─ ignorar   → (nada)
 ```
+El *Sync CRM* corre en paralelo (no bloquea el correo) y con `onError: continue`,
+así que un CRM caído nunca rompe el alta de la compra.
 
 ## Requisitos previos
 1. Ya corriste `supabase-schema.sql` **y** `supabase-rpc.sql` en Supabase.
-2. En n8n, define dos **variables de entorno** (Settings → Variables o env):
+2. En n8n, define las **variables de entorno** (Settings → Variables o env):
    - `SUPABASE_URL` = `https://TU-PROYECTO.supabase.co`
    - `SUPABASE_SERVICE_KEY` = la **service_role** key (Project Settings → API). *Secreta.*
+   - **(Opcionales) Validación de firma del checkout** — si las defines, el nodo
+     *Normalizar* rechaza webhooks con firma inválida (accion → `ignorar`); si no,
+     no valida (compatible con lo anterior):
+     - `HOTMART_HOTTOK` = el *hottok* de tu webhook de Hotmart.
+     - `THRIVECART_SECRET` = el *shared secret* de ThriveCart (Settings → Webhooks & API).
+     - `CLICKBANK_SECRET` = tu secret de ClickBank *(placeholder: implementa el algoritmo
+       exacto de `cverify` de tu cuenta en el nodo si lo activas; por defecto no bloquea)*.
+   - **(Opcionales) Sincronización con el CRM (Centro de Mando)**:
+     - `CRM_WEBHOOK_URL` = URL del webhook de entrada de tu CRM. Si está vacío, el nodo
+       *Sync CRM* no hace nada (el alta de compra sigue igual).
+     - `CRM_WEBHOOK_TOKEN` = token Bearer opcional para autenticar contra el CRM.
 
 ## Instalar
 1. n8n → **Workflows → Import from File** → `n8n-compra-crd.json`.
@@ -51,6 +65,29 @@ Webhook (compra) → Normalizar → ¿Acción?
 
 Todos llevan cabeceras `apikey` y `Authorization: Bearer` con `SUPABASE_SERVICE_KEY`.
 
+## Conectar con el CRM (Centro de Mando)
+Cada compra/reembolso puede empujarse al CRM para unir **compradores de la app ↔
+leads del CRM**. Define `CRM_WEBHOOK_URL` (y opcional `CRM_WEBHOOK_TOKEN`) y el nodo
+*Sync CRM* hace un `POST` con este payload JSON:
+
+```json
+{
+  "source": "calculadora",
+  "lead_source": "Compra hotmart",
+  "email": "comprador@correo.com",
+  "nombre": "Nombre Apellido",
+  "plataforma": "hotmart",
+  "evento": "compra",            // "compra" | "reembolso"
+  "acceso_activo": true,          // false en reembolso
+  "idioma": "es",
+  "fecha": "2026-01-01T12:00:00.000Z"
+}
+```
+En el CRM, crea un webhook de entrada que haga *upsert* del lead por `email` con
+`lead_source` = "Prospección"/"Compra …" según tu convención, y que ponga el estado
+en *cliente* (o *reembolsado* si `acceso_activo=false`). Si tu CRM espera otros
+nombres de campo, ajusta el nodo *Armar CRM* (mapeo) sin tocar el resto del flujo.
+
 ## Embajadores
 Los embajadores usan el **login universal del Área de Miembros** para el contenido de
 cortesía (ya cubierto en tus correos), pero también reciben **acceso a la app**. Para
@@ -61,9 +98,11 @@ manualmente en Supabase → Authentication → Add user.
 ## Seguridad
 - La `service_role` key **solo** vive en n8n (variables de entorno). Nunca en el repo,
   el navegador o `config.js`.
-- El webhook debería validar la firma/secreto de la plataforma (Hotmart *hottok*,
-  ClickBank secret key) antes de actuar — agrégalo en *Normalizar* si tu plataforma lo
-  provee.
+- La validación de firma **ya viene integrada** en *Normalizar* para Hotmart (`hottok`)
+  y ThriveCart (shared secret): define `HOTMART_HOTTOK` / `THRIVECART_SECRET` y los
+  webhooks con firma inválida se ignoran. ClickBank queda como placeholder (implementa
+  el `cverify` exacto de tu cuenta si lo activas).
+- `CRM_WEBHOOK_URL` / `CRM_WEBHOOK_TOKEN` son secretos de integración: viven solo en n8n.
 
 ## Archivos
 - `supabase-rpc.sql` — funciones `registrar_compra`, `revocar_acceso`, `contar_compradores`.

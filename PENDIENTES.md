@@ -52,8 +52,8 @@ Prioridad: 🔴 alta · 🟡 media · 🟢 baja / cosmético.
 
 ## 3 · Integración con el ecosistema
 
-- 🟡 **Conectar la app al CRM (Centro de Mando)**: usuarios de la calculadora ↔ compradores/leads.
-- 🟡 **Checkout**: enlazar con ThriveCart / Hotmart / ClickBank (altas vía n8n ya cableadas).
+- 🟢 **Conectar la app al CRM (Centro de Mando)**: workflow n8n listo — nodos *Armar CRM* + *Sync CRM* empujan comprador/reembolso al CRM (payload documentado en `automatizacion/n8n-README.md`). Falta que configures `CRM_WEBHOOK_URL` en n8n y el webhook de entrada del CRM.
+- 🟢 **Checkout**: mapeo Hotmart/ClickBank/ThriveCart + **validación de firma** (hottok / shared secret) integrados en el nodo *Normalizar*. Falta pegar las URLs de webhook en cada plataforma y definir los secretos en n8n.
 - 🟢 **Correos n8n** (templates comprador/embajador ES/EN) que entregan las credenciales.
 
 ## 4 · Calidad de código

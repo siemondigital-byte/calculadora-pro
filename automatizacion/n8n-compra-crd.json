@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Normaliza el evento de compra de Hotmart / ClickBank / ThriveCart.\n// AJUSTA las rutas de campos a tu cuenta si tu payload difiere.\nconst b = $json.body || $json;\nlet email, nombre, evento, plataforma;\n\nif (b.data && b.data.buyer) {                 // Hotmart\n  plataforma = 'hotmart';\n  email  = b.data.buyer.email;\n  nombre = b.data.buyer.name;\n  evento = b.event;\n} else if (b.transactionType || b.receipt) {  // ClickBank\n  plataforma = 'clickbank';\n  email  = (b.customer && b.customer.billing && b.customer.billing.email) || b.email;\n  nombre = (b.customer && b.customer.billing && b.customer.billing.fullName) || b.name;\n  evento = b.transactionType;\n} else {                                       // ThriveCart u otro\n  plataforma = b.plataforma || 'thrivecart';\n  email  = b.customer_email || b.email;\n  nombre = b.customer_name  || b.name || '';\n  evento = b.event || b.order_status;\n}\n\nconst compra    = /approved|sale|success|complete|paid/i.test(evento || '');\nconst reembolso = /refund|refunded|chargeback|cgbk|rfnd|cancel|dispute/i.test(evento || '');\nconst lang = String(b.lang || b.locale || 'es').toLowerCase().startsWith('en') ? 'en' : 'es';\n\n// Contraseña segura (crypto). Requiere NODE_FUNCTION_ALLOW_BUILTIN=crypto en n8n;\n// si no está, cae a un fallback para no romper el alta.\nfunction genPass() {\n  try {\n    const crypto = require('crypto');\n    const AL = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';\n    const SIM = '!@#$%*?';\n    const pick = (set, n) => Array.from(crypto.randomBytes(n)).map(x => set[x % set.length]).join('');\n    const bruto = pick(AL, 12) + pick(SIM, 1);\n    return bruto.split('').map(c => ({ c, o: crypto.randomInt(1e6) }))\n                .sort((a, b) => a.o - b.o).map(x => x.c).join('');\n  } catch (e) {\n    const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';\n    let s = ''; for (let i = 0; i < 12; i++) s += abc[Math.floor(Math.random() * abc.length)];\n    return s + '!7';\n  }\n}\n\nreturn [{ json: {\n  email: (email || '').trim().toLowerCase(),\n  nombre: nombre || '',\n  plataforma,\n  lang,\n  password: genPass(),\n  accion: compra ? 'compra' : (reembolso ? 'reembolso' : 'ignorar')\n}}];"
+        "jsCode": "// Normaliza el evento de compra de Hotmart / ClickBank / ThriveCart y VALIDA la\n// firma/secreto de la plataforma si el env correspondiente está definido en n8n.\n// Envs opcionales: HOTMART_HOTTOK, THRIVECART_SECRET, CLICKBANK_SECRET.\nconst b = $json.body || $json;\nconst rawH = $json.headers || (b && b.headers) || {};\nconst H = {}; for (const k in rawH) H[String(k).toLowerCase()] = rawH[k];\n\nlet email, nombre, evento, plataforma, firmaOk = true;\n\nif (b.data && b.data.buyer) {                 // Hotmart\n  plataforma = 'hotmart';\n  email  = b.data.buyer.email;\n  nombre = b.data.buyer.name;\n  evento = b.event;\n  const exp = $env.HOTMART_HOTTOK;            // Herramientas → Webhook → hottok\n  if (exp) { const got = b.hottok || (b.data && b.data.hottok) || H['x-hotmart-hottok']; firmaOk = got === exp; }\n} else if (b.transactionType || b.receipt) {  // ClickBank\n  plataforma = 'clickbank';\n  email  = (b.customer && b.customer.billing && b.customer.billing.email) || b.email;\n  nombre = (b.customer && b.customer.billing && b.customer.billing.fullName) || b.name;\n  evento = b.transactionType;\n  // ClickBank INS usa 'cverify' (SHA1). Implementa el algoritmo exacto de tu cuenta\n  // aquí si defines CLICKBANK_SECRET; por defecto NO bloquea para no rechazar ventas.\n} else {                                       // ThriveCart u otro\n  plataforma = b.plataforma || 'thrivecart';\n  email  = b.customer_email || b.email;\n  nombre = b.customer_name  || b.name || '';\n  evento = b.event || b.order_status;\n  const exp = $env.THRIVECART_SECRET;         // Settings → Webhooks & API (shared secret)\n  if (exp) { const got = b.thrivecart_secret || b.secret || H['x-thrivecart-secret']; firmaOk = got === exp; }\n}\n\nconst compra    = /approved|sale|success|complete|paid/i.test(evento || '');\nconst reembolso = /refund|refunded|chargeback|cgbk|rfnd|cancel|dispute/i.test(evento || '');\nconst lang = String(b.lang || b.locale || 'es').toLowerCase().startsWith('en') ? 'en' : 'es';\n\nfunction genPass() {\n  try {\n    const crypto = require('crypto');\n    const AL = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';\n    const SIM = '!@#$%*?';\n    const pick = (set, n) => Array.from(crypto.randomBytes(n)).map(x => set[x % set.length]).join('');\n    const bruto = pick(AL, 12) + pick(SIM, 1);\n    return bruto.split('').map(c => ({ c, o: crypto.randomInt(1e6) }))\n                .sort((a, b) => a.o - b.o).map(x => x.c).join('');\n  } catch (e) {\n    const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';\n    let s = ''; for (let i = 0; i < 12; i++) s += abc[Math.floor(Math.random() * abc.length)];\n    return s + '!7';\n  }\n}\n\n// Firma inválida → se ignora (no se crea acceso). Backward-compatible: sin env, no valida.\nlet accion = compra ? 'compra' : (reembolso ? 'reembolso' : 'ignorar');\nconst motivo = firmaOk ? '' : 'firma_invalida';\nif (!firmaOk) accion = 'ignorar';\n\nreturn [{ json: {\n  email: (email || '').trim().toLowerCase(),\n  nombre: nombre || '',\n  plataforma, lang, motivo,\n  password: genPass(),\n  accion\n}}];"
       },
       "id": "n_norm",
       "name": "Normalizar",
@@ -249,6 +249,51 @@
           "name": "SMTP (Brevo/Resend)"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Empuja el comprador/lead al CRM (Centro de Mando) si CRM_WEBHOOK_URL está definido.\n// Si no lo está, devuelve [] → el flujo de compra sigue intacto (no-op).\nconst url = $env.CRM_WEBHOOK_URL;\nif (!url) return [];\nconst n = $('Normalizar').item.json;\nif (!n.email) return [];\nreturn [{ json: {\n  source: 'calculadora',\n  lead_source: 'Compra ' + (n.plataforma || ''),\n  email: n.email,\n  nombre: n.nombre || '',\n  plataforma: n.plataforma || '',\n  evento: n.accion,                        // 'compra' | 'reembolso'\n  acceso_activo: n.accion !== 'reembolso',\n  idioma: n.lang || 'es',\n  fecha: new Date().toISOString()\n}}];"
+      },
+      "id": "node-armar-crm",
+      "name": "Armar CRM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CRM_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.CRM_WEBHOOK_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "node-sync-crm",
+      "name": "Sync CRM (Centro de Mando)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        380
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -317,6 +362,11 @@
             "node": "Armar bienvenida",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Armar CRM",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -326,6 +376,28 @@
         [
           {
             "node": "Enviar bienvenida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "revocar_acceso": {
+      "main": [
+        [
+          {
+            "node": "Armar CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar CRM": {
+      "main": [
+        [
+          {
+            "node": "Sync CRM (Centro de Mando)",
             "type": "main",
             "index": 0
           }
