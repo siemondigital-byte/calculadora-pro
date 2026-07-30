@@ -29,6 +29,8 @@ services:
       - TOKEN_SECRET=${TOKEN_SECRET:?definir en .env}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_MODEL=claude-sonnet-5
+      # respaldo gratis de IA (Gemini) cuando Anthropic queda sin saldo
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # backend de datos: 'json' (legado) o 'sqlite' (crm.db + espejo crm.json).
       # Se cambia en el .env del VPS cuando la migracion este verificada.
       - CRM_BACKEND=${CRM_BACKEND:-json}

@@ -16,6 +16,7 @@ VAULT_PATH = os.path.join(DATA_DIR, "secretos.json")
 
 _SECRETOS_PERMITIDOS = {
     "FAL_API_KEY",
+    "GEMINI_API_KEY",   # respaldo gratis de IA cuando Anthropic queda sin saldo
     "POSTIZ_API_KEY",
     "FB_CAPI_TOKEN",
     "FB_PIXEL_ID",

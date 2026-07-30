@@ -197,6 +197,113 @@ def _sin_em_dash(texto):
     return _EM_DASH.sub(", ", texto or "")
 
 
+def _sin_saldo(err):
+    """La API de Anthropic quedo sin creditos (o clave invalida/ausente)."""
+    e = (err or "").lower()
+    return ("credit balance" in e or "billing" in e or "authentication_error" in e
+            or "invalid x-api-key" in e or "could not resolve authentication" in e)
+
+
+def _gemini_texto(prompt, max_tokens=3000):
+    """RESPALDO GRATIS (portado del nucleo Siemon): Gemini capa gratuita cuando
+    Anthropic no tiene saldo. Misma interfaz de texto; los generadores no se
+    enteran del cambio. Clave GEMINI_API_KEY en el entorno o en Accesos."""
+    import httpx as _hx
+    claves = [k for k in (secretos.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", ""),) if k]
+    if not claves:
+        return "", "sin_gemini_key"
+    ult = ""
+    for key in claves:
+        # cada modelo tiene su PROPIA cuota gratis diaria: si uno da 429 se prueba el siguiente
+        for modelo in ("gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash"):
+            try:
+                r = _hx.post(
+                    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                    headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+                    json={"model": modelo,
+                          "messages": [{"role": "user", "content": prompt}],
+                          "reasoning_effort": "low",
+                          "max_tokens": max(int(max_tokens) * 2, 4000)},
+                    timeout=150,
+                )
+                d = r.json()
+                if r.status_code < 300:
+                    txt = (d.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
+                    if txt:
+                        return txt, ""
+                ult = str(d)[:150]
+                if r.status_code != 429 and "quota" not in ult.lower():
+                    break
+            except Exception as e:  # noqa: BLE001
+                ult = str(e)[:120]
+    return "", ult
+
+
+def _instalar_respaldo_anthropic():
+    """RESPALDO EN LA RAIZ: envuelve el cliente de Anthropic para que TODA llamada
+    del motor caiga sola a Gemini gratis cuando no hay saldo."""
+    import anthropic as _an
+    if getattr(_an, "_atlantis_respaldo", False):
+        return
+    _original = _an.Anthropic
+
+    class _Bloque:
+        type = "text"
+
+        def __init__(self, t):
+            self.text = t
+
+    class _Resp:
+        def __init__(self, t):
+            self.content = [_Bloque(t)]
+            self.stop_reason = "end_turn"
+            self.role = "assistant"
+            self.usage = None
+
+    class _MensajesConRespaldo:
+        def __init__(self, real):
+            self._real = real
+
+        def __getattr__(self, n):
+            return getattr(self._real, n)
+
+        def create(self, **kw):
+            try:
+                return self._real.create(**kw)
+            except Exception as e:  # noqa: BLE001
+                if not _sin_saldo(str(e)):
+                    raise
+                prompt = ""
+                for m in kw.get("messages", []):
+                    c = m.get("content")
+                    if isinstance(c, str):
+                        prompt += c + "\n"
+                sysm = kw.get("system") or ""
+                if not isinstance(sysm, str):
+                    sysm = ""
+                txt, _err = _gemini_texto((sysm + "\n\n" + prompt).strip(), kw.get("max_tokens", 2000))
+                if not txt:
+                    raise
+                return _Resp(txt)
+
+    class _ClienteConRespaldo:
+        def __init__(self, *a, **kw):
+            self._c = _original(*a, **kw)
+            self.messages = _MensajesConRespaldo(self._c.messages)
+
+        def __getattr__(self, n):
+            return getattr(self._c, n)
+
+    _an.Anthropic = _ClienteConRespaldo
+    _an._atlantis_respaldo = True
+
+
+try:
+    _instalar_respaldo_anthropic()
+except Exception:  # noqa: BLE001
+    pass
+
+
 def _claude_json(prompt, max_tokens=4000, model=None, reintentos=2, system=None):
     """Extrae el primer JSON de la respuesta de Claude.
 
