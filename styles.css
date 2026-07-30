@@ -473,6 +473,7 @@ a { color: inherit; }
 .tri-item.ok .tri-mark { background: #6FCF97; }
 .tri-item.no .tri-mark { background: #E0A458; }
 .tri-state { flex-shrink: 0; font-weight: 700; }
+.tri-item .switch { flex-shrink: 0; }
 .tri-item.ok .tri-state { color: #6FCF97; }
 .tri-item.no .tri-state { color: #E0A458; }
 

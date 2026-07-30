@@ -39,18 +39,21 @@ export function defaultProjects() {
         entryModel: 'cero', entradaPremium: 12, exitStrategy: 'flip', rentaBruta: 9, ocupacion: 75,
         costoCierre: 4, margenError: 15, vehiculo: 'dubai', taxRate: 0, diferimiento: true, devaluacion: 0,
         finType: 'constructora', finTasa: 0, finPlazo: 6, ltvMax: 70, prepagoPct: 1, gestionPasiva: true, respaldoVerificado: true,
+        devEntregados: true, devPreventa: true, devRespaldo: true, devPresion: false,
         p5: { punto: 2, precio: 2, producto: 2, proceso: 1, personas: 2, proposito: 2 } },
       { id: uid(), name: 'El Poblado', location: 'Medellín, Colombia', moneda: 'COP',
         valor: 90000, inicialPct: 30, planMeses: 30, valorizacion: 9,
         entryModel: 'cero', entradaPremium: 12, exitStrategy: 'cesion', rentaBruta: 11, ocupacion: 70,
         costoCierre: 3, margenError: 15, vehiculo: 'colombia', taxRate: 10, diferimiento: true, devaluacion: 8,
         finType: 'banco', finTasa: 12, finPlazo: 20, ltvMax: 60, prepagoPct: 0, gestionPasiva: true, respaldoVerificado: false,
+        devEntregados: true, devPreventa: false, devRespaldo: true, devPresion: false,
         p5: { punto: 2, precio: 1, producto: 2, proceso: 2, personas: 2, proposito: 2 } },
       { id: uid(), name: 'Punta Cana', location: 'Rep. Dominicana', moneda: 'USD',
         valor: 150000, inicialPct: 20, planMeses: 24, valorizacion: 10,
         entryModel: 'marcha', entradaPremium: 12, exitStrategy: 'renta', rentaBruta: 14, ocupacion: 82,
         costoCierre: 3, margenError: 15, vehiculo: 'rd', taxRate: 0, diferimiento: true, devaluacion: 0,
         finType: 'banco', finTasa: 8, finPlazo: 20, ltvMax: 70, prepagoPct: 2, gestionPasiva: true, respaldoVerificado: true,
+        devEntregados: true, devPreventa: true, devRespaldo: true, devPresion: false,
         p5: { punto: 2, precio: 2, producto: 2, proceso: 2, personas: 2, proposito: 2 } }
     ];
   }
@@ -58,7 +61,8 @@ export function defaultProjects() {
 export var PROJECT_FIELDS = ['id', 'name', 'location', 'moneda', 'valor', 'inicialPct', 'planMeses',
     'valorizacion', 'entryModel', 'entradaPremium', 'exitStrategy', 'rentaBruta', 'ocupacion',
     'costoCierre', 'margenError', 'vehiculo', 'taxRate', 'diferimiento', 'devaluacion',
-    'finType', 'finTasa', 'finPlazo', 'ltvMax', 'prepagoPct', 'gestionPasiva', 'respaldoVerificado', 'p5'];
+    'finType', 'finTasa', 'finPlazo', 'ltvMax', 'prepagoPct', 'gestionPasiva', 'respaldoVerificado',
+    'devEntregados', 'devPreventa', 'devRespaldo', 'devPresion', 'p5'];
 
   /* Vehículos fiscales / jurisdicciones (Cap. 25/26/41-47). Al elegir uno se
      fija la tasa de ganancia y se activa el diferimiento donde aplica. */

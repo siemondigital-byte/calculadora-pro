@@ -314,6 +314,19 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       : { text: (!triC1 ? L.triNoRent : !triC3 ? L.triNoResp : L.triNoGest), cls: 'warn' };
     var triangulo = { c1: triC1, c2: triC2, c3: triC3, all: triAll, verdict: triVerdict };
 
+    // Salud del desarrollador / señales de alerta (Cap. 50/52): tres señales
+    // positivas (5+ entregas, >60% preventa, respaldo fiduciario) y dos banderas
+    // rojas (penalidad de prepago > 3% — automática — y presión de compra 24-48h).
+    var devPenalHigh = (p.prepagoPct || 0) > 3;
+    var devPos = (p.devEntregados ? 1 : 0) + (p.devPreventa ? 1 : 0) + (p.devRespaldo ? 1 : 0);
+    var devRed = (devPenalHigh ? 1 : 0) + (p.devPresion ? 1 : 0);
+    var devVerdict = devRed > 0 ? { text: L.devAlerta, cls: 'warn' }
+      : (devPos === 3 ? { text: L.devSano, cls: '' } : { text: L.devParcial, cls: 'mid' });
+    var scorecard = {
+      entregados: !!p.devEntregados, preventa: !!p.devPreventa, respaldo: !!p.devRespaldo,
+      penalOk: !devPenalHigh, presionOk: !p.devPresion, pos: devPos, red: devRed, verdict: devVerdict
+    };
+
     // --- project comparison (viability of each project the user added) ---
     var projView = s.projects.map(function (pr) {
       var bz = dealBasis(pr, H);
@@ -358,7 +371,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       chartPts: pts, chartArea: chartArea, axisYears: axisYears,
       chartStart: { x: X(0), y: Y(vals[0]) }, chartEnd: { x: X(Hp), y: Y(vals[Hp]) }, endVal: vals[Hp],
       scenarios: scenarios, maxScenTir: maxScenTir, reglaOro: reglaOro,
-      p5: p5, p5Verdict: p5Verdict, triangulo: triangulo,
+      p5: p5, p5Verdict: p5Verdict, triangulo: triangulo, scorecard: scorecard,
       projView: projView, maxTir: maxTir
     };
   }
@@ -1232,7 +1245,8 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         entryModel: 'cero', entradaPremium: 12, exitStrategy: 'flip', rentaBruta: 8, ocupacion: 70,
         costoCierre: 3, margenError: 15, vehiculo: 'otro', taxRate: 30, diferimiento: true, devaluacion: 0,
         finType: 'banco', finTasa: 10, finPlazo: 20, ltvMax: 70, prepagoPct: 0,
-        gestionPasiva: false, respaldoVerificado: false, p5: defaultP5() };
+        gestionPasiva: false, respaldoVerificado: false,
+        devEntregados: false, devPreventa: false, devRespaldo: false, devPresion: false, p5: defaultP5() };
       state.projects.push(np);
       state.activeId = np.id;
       commit();
@@ -1567,6 +1581,20 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     var triv = $('tri-verdict');
     if (triv) { triv.textContent = tri.verdict.text; triv.className = 'scen-verdict' + (tri.verdict.cls ? ' ' + tri.verdict.cls : ''); }
 
+    // Salud del desarrollador / scorecard
+    var sc = c.scorecard;
+    [['dev-entregados', sc.entregados], ['dev-preventa', sc.preventa], ['dev-respaldo', sc.respaldo],
+     ['dev-penal', sc.penalOk], ['dev-presion', sc.presionOk]].forEach(function (pair) {
+      var li = $(pair[0]); if (li) li.className = 'tri-item ' + (pair[1] ? 'ok' : 'no');
+    });
+    setText('dev-penal-state', sc.penalOk ? '✓' : '⚠');
+    [['dev-entregados-tg', !!p.devEntregados], ['dev-preventa-tg', !!p.devPreventa],
+     ['dev-respaldo-tg', !!p.devRespaldo], ['dev-presion-tg', !!p.devPresion]].forEach(function (pair) {
+      var t = $(pair[0]); if (t) { t.classList.toggle('on', pair[1]); t.setAttribute('aria-checked', pair[1] ? 'true' : 'false'); }
+    });
+    var devv = $('dev-verdict');
+    if (devv) { devv.textContent = sc.verdict.text; devv.className = 'scen-verdict' + (sc.verdict.cls ? ' ' + sc.verdict.cls : ''); }
+
     // project comparison
     var list = $('market-list');
     list.innerHTML = '';
@@ -1643,6 +1671,10 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     $('dif-toggle').addEventListener('click', function () { var p = activeProject(); p.diferimiento = !p.diferimiento; commit(); });
     if ($('tri-gest-toggle')) $('tri-gest-toggle').addEventListener('click', function () { var p = activeProject(); p.gestionPasiva = !p.gestionPasiva; commit(); });
     if ($('tri-resp-toggle')) $('tri-resp-toggle').addEventListener('click', function () { var p = activeProject(); p.respaldoVerificado = !p.respaldoVerificado; commit(); });
+    [['dev-entregados-tg', 'devEntregados'], ['dev-preventa-tg', 'devPreventa'], ['dev-respaldo-tg', 'devRespaldo'], ['dev-presion-tg', 'devPresion']]
+      .forEach(function (pair) {
+        if ($(pair[0])) $(pair[0]).addEventListener('click', function () { var p = activeProject(); p[pair[1]] = !p[pair[1]]; commit(); });
+      });
 
     // tax vehicle preset (sets tax rate + deferral for the chosen jurisdiction)
     $('sel-vehiculo').addEventListener('change', function (e) {
