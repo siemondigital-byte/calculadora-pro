@@ -742,7 +742,9 @@ def saludo_linkedin(body: dict = Body(...), authorization: str = Header(None)):
     extra = str(body.get("extra", "")).strip()
     if not nombre and not bio:
         raise HTTPException(400, "nombre o bio requerido")
-    u = ("Escribe un SALUDO DE CONEXION EN LINKEDIN de entre 140 y 200 CARACTERES "
+    u = ("PRIMERO detecta el IDIOMA del perfil (bio/titulo) y escribe TODO el saludo EN ESE idioma: "
+         "bio en ingles -> saludo en ingles; bio en espanol -> saludo en espanol. Esto es obligatorio.\n\n"
+         "Escribe un SALUDO DE CONEXION EN LINKEDIN de entre 140 y 200 CARACTERES "
          "(limite duro 200; usa el espacio, no lo desperdicies con un saludo raquitico). "
          "Es un mensaje PERSONAL del dueno de Atlantis Global Realty al conectar. CALIDAD EXIGIDA:\n"
          "1) UN DETALLE CONCRETO Y VERIFICABLE de su perfil (un tema especifico que trata, una cifra, "
