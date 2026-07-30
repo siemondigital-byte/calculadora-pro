@@ -723,6 +723,26 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
             '</div>' +
           '</div>';
       }
+      // Reserva de liquidez y capital mínimo (Cap. 18/19/50): fondo de emergencia
+      // (6 meses de gasto) + reserva de cuotas (3× el compromiso pico de obra).
+      var resFondo = Math.round((s.gasto || 0) * 6);
+      var resCuotas = Math.round((cal.peak || 0) * 3);
+      var resTotal = resFondo + resCuotas;
+      var resCapital = c.capital || 0;
+      var resV = resCapital >= resTotal ? { t: L.pnResOk, c: '' }
+        : (resCapital >= resFondo ? { t: L.pnResMid, c: 'mid' } : { t: L.pnResBajo, c: 'warn' });
+      html +=
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnResEyebrow) + '</div>' +
+          '<p class="card-help card-help-mb">' + escapeHtml(L.pnResHelp) + '</p>' +
+          '<div class="pn-tiles pn-tiles-3">' +
+            tile(L.pnResFondo, f.fmt(resFondo), 'USD') +
+            tile(L.pnResCuotas, f.fmt(resCuotas), 'USD') +
+            tile(L.pnResCapital, f.fmt(resCapital), 'USD') +
+          '</div>' +
+          '<div class="scen-verdict ' + resV.c + '">' + escapeHtml(resV.t) + '</div>' +
+          (resCapital < 20000 ? '<div class="scen-verdict warn">' + escapeHtml(L.pnResCapMin) + '</div>' : '') +
+        '</div>';
 
     } else if (tab === 'proyectos') {
       var mkRows = c.mkView.map(function (m) {
@@ -864,6 +884,28 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
               '<button type="button" class="pn-cta" id="pn-goto-proyecto">' + escapeHtml(L.pnAbrirProyecto) + '</button>' +
             '</div>' +
           '</div>' +
+        '</div>';
+
+      // --- Estructura Holding (Cap. 31/34): impuesto que difieres reinvirtiendo
+      // el 100% de cada salida sin distribuir, en lugar de sacar la utilidad. ---
+      var hGain = 0, hSum = 0;
+      s.projects.forEach(function (pr) {
+        var bz = dealBasis(pr, s.horizonte);
+        var lvH = tirApalancada(bz.Vc, bz.V, pr.inicialPct / 100, bz.hold, pr.valorizacion / 100);
+        var gP = Math.max(0, lvH.ganancia);
+        hGain += gP; hSum += gP * ((pr.taxRate || 0) / 100);
+      });
+      var holdReached = cc.holdingRec;
+      html +=
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnHoldEyebrow) + '</div>' +
+          '<p class="card-help card-help-mb">' + escapeHtml(L.pnHoldHelp) + '</p>' +
+          '<div class="pn-tiles pn-tiles-3">' +
+            tile(L.pnHoldGanancia, f.fmt(hGain), 'USD') +
+            tile(L.pnHoldDiferido, f.fmt(hSum), 'USD') +
+            tile(L.pnHoldDscr, '≥ 1,25×', '') +
+          '</div>' +
+          '<div class="scen-verdict ' + (holdReached ? '' : 'mid') + '">' + escapeHtml(holdReached ? L.pnHoldSi : L.pnHoldNo) + '</div>' +
         '</div>';
     }
 
