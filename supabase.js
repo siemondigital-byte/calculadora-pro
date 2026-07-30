@@ -99,7 +99,7 @@
        ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS snapshot jsonb;
      Si la columna no existe, el upsert falla silenciosamente (se ignora) y la
      app sigue funcionando con localStorage. */
-  var SNAP_KEYS = ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta',
+  var SNAP_KEYS = ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'invertiblePct',
     'inflacion', 'view', 'panelTab', 'projTab', 'shopping', 'portafolio', 'checklist', 'libertadCats'];
   function saveSnapshot(uid, state) {
     var snap = {};

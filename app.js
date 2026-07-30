@@ -26,7 +26,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       lang: (function () { try { return /^en/i.test(navigator.language || navigator.userLanguage || '') ? 'en' : 'es'; } catch (e) { return 'es'; } })(),
       screen: 'login', mobileTab: 'datos', view: 'panel', panelTab: 'resumen', projTab: 'analizar',
       perfilNombre: '', ingreso: 6000, gasto: 2800, deudas: 400, capital: 35000,
-      horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000, rendRenta: 6,
+      horizonte: 10, inflacion: 3, valorizacionEsp: 10, gastoLibertad: 4000, rendRenta: 6, invertiblePct: 100,
       projects: null, activeId: null, shopping: null, portafolio: null, checklist: null, libertadCats: null
     };
     try {
@@ -34,7 +34,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       if (raw) {
         var saved = JSON.parse(raw);
         ['perfilNombre', 'ingreso', 'gasto', 'deudas', 'capital', 'horizonte', 'inflacion',
-         'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'lang', 'view', 'panelTab', 'projTab'].forEach(function (k) {
+         'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'invertiblePct', 'lang', 'view', 'panelTab', 'projTab'].forEach(function (k) {
           if (saved[k] != null) base[k] = saved[k];
         });
         if (Array.isArray(saved.projects) && saved.projects.length) base.projects = saved.projects;
@@ -64,7 +64,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         lang: state.lang, view: state.view, panelTab: state.panelTab, projTab: state.projTab, perfilNombre: state.perfilNombre,
         ingreso: state.ingreso, gasto: state.gasto, deudas: state.deudas,
         capital: state.capital, horizonte: state.horizonte, inflacion: state.inflacion,
-        valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad, rendRenta: state.rendRenta,
+        valorizacionEsp: state.valorizacionEsp, gastoLibertad: state.gastoLibertad, rendRenta: state.rendRenta, invertiblePct: state.invertiblePct,
         projects: state.projects, activeId: state.activeId,
         shopping: state.shopping, portafolio: state.portafolio, checklist: state.checklist,
         libertadCats: state.libertadCats
@@ -107,7 +107,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
         // sync total: aplica el snapshot (supuestos, shopping, portafolio, checklist…)
         var snap = profile.snapshot;
         if (snap && typeof snap === 'object') {
-          ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'inflacion', 'view', 'panelTab', 'projTab'].forEach(function (k) { if (snap[k] != null) state[k] = snap[k]; });
+          ['perfilNombre', 'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'invertiblePct', 'inflacion', 'view', 'panelTab', 'projTab'].forEach(function (k) { if (snap[k] != null) state[k] = snap[k]; });
           if (Array.isArray(snap.shopping)) state.shopping = snap.shopping;
           if (Array.isArray(snap.portafolio)) state.portafolio = snap.portafolio;
           if (snap.checklist) state.checklist = snap.checklist;
@@ -406,8 +406,12 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     var rr = (s.rendRenta != null ? s.rendRenta : 6) / 100;               // renta neta anual (caja gastable) — input
     var libertad = s.gastoLibertad || 0;
 
-    var flujoLibre = Math.max(0, I - G - Dm);       // ingreso − gasto − deudas
-    var flujoAnual = flujoLibre * 12;
+    var flujoLibre = Math.max(0, I - G - Dm);       // ingreso − gasto − deudas (capacidad)
+    // Método 50/30/20 (Cap. 19): del flujo libre, el % que realmente inviertes
+    // (el resto es gasto discrecional). 100% = comportamiento por defecto.
+    var invertiblePct = s.invertiblePct != null ? s.invertiblePct : 100;
+    var flujoInvertible = flujoLibre * invertiblePct / 100;
+    var flujoAnual = flujoInvertible * 12;          // aporte que compone el patrimonio
 
     // Punto 4 (conexión de módulos): el patrimonio de partida incluye el equity
     // ya comprometido en tus propiedades activas (Portafolio) + su plusvalía.
@@ -477,6 +481,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
 
     var infl = (s.inflacion != null ? s.inflacion : 3) / 100;
     return { f: f, L: L, H: H, g: g, rr: rr, infl: infl, capital: C, flujoLibre: flujoLibre,
+      flujoInvertible: flujoInvertible, invertiblePct: invertiblePct,
       patInicial: patInicial, portfolioEquity: portfolioEquity, dealsGain: dealsGain,
       capitalPropio: capitalPropio, capacidadCredito: capacidadCredito, propiedadMaxReal: propiedadMaxReal,
       propiedadMax: propiedadMaxReal, ingresoRentaMes: ingresoRentaMes, refiLiquidez: refiLiquidez,
@@ -584,6 +589,10 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     setText('pn-val-valoriz', f.dec(s.valorizacionEsp, 1) + '%');
     $('pn-inflacion').value = s.inflacion;
     setText('pn-val-inflacion', f.dec(s.inflacion, s.inflacion % 1 ? 1 : 0) + '%');
+    if ($('pn-invertible')) {
+      $('pn-invertible').value = c.invertiblePct;
+      setText('pn-val-invertible', f.dec(c.invertiblePct, 0) + '% · ' + f.fmt(c.flujoInvertible) + ' USD/mes');
+    }
     if ($('pn-rendrenta')) {
       $('pn-rendrenta').value = s.rendRenta;
       setText('pn-val-rendrenta', f.dec(s.rendRenta, s.rendRenta % 1 ? 1 : 0) + '%');
@@ -836,9 +845,31 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
           '</div>' +
           '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnAfcNota) + '</p>' +
         '</div>';
+      // Retención transfronteriza / tratados (Cap. 38): al repatriar ganancias de
+      // proyectos en moneda extranjera, la fuente puede retener 25-30% sin CDI;
+      // con tratado (o >5% de participación) baja a ~0-10%.
+      var xbProys = (s.projects || []).filter(function (pr) { return fxRisk(pr.moneda); });
+      var xbGain = 0;
+      xbProys.forEach(function (pr) {
+        var bzx = dealBasis(pr, s.horizonte);
+        var lvx = tirApalancada(bzx.Vc, bzx.V, pr.inicialPct / 100, bzx.hold, pr.valorizacion / 100);
+        xbGain += Math.max(0, lvx.ganancia);
+      });
+      html +=
+        '<div class="panel card card-span pn-solo">' +
+          '<div class="eyebrow">' + escapeHtml(L.pnXbEyebrow) + '</div>' +
+          '<p class="card-help card-help-mb">' + escapeHtml(L.pnXbHelp) + '</p>' +
+          '<div class="pn-tiles pn-tiles-3">' +
+            tile(L.pnXbProys, String(xbProys.length), '') +
+            tile(L.pnXbSinCdi, f.fmt(xbGain * 0.275), 'USD') +
+            tile(L.pnXbConCdi, '0 – ' + f.fmt(xbGain * 0.10), 'USD') +
+          '</div>' +
+          '<div class="scen-verdict ' + (xbProys.length ? 'mid' : '') + '">' + escapeHtml(xbProys.length ? L.pnXbAviso : L.pnXbOk) + '</div>' +
+          '<p class="card-help market-fx-note" style="margin-top:12px">' + escapeHtml(L.pnXbNota) + '</p>' +
+        '</div>';
 
     } else if (tab === 'conclusiones') {
-      var C = c.patInicial, flujoAnual = c.flujoLibre * 12, gBase = c.g, libertad = s.gastoLibertad || 0, H = c.H;
+      var C = c.patInicial, flujoAnual = c.flujoInvertible * 12, gBase = c.g, libertad = s.gastoLibertad || 0, H = c.H;
 
       // --- escenarios predictivos (conservador / base / optimista) ---
       var scen = [
@@ -864,7 +895,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
       // --- palancas (sensibilidad desde la situación actual) ---
       var baseFy = c.aniosLibertad, basePatH = pnPatAt(C, flujoAnual, gBase, H);
       function levAporte() {
-        var fy2 = pnFreedomYears2(C, (c.flujoLibre + 500) * 12, gBase, c.NSE);
+        var fy2 = pnFreedomYears2(C, (c.flujoInvertible + 500) * 12, gBase, c.NSE);
         if (fy2 == null || baseFy == null) return L.pnLevNada;
         var d = baseFy - fy2;
         return d > 0.05 ? L.pnLevAdelanta + ' ' + f.dec(d, 1) + ' ' + L.unitYears : L.pnLevNada;
@@ -1201,7 +1232,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
 
   /* Punto 8: respaldo — exportar/importar todo el estado como JSON (un clic). */
   var BACKUP_KEYS = ['lang', 'view', 'panelTab', 'projTab', 'perfilNombre', 'ingreso', 'gasto', 'deudas',
-    'capital', 'horizonte', 'inflacion', 'valorizacionEsp', 'gastoLibertad', 'rendRenta',
+    'capital', 'horizonte', 'inflacion', 'valorizacionEsp', 'gastoLibertad', 'rendRenta', 'invertiblePct',
     'projects', 'activeId', 'shopping', 'portafolio', 'checklist', 'libertadCats'];
   function exportData() {
     try {
@@ -1834,6 +1865,7 @@ import { cuotaCredito, dealBasis, tirApalancada, irr, tirReal } from './finance.
     if ($('pn-import-btn')) $('pn-import-btn').addEventListener('click', function () { $('pn-import-file').click(); });
     if ($('pn-import-file')) $('pn-import-file').addEventListener('change', function (e) { if (e.target.files && e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
     $('pn-inflacion').addEventListener('input', function (e) { state.inflacion = parseFloat(e.target.value); commit(); });
+    if ($('pn-invertible')) $('pn-invertible').addEventListener('input', function (e) { state.invertiblePct = parseFloat(e.target.value); commit(); });
 
     document.querySelectorAll('.lang-btn').forEach(function (b) {
       b.addEventListener('click', function () { state.lang = b.getAttribute('data-lang'); commit(); });

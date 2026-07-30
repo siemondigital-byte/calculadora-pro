@@ -31,7 +31,8 @@ Prioridad: 🔴 alta · 🟡 media · 🟢 baja / cosmético.
 - ✅ **Triángulo de Inversiones Inteligentes**: gate de 3 vértices (TIR>20% automático · gestión <2 h/mes · fiducia+constructora verificada) con veredicto en el analizador. *(Cap. 2)*
 - ✅ **Salud del desarrollador / señales de alerta**: scorecard de due diligence (5+ entregas, >60% preventa, respaldo fiduciario, penalidad >3% auto, presión 24‑48h) con veredicto en el analizador. *(Cap. 50/52)*
 - ✅ **Nº de propiedades por ciclo** (1‑2 → 2‑3 → 4‑5) según poder de inversión: indicador de fase (Escalamiento/Recapitalización/Consolidación) en la pestaña Inversión. *(Cap. 18)*
-- 🟢 **Retención transfronteriza / tratados** (>5% participación → 0%; sin CDI hasta 25‑30%). *(Cap. 38)*
+- ✅ **Retención transfronteriza / tratados**: bloque en la pestaña Fiscal que detecta proyectos en moneda extranjera y estima la retención en la fuente con y sin CDI. *(Cap. 38)*
+- ✅ **Método 50/30/20**: slider "flujo que inviertes" en Información (default 100%, no disruptivo) que ajusta el aporte que compone el patrimonio y recalcula los años a la libertad. *(Cap. 19)*
 - ✅ **Cálculo fiscal del Holding** (DSCR ≥1,25, reinvertir 100%): tarjeta en Conclusiones con ganancia proyectada de la cartera e impuesto diferido reinvirtiendo el 100%. *(Cap. 31/34)*
 - ✅ **Reserva de liquidez** (fondo de emergencia 6 meses + reserva de cuotas 3× pico) y **capital mínimo** ($20k) como validaciones en la pestaña Liquidez. *(Cap. 18/19/50)*
 - ✅ **Tabla maestra de mercados**: al elegir país/vehículo precarga valorización, renta, LTV, tasa fiscal, diferimiento y penalidad de prepago. *(Cap. 41‑47)*
