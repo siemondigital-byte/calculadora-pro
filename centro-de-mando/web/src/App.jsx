@@ -1668,15 +1668,23 @@ function EnlacesCortos({ ws }) {
 // Kit de enlaces por red: un enlace medible por TIPO de publicación en cada red
 // (utm_source=red, utm_medium=tipo, utm_campaign=campaña) + el de PERFIL/BIO de
 // cada red con enlace corto bonito /r/<red> (clics contados aunque recorten la URL).
+// Tipos de CONTENIDO (no formatos): así se mide qué contenido y qué red traen
+// más respuesta. Cada tipo apunta a su destino natural en la web.
+const KIT_TIPOS = ["bio", "contenido", "tendencia", "proyecto", "guia", "agendar"];
+const KIT_DESTINO = {
+  proyecto: "https://atlantisglobalrealty.com/proyectos/",
+  guia: "https://atlantisglobalrealty.com/download-guide",
+  agendar: "https://atlantisglobalrealty.com/book-videocall.html",
+};
 const KIT_REDES = [
-  { red: "instagram", corto: "ig", tipos: ["bio", "post", "historia", "reel"] },
-  { red: "facebook", corto: "fb", tipos: ["bio", "post", "historia", "video"] },
-  { red: "linkedin", corto: "li", tipos: ["bio", "post", "carrusel"] },
-  { red: "x", corto: "x", tipos: ["bio", "post"] },
-  { red: "tiktok", corto: "tt", tipos: ["bio", "video"] },
-  { red: "youtube", corto: "yt", tipos: ["bio", "video", "short"] },
-  { red: "pinterest", corto: "pin", tipos: ["bio", "pin"] },
-  { red: "bluesky", corto: "bs", tipos: ["bio", "post"] },
+  { red: "instagram", corto: "ig" },
+  { red: "facebook", corto: "fb" },
+  { red: "linkedin", corto: "li" },
+  { red: "x", corto: "x" },
+  { red: "tiktok", corto: "tt" },
+  { red: "youtube", corto: "yt" },
+  { red: "pinterest", corto: "pin" },
+  { red: "bluesky", corto: "bs" },
 ];
 
 function KitRedes({ data, commit, ws }) {
@@ -1687,8 +1695,10 @@ function KitRedes({ data, commit, ws }) {
   const [msg, setMsg] = useState("");
 
   const kit = enlaces.filter((e) => e.tipo);
-  const armado = (red, tipo) =>
-    `${destino}${destino.includes("?") ? "&" : "?"}utm_source=${red}&utm_medium=${tipo}&utm_campaign=${tipo === "bio" ? "perfil" : campana}`;
+  const armado = (red, tipo) => {
+    const dest = KIT_DESTINO[tipo] || destino;
+    return `${dest}${dest.includes("?") ? "&" : "?"}utm_source=${red}&utm_medium=${tipo === "bio" ? "bio" : "social"}&utm_campaign=${tipo === "bio" ? "perfil" : tipo}`;
+  };
 
   const generarKit = async () => {
     if (!destino.startsWith("http")) return setMsg("Pon un destino válido (https://…).");
@@ -1697,11 +1707,11 @@ function KitRedes({ data, commit, ws }) {
     const nuevos = [];
     const cortos = {};
     for (const r of KIT_REDES) {
-      for (const tipo of r.tipos) {
+      for (const tipo of KIT_TIPOS) {
         const enlace = armado(r.red, tipo);
         if (enlaces.some((e) => e.enlace === enlace) || nuevos.some((e) => e.enlace === enlace)) continue;
         const item = { id: uid("utm"), url: destino, fuente: r.red, tipo, enlace,
-          campana: tipo === "bio" ? "perfil" : campana };
+          campana: tipo === "bio" ? "perfil" : tipo, url: KIT_DESTINO[tipo] || destino };
         // TODOS recortados: /r/ig (bio) o /r/ig-post, /r/li-carrusel… así el enlace
         // se ve limpio en cualquier red (no todas recortan como LinkedIn) y cuenta clics
         try {
@@ -1733,15 +1743,14 @@ function KitRedes({ data, commit, ws }) {
     <div className="tarjeta mb-6 !p-4">
       <div className="mb-2 text-sm font-semibold">Kit de enlaces por red · publicación y perfil/bio</div>
       <p className="mb-3 text-xs leading-relaxed text-gris">
-        Un enlace medible por cada tipo de publicación (post, historia, reel, carrusel…) y el del
-        perfil/bio de cada red con su enlace corto. Así sabes exactamente de qué red y de qué tipo
-        de contenido llega cada visita y cada lead.
+        Un enlace medible por cada TIPO DE CONTENIDO en cada red (contenido, tendencia, proyecto,
+        guía, agendar) y el del perfil/bio, todos recortados. Guía apunta a la guía, proyecto a
+        /proyectos/, agendar al book-call. Así sabes qué contenido y qué red traen más respuesta.
       </p>
       <div className="grid gap-2 sm:grid-cols-4">
         <input className="campo sm:col-span-2" value={destino} onChange={(e) => setDestino(e.target.value)}
           placeholder="Destino (https://…)" />
-        <input className="campo" value={campana} onChange={(e) => setCampana(e.target.value)}
-          placeholder="Campaña (ej. organico)" />
+        <span className="self-center text-xs text-gris">campaña = tipo de contenido (automático)</span>
         <button className="boton" disabled={busy} onClick={generarKit}>
           {busy ? "Creando…" : "Generar kit"}
         </button>

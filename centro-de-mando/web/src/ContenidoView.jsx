@@ -215,8 +215,8 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
   const enlaceKitDe = (netId) => {
     const kit = (data[ws]?.enlacesUTM || []).filter((e) => e.tipo && e.fuente === netId);
     if (!kit.length) return null;
-    const tipoPieza = mediaUrls.length > 1 ? "carrusel" : (mediaType === "video" ? ["video", "reel", "short"] : ["post", "pin"]);
-    const quiere = Array.isArray(tipoPieza) ? tipoPieza : [tipoPieza];
+    // tipos de CONTENIDO: por defecto "contenido"; si el tema huele a tendencia, ese
+    const quiere = /tendencia/i.test(tema) ? ["tendencia", "contenido"] : ["contenido", "tendencia"];
     const e = kit.find((x) => quiere.includes(x.tipo)) || kit.find((x) => x.tipo !== "bio") || kit[0];
     return e ? (e.cortoUrl || e.enlace) : null;
   };
