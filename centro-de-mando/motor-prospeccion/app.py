@@ -2016,6 +2016,8 @@ def _senales_web(url):
                                  if t in low), ""),
         "redes": redes, "responsive": responsive, "https": https,
         "plataforma": plataforma,
+        # la web bloquea bots pero carga bien para personas (se analizo con UA de navegador)
+        "bloqueo_bots": bool(getattr(r, "bloqueo_bots", False)),
         "extracto": _limpiar_scrapeado(texto[:1800]),
     }
 

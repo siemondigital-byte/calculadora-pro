@@ -7,6 +7,14 @@ import json as _json
 import requests
 
 UA = {"User-Agent": "Mozilla/5.0 (compatible; AtlantisSEO/1.0)"}
+# Muchas webs con firewall (Wordfence, ModSecurity...) devuelven 403 a los bots aunque
+# la pagina funcione perfecta para personas. Si el UA honesto es bloqueado, reintentamos
+# como navegador para auditar lo que de verdad ve un humano.
+UA_NAV = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+}
 MAX_BYTES = 1_500_000   # tope de descarga (anti-DoS)
 
 
@@ -33,12 +41,8 @@ def host_privado(url):
     return False
 
 
-def _get(url, timeout=25):
-    if host_privado(url):
-        raise ValueError("destino no permitido (host interno)")
-    t0 = time.time()
-    r = requests.get(url, headers=UA, timeout=timeout, allow_redirects=True, stream=True)
-    # lee con tope de bytes (una web hostil no puede inundar la memoria)
+def _leer(r):
+    """Lee la respuesta con tope de bytes (una web hostil no puede inundar la memoria)."""
     chunks, total = [], 0
     for ch in r.iter_content(chunk_size=32768):
         total += len(ch)
@@ -49,6 +53,28 @@ def _get(url, timeout=25):
     # sin charset en los headers, requests asume ISO-8859-1 y rompe los acentos
     if not r.encoding or r.encoding.lower() == "iso-8859-1":
         r.encoding = "utf-8"
+
+
+def _get(url, timeout=25):
+    if host_privado(url):
+        raise ValueError("destino no permitido (host interno)")
+    t0 = time.time()
+    r = requests.get(url, headers=UA, timeout=timeout, allow_redirects=True, stream=True)
+    _leer(r)
+    r.bloqueo_bots = False
+    if r.status_code >= 400:
+        # la web rechazo al bot; reintenta como navegador antes de dar nada por roto
+        try:
+            r2 = requests.get(url, headers=UA_NAV, timeout=timeout, allow_redirects=True, stream=True)
+            _leer(r2)
+            if r2.status_code < 400:
+                r2.bloqueo_bots = True
+                return r2, time.time() - t0
+        except Exception:
+            pass
+        # tambien fallo como navegador: puede estar caida O bloquear a los servidores;
+        # se reporta el codigo sin afirmar que este rota para las personas
+        raise ValueError(f"respondio {r.status_code} (tambien simulando un navegador)")
     return r, time.time() - t0
 
 
@@ -66,6 +92,8 @@ def auditar(url, keyword=""):
         html = r.text or ""
     except Exception as e:
         return {"ok": False, "error": f"No pude cargar la URL: {e}"}
+    # si la web bloquea bots, las verificaciones secundarias tambien deben ir como navegador
+    hdrs = UA_NAV if getattr(r, "bloqueo_bots", False) else UA
     low = html.lower()
     cats = []
 
@@ -169,7 +197,7 @@ def auditar(url, keyword=""):
     for l in list(dict.fromkeys(internos))[:10]:
         full = l if l.startswith("http") else url.rstrip("/") + "/" + l.lstrip("/")
         try:
-            rr = requests.head(full, headers=UA, timeout=10, allow_redirects=True)
+            rr = requests.head(full, headers=hdrs, timeout=10, allow_redirects=True)
             if rr.status_code >= 400:
                 rotos_ev.append(f"{full} devuelve {rr.status_code}")
         except Exception as ex:
@@ -187,7 +215,7 @@ def auditar(url, keyword=""):
            re.search(r'content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', html, re.I)
     if mimg:
         try:
-            ri = requests.head(mimg.group(1), headers=UA, timeout=10, allow_redirects=True)
+            ri = requests.head(mimg.group(1), headers=hdrs, timeout=10, allow_redirects=True)
             h.append(("ok", "og:image responde correctamente", "") if ri.ok else ("error", f"og:image devuelve {ri.status_code}", "Corrige la URL de la imagen para compartir."))
         except Exception:
             h.append(("warn", "No pude verificar la og:image", ""))
@@ -222,12 +250,12 @@ def auditar(url, keyword=""):
     h.append(("ok", "HTTPS activo", "") if r.url.startswith("https") else ("error", "Sin HTTPS", "Activa SSL."))
     dominio = "/".join(url.split("/")[:3])
     try:
-        rb = requests.get(dominio + "/robots.txt", headers=UA, timeout=10)
+        rb = requests.get(dominio + "/robots.txt", headers=hdrs, timeout=10)
         h.append(("ok", "robots.txt presente", "") if rb.ok else ("warn", "Sin robots.txt", "Crea un robots.txt."))
     except Exception:
         h.append(("warn", "No pude verificar robots.txt", ""))
     try:
-        sm = requests.get(dominio + "/sitemap.xml", headers=UA, timeout=10)
+        sm = requests.get(dominio + "/sitemap.xml", headers=hdrs, timeout=10)
         h.append(("ok", "sitemap.xml presente", "") if sm.ok and "<" in sm.text[:200] else ("warn", "Sin sitemap.xml", "Genera un sitemap y decláralo en robots.txt."))
     except Exception:
         h.append(("warn", "No pude verificar sitemap.xml", ""))
