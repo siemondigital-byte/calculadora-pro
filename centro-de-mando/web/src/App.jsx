@@ -1665,6 +1665,124 @@ function EnlacesCortos({ ws }) {
   );
 }
 
+// Kit de enlaces por red: un enlace medible por TIPO de publicación en cada red
+// (utm_source=red, utm_medium=tipo, utm_campaign=campaña) + el de PERFIL/BIO de
+// cada red con enlace corto bonito /r/<red> (clics contados aunque recorten la URL).
+const KIT_REDES = [
+  { red: "instagram", corto: "ig", tipos: ["bio", "post", "historia", "reel"] },
+  { red: "facebook", corto: "fb", tipos: ["bio", "post", "historia", "video"] },
+  { red: "linkedin", corto: "li", tipos: ["bio", "post", "carrusel"] },
+  { red: "x", corto: "x", tipos: ["bio", "post"] },
+  { red: "tiktok", corto: "tt", tipos: ["bio", "video"] },
+  { red: "youtube", corto: "yt", tipos: ["bio", "video", "short"] },
+  { red: "pinterest", corto: "pin", tipos: ["bio", "pin"] },
+  { red: "bluesky", corto: "bs", tipos: ["bio", "post"] },
+];
+
+function KitRedes({ data, commit, ws }) {
+  const enlaces = data[ws]?.enlacesUTM || [];
+  const [destino, setDestino] = useState("https://atlantisglobalrealty.com");
+  const [campana, setCampana] = useState("organico");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const kit = enlaces.filter((e) => e.tipo);
+  const armado = (red, tipo) =>
+    `${destino}${destino.includes("?") ? "&" : "?"}utm_source=${red}&utm_medium=${tipo}&utm_campaign=${tipo === "bio" ? "perfil" : campana}`;
+
+  const generarKit = async () => {
+    if (!destino.startsWith("http")) return setMsg("Pon un destino válido (https://…).");
+    setBusy(true);
+    setMsg("");
+    const nuevos = [];
+    const cortos = {};
+    for (const r of KIT_REDES) {
+      for (const tipo of r.tipos) {
+        const enlace = armado(r.red, tipo);
+        if (enlaces.some((e) => e.enlace === enlace) || nuevos.some((e) => e.enlace === enlace)) continue;
+        const item = { id: uid("utm"), url: destino, fuente: r.red, tipo, enlace,
+          campana: tipo === "bio" ? "perfil" : campana };
+        // TODOS recortados: /r/ig (bio) o /r/ig-post, /r/li-carrusel… así el enlace
+        // se ve limpio en cualquier red (no todas recortan como LinkedIn) y cuenta clics
+        try {
+          const codigo = tipo === "bio" ? r.corto : `${r.corto}-${tipo}`;
+          const rr = await motorPost("/acortar", { url: enlace, codigo, workspace: ws });
+          item.cortoUrl = rr.corto;
+          if (tipo === "bio") cortos[r.red] = rr.corto;
+        } catch { /* sin corto: queda el largo */ }
+        nuevos.push(item);
+      }
+    }
+    if (nuevos.length) {
+      const siguiente = structuredClone(data);
+      siguiente[ws].enlacesUTM = [...(siguiente[ws].enlacesUTM || []), ...nuevos];
+      commit(siguiente);
+    }
+    setBusy(false);
+    setMsg(nuevos.length
+      ? `Kit listo: ${nuevos.length} enlaces creados (${Object.keys(cortos).length} cortos de bio).`
+      : "Ese kit ya estaba creado para ese destino y campaña.");
+  };
+
+  const copiar = (texto, etq) => {
+    navigator.clipboard?.writeText(texto);
+    setMsg(`Copiado el de ${etq}.`);
+  };
+
+  return (
+    <div className="tarjeta mb-6 !p-4">
+      <div className="mb-2 text-sm font-semibold">Kit de enlaces por red · publicación y perfil/bio</div>
+      <p className="mb-3 text-xs leading-relaxed text-gris">
+        Un enlace medible por cada tipo de publicación (post, historia, reel, carrusel…) y el del
+        perfil/bio de cada red con su enlace corto. Así sabes exactamente de qué red y de qué tipo
+        de contenido llega cada visita y cada lead.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-4">
+        <input className="campo sm:col-span-2" value={destino} onChange={(e) => setDestino(e.target.value)}
+          placeholder="Destino (https://…)" />
+        <input className="campo" value={campana} onChange={(e) => setCampana(e.target.value)}
+          placeholder="Campaña (ej. organico)" />
+        <button className="boton" disabled={busy} onClick={generarKit}>
+          {busy ? "Creando…" : "Generar kit"}
+        </button>
+      </div>
+      {msg && <p className="mt-2 text-xs text-oro">{msg}</p>}
+
+      {kit.length > 0 && (
+        <div className="mt-4 flex flex-col gap-3">
+          {KIT_REDES.map((r) => {
+            const filas = kit.filter((e) => e.fuente === r.red);
+            if (!filas.length) return null;
+            return (
+              <div key={r.red}>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-oro">{r.red}</div>
+                <div className="flex flex-col gap-1">
+                  {filas.map((e) => (
+                    <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="w-20 shrink-0 capitalize text-gris">{e.tipo === "bio" ? "perfil/bio" : e.tipo}</span>
+                      <span className="max-w-[45%] flex-1 truncate text-gris/70">{e.cortoUrl || e.enlace}</span>
+                      <div className="flex shrink-0 gap-2">
+                        {e.cortoUrl && (
+                          <button className="text-oro hover:underline" onClick={() => copiar(e.cortoUrl, `${e.fuente} bio (corto)`)}>
+                            copiar corto
+                          </button>
+                        )}
+                        <button className="text-oro hover:underline" onClick={() => copiar(e.enlace, `${e.fuente} ${e.tipo}`)}>
+                          copiar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Fuentes({ data, commit, ws }) {
   const enlaces = data[ws]?.enlacesUTM || [];
   const [nuevo, setNuevo] = useState({ url: "", fuente: "instagram", campana: "" });

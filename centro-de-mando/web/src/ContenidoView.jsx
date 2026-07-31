@@ -210,6 +210,27 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
   };
   const netsSeleccionadas = () => selRedes.map((i) => redesPub[i]).filter(Boolean);
   const textoDe = (net) => (copysRed[net.id] && copysRed[net.id].trim()) ? copysRed[net.id] : salida;
+  // enlace medible de ESTA red desde el Kit de Fuentes: elige el tipo según la pieza
+  // (carrusel/video/post) y prefiere el corto (se ve limpio donde la red no recorta)
+  const enlaceKitDe = (netId) => {
+    const kit = (data[ws]?.enlacesUTM || []).filter((e) => e.tipo && e.fuente === netId);
+    if (!kit.length) return null;
+    const tipoPieza = mediaUrls.length > 1 ? "carrusel" : (mediaType === "video" ? ["video", "reel", "short"] : ["post", "pin"]);
+    const quiere = Array.isArray(tipoPieza) ? tipoPieza : [tipoPieza];
+    const e = kit.find((x) => quiere.includes(x.tipo)) || kit.find((x) => x.tipo !== "bio") || kit[0];
+    return e ? (e.cortoUrl || e.enlace) : null;
+  };
+  const insertarEnlace = (netId, label) => {
+    const link = enlaceKitDe(netId);
+    if (!link) return flash("Genera primero el Kit de enlaces en Fuentes / UTM.");
+    setCopysRed((m) => {
+      const base = (m[netId] && m[netId].trim()) ? m[netId] : salida;
+      if ((base || "").includes(link)) return m;
+      return { ...m, [netId]: (base ? base.trimEnd() + "\n\n" : "") + link };
+    });
+    navigator.clipboard?.writeText(link);
+    flash(`Enlace de ${label} insertado en su copy (y copiado).`);
+  };
   async function generarRed(netId, label) {
     if (!tema.trim()) return flash("Escribe el tema arriba primero.");
     setGenRedBusy(netId);
@@ -419,6 +440,7 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
                   <div className="flex items-center justify-between mb-1.5 gap-2">
                     <span style={{ color: C.aether2, fontWeight: 600 }} className="fs-12 inline-flex items-center gap-1.5">{net.label || net.id}{!net.conectada && <span style={{ color: C.ash, fontFamily: MONO }} className="fs-9 normal-case">· sin conectar (para copiar)</span>}</span>
                     <div className="flex items-center gap-2.5 shrink-0">
+                      <button onClick={() => insertarEnlace(net.id, net.label || net.id)} title="Inserta el enlace medible de esta red (del Kit de Fuentes) al final del copy" style={{ color: C.aether2 }} className="fs-10 inline-flex items-center gap-1">🔗 enlace</button>
                       {copysRed[net.id] && <button onClick={() => copiarTexto(copysRed[net.id])} title="Copiar" style={{ color: C.aether2 }} className="fs-10 inline-flex items-center gap-1"><Copy size={11} /> copiar</button>}
                       <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${C.line}` }}>
                         {["es", "en"].map((lg) => { const on = langDe(net.id) === lg; return (
