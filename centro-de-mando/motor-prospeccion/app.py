@@ -617,6 +617,23 @@ def _pagina_corta(codigo, destino):
             f"<a href='{destino}'>Continuar</a></body></html>")
 
 
+def _r_htaccess():
+    """Publica (idempotente) la regla que sirve /r/<codigo> sin .html.
+    WordPress atrapa las rutas sin extension; esta regla gana dentro de /r/."""
+    import io as _io
+    regla = ("RewriteEngine On\n"
+             "RewriteCond %{REQUEST_FILENAME} !-f\n"
+             "RewriteRule ^([A-Za-z0-9\\-]+)$ $1.html [L]\n")
+    try:
+        f = web_pub._ftp()
+        try:
+            f.storbinary("STOR r/.htaccess", _io.BytesIO(regla.encode()))
+        finally:
+            f.quit()
+    except Exception:
+        pass
+
+
 @app.post("/acortar")
 def acortar(body: dict = Body(...), authorization: str = Header(None)):
     """Crea un enlace corto atlantisglobalrealty.com/r/<codigo> con conteo de clics.
@@ -644,6 +661,7 @@ def acortar(body: dict = Body(...), authorization: str = Header(None)):
     r = web_pub.publicar_html(f"r/{codigo}.html", _pagina_corta(codigo, url))
     if not r.get("ok"):
         raise HTTPException(502, "no se pudo publicar: " + str(r.get("error", ""))[:120])
+    _r_htaccess()   # asegura la URL bonita /r/<codigo> (sin .html)
     lst.insert(0, {"codigo": codigo, "url": url, "clics": 0,
                    "tipo": str(body.get("tipo") or ""), "fecha": str(_date.today())})
     guardar_seguro(data)
