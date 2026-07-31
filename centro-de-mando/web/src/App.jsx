@@ -38,40 +38,64 @@ const cfg = (data, ws) => data?.[ws]?.config || {};
 
 // ---------------------------------------------------------------- navegacion
 
+// Menú ordenado por el FLUJO del negocio: cada sección alimenta a la siguiente.
+// 1 conseguir gente → 2 venderle (lead→reunión→propuesta) → 3 el producto que
+// vende (proyectos) → 4 cobrar y cuidar → 5 lo que atrae (contenido/pauta) →
+// 6 la web que recibe → 7 medir para decidir.
 const NAV = {
   atlantis: [
     { sec: "Panel", items: [["panel", "Panel"]] },
     {
-      sec: "Comercial",
+      sec: "1 · Conseguir prospectos",
       items: [
         ["prospeccion", "Prospección"],
         ["correo", "Correo"],
+        ["agente", "Agente de redes 24/7"],
+      ],
+    },
+    {
+      sec: "2 · Vender",
+      items: [
         ["leads", "Leads"],
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
         ["consultas", "Reuniones (diagnóstico)"],
-        ["proyectos", "Proyectos"],
-        ["presupuestos", "Presupuestos"],
-        ["clientes", "Clientes"],
-        ["facturacion", "Facturación"],
-        ["negocios", "Negocios (comisiones)"],
         ["prototipos", "Prototipos"],
-        ["agente", "Agente de redes 24/7"],
-        ["mercado", "Estudio de mercado"],
-        ["fuentes", "Fuentes / UTM"],
+        ["presupuestos", "Presupuestos"],
       ],
     },
     {
-      sec: "Contenido",
+      sec: "3 · Proyectos y cierre",
+      items: [
+        ["proyectos", "Proyectos"],
+        ["negocios", "Negocios (comisiones)"],
+      ],
+    },
+    {
+      sec: "4 · Clientes y cobro",
+      items: [
+        ["clientes", "Clientes"],
+        ["facturacion", "Facturación"],
+      ],
+    },
+    {
+      sec: "5 · Contenido y pauta",
       items: [
         ["contenido", "Contenido"],
         ["estudioyt", "Estudio YouTube"],
         ["calendario", "Calendario"],
         ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
-        ["maquetador", "Maquetador (mi web)"],
         ["ads", "Ads (pauta)"],
+      ],
+    },
+    { sec: "6 · Tu web", items: [["maquetador", "Maquetador (mi web)"]] },
+    {
+      sec: "7 · Medir y decidir",
+      items: [
         ["analitica", "Analítica"],
+        ["mercado", "Estudio de mercado"],
+        ["fuentes", "Fuentes / UTM"],
       ],
     },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
@@ -79,24 +103,38 @@ const NAV = {
   cicloderiqueza: [
     { sec: "Panel", items: [["panel", "Panel"]] },
     {
-      sec: "Producto 44 USD",
+      sec: "1 · Conseguir prospectos",
       items: [
-        ["prospeccion", "Prospección"],
+        ["prospeccion", "Prospección (embajadores)"],
         ["correo", "Correo"],
-        ["leads", "Leads"],
-        ["pipeline", "Pipeline"],
-        ["seguimiento", "Seguimiento"],
-        ["compradores", "Compradores"],
-        ["afiliados", "Afiliados"],
-        ["clientes", "Clientes"],
-        ["facturacion", "Facturación"],
-        ["presupuestos", "Presupuestos"],
-        ["appusuarios", "App · Calculadora Pro"],
-        ["fuentes", "Fuentes / UTM"],
       ],
     },
     {
-      sec: "Contenido",
+      sec: "2 · Vender",
+      items: [
+        ["leads", "Leads"],
+        ["pipeline", "Pipeline"],
+        ["seguimiento", "Seguimiento"],
+        ["presupuestos", "Presupuestos"],
+      ],
+    },
+    {
+      sec: "3 · Producto 44 USD",
+      items: [
+        ["compradores", "Compradores"],
+        ["afiliados", "Afiliados"],
+        ["appusuarios", "App · Calculadora Pro"],
+      ],
+    },
+    {
+      sec: "4 · Clientes y cobro",
+      items: [
+        ["clientes", "Clientes"],
+        ["facturacion", "Facturación"],
+      ],
+    },
+    {
+      sec: "5 · Contenido y pauta",
       items: [
         ["contenido", "Contenido"],
         ["estudioyt", "Estudio YouTube"],
@@ -104,7 +142,13 @@ const NAV = {
         ["blogseo", "Blog y SEO"],
         ["nurturing", "Nurturing"],
         ["ads", "Ads (pauta)"],
+      ],
+    },
+    {
+      sec: "6 · Medir y decidir",
+      items: [
         ["analitica", "Analítica"],
+        ["fuentes", "Fuentes / UTM"],
       ],
     },
     { sec: "Configuración", items: [["accesos", "Accesos"]] },
@@ -613,6 +657,28 @@ function Panel({ data, commit, ws }) {
         const max = Math.max(1, ...dias.map((d) => d.n));
         const etapas = (config.stages || []).map((et) => ({ etapa: et, n: leads.filter((l) => l.etapa === et).length }));
         const maxEt = Math.max(1, ...etapas.map((e) => e.n));
+        // dinero en juego: valor del pipeline ponderado por la probabilidad de cada etapa (config)
+        const prob = config.probabilidadPorEtapa || {};
+        const abiertos = leads.filter((l) => !["Descartado", "Baja", "Reembolsado"].includes(l.etapa));
+        const pipeTotal = abiertos.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+        const pipePond = abiertos.reduce((s, l) => s + (Number(l.valor) || 0) * ((prob[l.etapa] || 0) / 100), 0);
+        const facturas = slice.facturas || [];
+        const pagadoMes = facturas.filter((f) => f.estado === "pagada" && (f.fecha || "") >= inicioMes)
+          .reduce((s, f) => s + (Number(f.monto) || 0), 0);
+        const porCobrar = facturas.filter((f) => ["enviada", "vencida"].includes(f.estado))
+          .reduce((s, f) => s + (Number(f.monto) || 0), 0);
+        const presus = slice.presupuestos || [];
+        const presuActivos = presus.filter((p) => ["borrador", "publicado"].includes(p.estado)).length;
+        const presuAceptados = presus.filter((p) => p.estado === "aceptado").length;
+        const proys = (data.atlantis?.proyectos || []);
+        const reuniones = (slice.consultas || []).filter((c) => c.estado === "agendada").length;
+        const moneda = config.moneda || "USD";
+        // leads nuevos por día (2 semanas)
+        const diasLeads = dias.map((d) => ({ ...d, n: leads.filter((l) => {
+          const f = l.creado ? new Date(l.creado * 1000).toISOString().slice(0, 10) : (l.createdAt || "").slice(0, 10);
+          return f && f.slice(5) === d.dia;
+        }).length }));
+        const maxL = Math.max(1, ...diasLeads.map((d) => d.n));
         return (
           <>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -621,7 +687,52 @@ function Panel({ data, commit, ws }) {
               <Kpi etiqueta="Prospectos por revisar" valor={prospNuevos} />
               <Kpi etiqueta="Publicaciones del mes" valor={publicMes} />
             </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="tarjeta !p-4">
+                <div className="text-xs uppercase text-gris">Dinero en juego (pipeline)</div>
+                <div className="text-2xl font-semibold text-oro">{Math.round(pipePond).toLocaleString()} <span className="text-xs">{moneda}</span></div>
+                <div className="text-xs text-gris">ponderado · {pipeTotal.toLocaleString()} {moneda} en total</div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="text-xs uppercase text-gris">Cobrado este mes · por cobrar</div>
+                <div className="text-2xl font-semibold">{pagadoMes.toLocaleString()} <span className="text-xs">{moneda}</span></div>
+                <div className="text-xs text-gris">por cobrar: {porCobrar.toLocaleString()} {moneda}</div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="text-xs uppercase text-gris">Presupuestos</div>
+                <div className="text-2xl font-semibold">{presuActivos}<span className="text-xs text-gris"> activos</span></div>
+                <div className="text-xs text-oro">{presuAceptados} aceptado(s)</div>
+              </div>
+              {ws === "atlantis" ? (
+                <div className="tarjeta !p-4">
+                  <div className="text-xs uppercase text-gris">Proyectos · reuniones</div>
+                  <div className="text-2xl font-semibold">{proys.filter((p) => p.publicar).length}/{proys.length}<span className="text-xs text-gris"> publicados</span></div>
+                  <div className="text-xs text-gris">{reuniones} reunión(es) agendada(s)</div>
+                </div>
+              ) : (
+                <div className="tarjeta !p-4">
+                  <div className="text-xs uppercase text-gris">Compradores del mes</div>
+                  <div className="text-2xl font-semibold">{(slice.compradores || []).filter((c) => {
+                    const f = c.creado ? new Date(c.creado * 1000).toISOString().slice(0, 10) : (c.fecha || "");
+                    return f >= inicioMes;
+                  }).length}</div>
+                  <div className="text-xs text-gris">{(slice.compradores || []).length} en total</div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="tarjeta !p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-gris">Leads por día · 2 semanas</div>
+                <div className="flex h-20 items-end gap-1">
+                  {diasLeads.map((d, i) => (
+                    <div key={i} className="flex-1" title={`${d.dia}: ${d.n}`}>
+                      <div className={`w-full rounded-t ${d.n ? "bg-oro/70" : "bg-gris/15"}`}
+                        style={{ height: `${Math.max(4, (d.n / maxL) * 64)}px` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1 flex justify-between text-[9px] text-gris"><span>{diasLeads[0]?.dia}</span><span>hoy</span></div>
+              </div>
               <div className="tarjeta !p-4">
                 <div className="mb-2 text-xs uppercase tracking-wide text-gris">Correos por día · 2 semanas</div>
                 <div className="flex h-20 items-end gap-1">
