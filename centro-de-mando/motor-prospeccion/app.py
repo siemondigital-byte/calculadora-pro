@@ -691,8 +691,11 @@ def _pagina_corta(codigo, destino):
             f"<title>Atlantis Global Realty</title><link rel='canonical' href='{destino}'>"
             f"<meta http-equiv='refresh' content='0;url={destino}'>"
             "<meta name='robots' content='noindex'></head><body>"
-            "<script>try{navigator.sendBeacon("
-            f"'{base_api}/r/click/{codigo}');}}catch(e){{}}"
+            # tus propios clics NO cuentan: navegador marcado, venir del CRM o ?yo=1
+            "<script>try{var yo=false;try{yo=localStorage.getItem('atlantis_yo')==='1'"
+            "||/crm\\.atlantisglobalrealty\\.com/.test(document.referrer||'')||/[?&]yo=1/.test(location.search);"
+            "if(yo)localStorage.setItem('atlantis_yo','1');}catch(e){}"
+            f"if(!yo){{navigator.sendBeacon('{base_api}/r/click/{codigo}');}}}}catch(e){{}}"
             f"location.replace('{destino}');</script>"
             f"<a href='{destino}'>Continuar</a></body></html>")
 
