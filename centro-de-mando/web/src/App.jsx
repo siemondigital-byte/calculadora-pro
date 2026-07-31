@@ -9,6 +9,7 @@ import AdsView from "./AdsView.jsx";
 import EstudioYtView from "./EstudioYtView.jsx";
 import NegociosView from "./NegociosView.jsx";
 import PrototiposView from "./PrototiposView.jsx";
+import { AgenteRedes, Clientes, Facturacion, Presupuestos, Proyectos } from "./ModulosNuevos.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -48,9 +49,14 @@ const NAV = {
         ["leads", "Leads"],
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
-        ["consultas", "Consultas"],
+        ["consultas", "Reuniones (diagnóstico)"],
+        ["proyectos", "Proyectos"],
+        ["presupuestos", "Presupuestos"],
+        ["clientes", "Clientes"],
+        ["facturacion", "Facturación"],
         ["negocios", "Negocios (comisiones)"],
         ["prototipos", "Prototipos"],
+        ["agente", "Agente de redes 24/7"],
         ["mercado", "Estudio de mercado"],
         ["fuentes", "Fuentes / UTM"],
       ],
@@ -82,6 +88,9 @@ const NAV = {
         ["seguimiento", "Seguimiento"],
         ["compradores", "Compradores"],
         ["afiliados", "Afiliados"],
+        ["clientes", "Clientes"],
+        ["facturacion", "Facturación"],
+        ["presupuestos", "Presupuestos"],
         ["appusuarios", "App · Calculadora Pro"],
         ["fuentes", "Fuentes / UTM"],
       ],
@@ -208,6 +217,11 @@ export default function App() {
     negocios: <NegociosView {...props} />,
     prototipos: <PrototiposView {...props} />,
     nurturing: <Nurturing {...props} />,
+    proyectos: <Proyectos {...props} />,
+    presupuestos: <Presupuestos {...props} />,
+    clientes: <Clientes {...props} />,
+    facturacion: <Facturacion {...props} />,
+    agente: <AgenteRedes {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
     blogseo: <BlogSeoView {...props} />,
@@ -579,6 +593,65 @@ function Panel({ data, commit, ws }) {
         <Kpi etiqueta="Seguimientos vencidos" valor={vencidos.length} alerta={vencidos.length > 0} />
         <Kpi etiqueta="Leads totales" valor={leads.length} />
       </div>
+
+      {(() => {
+        // métricas de actividad real (portadas del cockpit de Siemon)
+        const enviados = slice.enviados || [];
+        const outreach = slice.outreach || [];
+        const hoy = hoyISO();
+        const envHoy = enviados.filter((e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === hoy).length;
+        const respondieron = outreach.filter((h) => (h.conversacion || []).some((m) => m.de && m.de !== "mi")).length;
+        const tasa = enviados.length ? Math.round((respondieron / enviados.length) * 100) : 0;
+        const prospNuevos = (slice.prospectos || []).filter((p) => p.estado === "nuevo").length;
+        const publicMes = (slice.publicaciones || []).filter((p) => (p.fecha || "") >= inicioMes).length;
+        const dias = [];
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
+          dias.push({ dia: iso.slice(5), n: enviados.filter((e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === iso).length });
+        }
+        const max = Math.max(1, ...dias.map((d) => d.n));
+        const etapas = (config.stages || []).map((et) => ({ etapa: et, n: leads.filter((l) => l.etapa === et).length }));
+        const maxEt = Math.max(1, ...etapas.map((e) => e.n));
+        return (
+          <>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi etiqueta="Correos enviados (hoy)" valor={`${enviados.length} (${envHoy})`} />
+              <Kpi etiqueta="Respondieron · tasa" valor={`${respondieron} · ${tasa}%`} />
+              <Kpi etiqueta="Prospectos por revisar" valor={prospNuevos} />
+              <Kpi etiqueta="Publicaciones del mes" valor={publicMes} />
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="tarjeta !p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-gris">Correos por día · 2 semanas</div>
+                <div className="flex h-20 items-end gap-1">
+                  {dias.map((d, i) => (
+                    <div key={i} className="flex-1" title={`${d.dia}: ${d.n}`}>
+                      <div className={`w-full rounded-t ${d.n ? "bg-oro/70" : "bg-gris/15"}`}
+                        style={{ height: `${Math.max(4, (d.n / max) * 64)}px` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1 flex justify-between text-[9px] text-gris"><span>{dias[0]?.dia}</span><span>hoy</span></div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-gris">Embudo por etapa</div>
+                <div className="flex flex-col gap-1.5">
+                  {etapas.map((e) => (
+                    <div key={e.etapa} className="flex items-center gap-2 text-xs">
+                      <span className="w-28 shrink-0 truncate text-gris">{e.etapa}</span>
+                      <div className="h-2 flex-1 overflow-hidden rounded bg-gris/15">
+                        <div className="h-full bg-oro/70" style={{ width: `${(e.n / maxEt) * 100}%` }} />
+                      </div>
+                      <span className="w-5 text-right">{e.n}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       <div className="tarjeta mt-6">
         <div className="flex items-center justify-between">
@@ -1430,6 +1503,56 @@ function Consultas({ data, commit, ws }) {
 
 // ---------------------------------------------------------------- Fuentes / UTM
 
+function EnlacesCortos({ ws }) {
+  // recortador propio: atlantisglobalrealty.com/r/<código> con conteo de clics
+  const [lista, setLista] = useState([]);
+  const [url, setUrl] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const cargar = () => motorGet("/acortar/lista").then((r) => setLista(r.enlaces || [])).catch(() => {});
+  useEffect(() => { cargar(); }, []);
+  const crear = async () => {
+    if (!url.trim().startsWith("http")) return setMsg("Pega una URL completa (https://…).");
+    setBusy(true);
+    try {
+      const r = await motorPost("/acortar", { url: url.trim(), codigo: codigo.trim(), workspace: ws });
+      navigator.clipboard?.writeText(r.corto);
+      setMsg(`Listo y copiado: ${r.corto}`);
+      setUrl(""); setCodigo("");
+      cargar();
+    } catch (e) { setMsg(String(e.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="tarjeta mb-6 !p-4">
+      <div className="mb-2 text-sm font-semibold">Enlaces cortos · atlantisglobalrealty.com/r/…</div>
+      <div className="grid gap-2 sm:grid-cols-4">
+        <input className="campo sm:col-span-2" placeholder="URL larga (https://…)" value={url}
+          onChange={(e) => setUrl(e.target.value)} />
+        <input className="campo" placeholder="código propio (opcional)" value={codigo}
+          onChange={(e) => setCodigo(e.target.value)} />
+        <button className="boton" disabled={busy} onClick={crear}>{busy ? "Creando…" : "Acortar"}</button>
+      </div>
+      {msg && <p className="mt-2 text-xs text-oro">{msg}</p>}
+      {lista.length > 0 && (
+        <div className="mt-3 flex flex-col gap-1">
+          {lista.slice(0, 12).map((e) => (
+            <div key={e.codigo} className="flex items-center justify-between text-xs">
+              <button className="text-oro hover:underline"
+                onClick={() => { navigator.clipboard?.writeText(`https://atlantisglobalrealty.com/r/${e.codigo}`); setMsg("Copiado."); }}>
+                /r/{e.codigo}
+              </button>
+              <span className="max-w-[50%] truncate text-gris">{e.url}</span>
+              <span className="text-gris">{e.clics || 0} clics</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Fuentes({ data, commit, ws }) {
   const enlaces = data[ws]?.enlacesUTM || [];
   const [nuevo, setNuevo] = useState({ url: "", fuente: "instagram", campana: "" });
@@ -1465,6 +1588,7 @@ function Fuentes({ data, commit, ws }) {
         titulo="Fuentes / UTM"
         sub="fuente = utm_source (canal real) · type = formulario (valor fijo)"
       />
+      <EnlacesCortos ws={ws} />
       <form onSubmit={generar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
         <input
           className="campo sm:col-span-2"

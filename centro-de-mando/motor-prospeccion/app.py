@@ -27,6 +27,7 @@ import collectors
 import crm_store
 import nurturing
 import publicar as pub
+import rag
 import secretos
 import web_pub
 
@@ -54,6 +55,10 @@ _ID_COLS = {
     "app_usuarios": ("email", "id"),
     "enlacesUTM": ("id",),
     "competidores": ("url",),
+    "enlacesCortos": ("codigo",),
+    "presupuestos": ("folio", "id"),
+    "inbound": ("id", "extId"),
+    "facturas": ("id", "folio"),
 }
 
 
@@ -543,6 +548,136 @@ def crm_lead(body: dict = Body(...)):
     return {"ok": True, "id": lead_id, "creado": creado}
 
 
+# ------------------------------------------------------- RAG (memoria viva)
+
+@app.get("/rag/estado")
+def rag_estado(authorization: str = Header(None)):
+    _auth(authorization)
+    return rag.estado()
+
+
+@app.post("/rag/reindexar")
+def rag_reindexar(authorization: str = Header(None)):
+    """Ingiere TODO el historial del CRM (ambos workspaces) a la base vectorial."""
+    _auth(authorization)
+    return rag.ingerir_crm()
+
+
+@app.post("/rag/buscar")
+def rag_buscar(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    q = str(body.get("q") or body.get("query") or "").strip()
+    if not q:
+        raise HTTPException(400, "q requerida")
+    return rag.buscar_hibrido(q, k=min(12, int(body.get("k") or 6)))
+
+
+@app.post("/rag/aprender")
+def rag_aprender(body: dict = Body(...), authorization: str = Header(None)):
+    """Aprendizaje en vivo: lo que el dueno escribe/envia entra a la memoria."""
+    _auth(authorization)
+    return rag.aprender(str(body.get("texto") or ""), str(body.get("tipo") or "texto"),
+                        str(body.get("extra") or ""))
+
+
+def _rag_aprender_fondo(texto, tipo, extra=""):
+    """Aprende sin bloquear la respuesta (Voyage tarda; el envio no debe esperar)."""
+    import threading
+    try:
+        threading.Thread(target=rag.aprender, args=(texto, tipo, extra), daemon=True).start()
+    except Exception:
+        pass
+
+
+def _memoria_marca(consulta):
+    """Fragmentos del historial real para inyectar en los generadores (voz propia)."""
+    try:
+        return rag.contexto(consulta)
+    except Exception:
+        return ""
+
+
+# ------------------------------------------------- recortador de enlaces (/r/)
+
+def _slug_corto(s):
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9\-]", "", s.lower().replace(" ", "-"))[:40]
+
+
+def _pagina_corta(codigo, destino):
+    base_api = os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com").rstrip("/")
+    return ("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
+            f"<title>Atlantis Global Realty</title><link rel='canonical' href='{destino}'>"
+            f"<meta http-equiv='refresh' content='0;url={destino}'>"
+            "<meta name='robots' content='noindex'></head><body>"
+            "<script>try{navigator.sendBeacon("
+            f"'{base_api}/r/click/{codigo}');}}catch(e){{}}"
+            f"location.replace('{destino}');</script>"
+            f"<a href='{destino}'>Continuar</a></body></html>")
+
+
+@app.post("/acortar")
+def acortar(body: dict = Body(...), authorization: str = Header(None)):
+    """Crea un enlace corto atlantisglobalrealty.com/r/<codigo> con conteo de clics.
+    Dedupe por URL; codigo propio opcional."""
+    _auth(authorization)
+    import hashlib
+    from datetime import date as _date
+    url = str(body.get("url") or "").strip()
+    if not url.startswith("http"):
+        raise HTTPException(400, "pega una URL completa (https://...)")
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    lst = data.setdefault(ws, {}).setdefault("enlacesCortos", [])
+    codigo = _slug_corto(str(body.get("codigo") or ""))
+    ya = next((e for e in lst if e.get("url") == url), None)
+    if ya and (not codigo or ya.get("codigo") == codigo):
+        return {"ok": True, "corto": f"https://atlantisglobalrealty.com/r/{ya['codigo']}",
+                "codigo": ya["codigo"]}
+    if not codigo:
+        codigo = hashlib.sha1(url.encode()).hexdigest()[:6]
+    for w in WORKSPACES:
+        if any(e.get("codigo") == codigo and e.get("url") != url
+               for e in (data.get(w) or {}).get("enlacesCortos", [])):
+            raise HTTPException(400, f"el codigo '{codigo}' ya esta usado por otro enlace")
+    r = web_pub.publicar_html(f"r/{codigo}.html", _pagina_corta(codigo, url))
+    if not r.get("ok"):
+        raise HTTPException(502, "no se pudo publicar: " + str(r.get("error", ""))[:120])
+    lst.insert(0, {"codigo": codigo, "url": url, "clics": 0,
+                   "tipo": str(body.get("tipo") or ""), "fecha": str(_date.today())})
+    guardar_seguro(data)
+    return {"ok": True, "corto": f"https://atlantisglobalrealty.com/r/{codigo}", "codigo": codigo}
+
+
+@app.get("/acortar/lista")
+def acortar_lista(authorization: str = Header(None)):
+    _auth(authorization)
+    data = crm_store.leer() or {}
+    out = []
+    for ws in WORKSPACES:
+        for e in (data.get(ws) or {}).get("enlacesCortos", []):
+            out.append({**e, "ws": ws})
+    return {"ok": True, "enlaces": out[:80]}
+
+
+@app.post("/r/click/{codigo}")
+@app.get("/r/click/{codigo}")
+def r_click(codigo: str):
+    """PUBLICO: beacon de clic de un enlace corto (lo dispara la pagina de redireccion)."""
+    try:
+        data = crm_store.leer() or {}
+        for ws in WORKSPACES:
+            for e in (data.get(ws) or {}).get("enlacesCortos", []):
+                if e.get("codigo") == codigo:
+                    e["clics"] = int(e.get("clics") or 0) + 1
+                    guardar_seguro(data)
+                    return {"ok": True}
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 # ------------------------------------------------------- prospeccion (F4)
 
 def _curaduria_filtrar(cands, slice_ws):
@@ -926,9 +1061,11 @@ def contenido_adaptar(body: dict = Body(...), authorization: str = Header(None))
     redes = [r for r in (body.get("redes") or []) if r in _REDES_GUIA] or ["linkedin", "instagram", "x"]
     idioma = (body.get("idioma") or "es").strip()
     guia = "\n".join("- " + _REDES_GUIA[r] for r in redes)
+    memoria = _memoria_marca(idea[:200])
     u = ("Eres el estratega de contenido de Atlantis. Toma ESTA idea y adaptala como publicacion NATIVA "
          "para cada red (no el mismo post repetido: cada red tiene su formato, su tono y su pieza visual).\n\n"
-         f"IDEA:\n{idea[:1800]}\n\n"
+         + ((f"MEMORIA DE MARCA (historial real; integrala sin citarla):\n{memoria}\n\n") if memoria else "")
+         + f"IDEA:\n{idea[:1800]}\n\n"
          f"REDES Y SUS REGLAS:\n{guia}\n\n"
          "Para CADA red decide el FORMATO ideal PARA ESTA IDEA (imagen | carrusel | video | texto) segun lo "
          "que mejor rinde en esa red Y lo que la idea pide (un paso a paso -> carrusel; una historia/demo -> "
@@ -1040,11 +1177,13 @@ def generar_contenido(body: dict = Body(...), authorization: str = Header(None))
         tope_nota = (f" LIMITE ESTRICTO: el texto completo (con hashtags) "
                      f"debe caber en {tope} caracteres. Breve y potente, 1 o "
                      "2 hashtags maximo.")
+    memoria = _memoria_marca(f"{tema} {red}") if tema else ""
     prompt = (
         f"Crea contenido en {'espanol neutro latinoamericano' if idioma == 'es' else 'ingles'}. "
         f"Red: {red}. Tipo: {tipo}. Tema: {tema or '(deducelo del contenido base)'}.\n"
         f"{guia}{tope_nota}\n"
-        "Devuelve SOLO el contenido, listo para usar, sin preambulos.")
+        + ((f"\nMEMORIA DE MARCA (historial real; integrala sin citarla):\n{memoria}\n") if memoria else "")
+        + "Devuelve SOLO el contenido, listo para usar, sin preambulos.")
     try:
         txt = _claude_texto(
             prompt,
@@ -3850,7 +3989,12 @@ def redes_integraciones(authorization: str = Header(None)):
 def publicar_red(body: dict = Body(...), authorization: str = Header(None)):
     """Postiz si hay clave (SIEMPRE type schedule +1min); nativo IG/FB si no."""
     _auth(authorization)
-    return pub.publicar(body)
+    r = pub.publicar(body)
+    # la memoria viva aprende de lo publicado (voz real en redes)
+    if isinstance(r, dict) and r.get("ok"):
+        _rag_aprender_fondo(str(body.get("texto") or ""), "publicacion",
+                            str(body.get("red") or ""))
+    return r
 
 
 # ------------------------------------------------------- asistente (ejecuta)
@@ -4066,14 +4210,17 @@ def enviar_correo(body: dict = Body(...), authorization: str = Header(None)):
     if not hilo:
         hilo = {"email": para.lower(), "conversacion": []}
         outreach.append(hilo)
+    texto_plano = re.sub(r"<[^>]+>", " ", body.get("cuerpo") or "")[:2000].strip()
     hilo["conversacion"].append({
         "de": "mi",
         "asunto": asunto,
-        "texto": re.sub(r"<[^>]+>", " ", body.get("cuerpo") or "")[:2000].strip(),
+        "texto": texto_plano,
         "fecha": "",
         "enviado": int(time.time()),
     })
     guardar_seguro(data)
+    # la memoria viva aprende de cada correo que sale (voz real del dueno)
+    _rag_aprender_fondo(texto_plano, "correo", asunto)
     return {"ok": True}
 
 
@@ -4247,16 +4394,9 @@ def proyectos_upsert(body: dict = Body(...), authorization: str = Header(None)):
     return {"ok": True, "slug": registro["slug"], "estado": registro["estado"]}
 
 
-@app.post("/proyectos/extraer")
-def proyectos_extraer(body: dict = Body(...), authorization: str = Header(None)):
-    """Respaldo automatico del scrapeo (n8n vigila el Drive de proyectos):
-    recibe el TEXTO de la presentacion del constructor, la IA arma la ficha
-    SOLO con datos presentes en el texto, y queda en el CRM como borrador."""
-    _auth(authorization)
-    texto = str(body.get("texto", "")).strip()[:60000]
-    if len(texto) < 100:
-        raise HTTPException(400, "texto de la presentacion requerido (min 100 chars)")
-    archivo = str(body.get("archivo", ""))[:120]
+def _proyecto_ficha_desde_texto(texto, archivo=""):
+    """Nucleo compartido: texto de la presentacion/pagina -> ficha del proyecto
+    (la IA usa SOLO datos presentes; nunca inventa) -> upsert como borrador."""
     ficha = _claude_json(
         "Extrae la ficha de este proyecto inmobiliario desde el texto de la "
         "presentacion del constructor. REGLA DURA: usa SOLO datos presentes en "
@@ -4282,6 +4422,308 @@ def proyectos_extraer(body: dict = Body(...), authorization: str = Header(None))
     guardar_seguro(data)
     return {"ok": True, "slug": registro["slug"], "estado": registro["estado"],
             "ficha": registro}
+
+
+@app.post("/proyectos/extraer")
+def proyectos_extraer(body: dict = Body(...), authorization: str = Header(None)):
+    """Recibe el TEXTO de la presentacion del constructor (n8n/Drive o el panel)
+    y arma la ficha con IA. Queda como borrador."""
+    _auth(authorization)
+    texto = str(body.get("texto", "")).strip()[:60000]
+    if len(texto) < 100:
+        raise HTTPException(400, "texto de la presentacion requerido (min 100 chars)")
+    return _proyecto_ficha_desde_texto(texto, str(body.get("archivo", ""))[:120])
+
+
+@app.post("/proyectos/extraer_pdf")
+def proyectos_extraer_pdf(body: dict = Body(...), authorization: str = Header(None)):
+    """Sube la PRESENTACION en PDF (base64) desde el panel: se extrae el texto
+    y la IA arma la ficha del proyecto."""
+    _auth(authorization)
+    import base64
+    import io
+    b64 = str(body.get("pdf_b64", ""))
+    if "," in b64[:80]:      # data URI del navegador
+        b64 = b64.split(",", 1)[1]
+    try:
+        crudo = base64.b64decode(b64)
+    except Exception:
+        raise HTTPException(400, "pdf_b64 invalido")
+    if len(crudo) < 500:
+        raise HTTPException(400, "el PDF llego vacio")
+    try:
+        from pypdf import PdfReader
+        lector = PdfReader(io.BytesIO(crudo))
+        texto = "\n".join((pg.extract_text() or "") for pg in lector.pages[:60])
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, "no pude leer el PDF: " + str(e)[:120])
+    if len(texto.strip()) < 100:
+        raise HTTPException(400, "el PDF no tiene texto extraible (es solo imagenes)")
+    return _proyecto_ficha_desde_texto(texto[:60000], str(body.get("nombre", ""))[:120])
+
+
+@app.post("/proyectos/extraer_link")
+def proyectos_extraer_link(body: dict = Body(...), authorization: str = Header(None)):
+    """Pega el LINK del proyecto (pagina del constructor): se scrapea el texto
+    publico y la IA arma la ficha."""
+    _auth(authorization)
+    import httpx as _hx
+    url = str(body.get("url", "")).strip()
+    if not url.startswith("http"):
+        raise HTTPException(400, "pega una URL completa (https://...)")
+    try:
+        r = _hx.get(url, timeout=25, follow_redirects=True,
+                    headers={"User-Agent": collectors.UA_NAV})
+        html = r.text
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, "no pude abrir la pagina: " + str(e)[:120])
+    html = re.sub(r"(?is)<(script|style|nav|footer)[^>]*>.*?</\1>", " ", html)
+    texto = re.sub(r"<[^>]+>", " ", html)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    if len(texto) < 200:
+        raise HTTPException(400, "la pagina no tiene texto suficiente para armar la ficha")
+    return _proyecto_ficha_desde_texto(texto[:60000], url[:120])
+
+
+@app.post("/proyectos/actualizar")
+def proyectos_actualizar(body: dict = Body(...), authorization: str = Header(None)):
+    """Seguimiento del proyecto desde el panel: estado, notas, proxima accion,
+    imagenes (URLs) o cualquier campo de la ficha."""
+    _auth(authorization)
+    slug = str(body.get("slug", "")).strip()
+    data = crm_store.leer() or {}
+    proys = (data.get("atlantis") or {}).get("proyectos") or []
+    p = next((x for x in proys if x.get("slug") == slug), None)
+    if not p:
+        raise HTTPException(404, "proyecto no encontrado")
+    PERMITIDOS = ("estado", "notas", "proximaAccion", "seguimientoFecha", "imagenes",
+                  "constructora", "ciudad", "pais", "entrega", "precioDesde",
+                  "precioDesdeEn", "es", "en", "publicar")
+    for k in PERMITIDOS:
+        if k in body:
+            p[k] = body[k]
+    guardar_seguro(data)
+    return {"ok": True, "ficha": p}
+
+
+@app.post("/proyectos/publicar_landing")
+def proyectos_publicar_landing(body: dict = Body(...), authorization: str = Header(None)):
+    """Publica la landing bilingue del proyecto en la web principal
+    (atlantisglobalrealty.com/proyectos/<slug>/) y regenera el indice."""
+    _auth(authorization)
+    import proyectos_web
+    slug = str(body.get("slug", "")).strip()
+    data = crm_store.leer() or {}
+    proys = (data.get("atlantis") or {}).get("proyectos") or []
+    p = next((x for x in proys if x.get("slug") == slug), None)
+    if not p:
+        raise HTTPException(404, "proyecto no encontrado")
+    p["publicar"] = True
+    r = proyectos_web.publicar(p, proys)
+    if not r.get("ok"):
+        raise HTTPException(502, str(r.get("error", "no se pudo publicar"))[:200])
+    p["landingUrl"] = r["url"]
+    p["estado"] = "publicado"
+    guardar_seguro(data)
+    return {"ok": True, **r}
+
+
+# ------------------------------------------------------- presupuestos
+
+_PRESU_PAGINA = """<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{titulo} — Atlantis Global Realty</title>
+<link rel="icon" type="image/png" href="../assets/favicon-atlantis.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/base.css">
+<meta name="robots" content="noindex">
+<style>
+.bloq{{padding:26px 0 6px}}.bloq h2{{font-size:21px;font-weight:600;margin:0 0 12px}}
+.bloq p{{color:var(--gris);font-size:15.5px;line-height:1.75;max-width:70ch}}
+.proy-card{{display:block;border:1px solid var(--line);border-radius:6px;padding:18px 20px;margin:10px 0;text-decoration:none}}
+.proy-card:hover{{border-color:rgba(201,168,126,.5)}}
+.proy-card b{{color:var(--ink);font-size:16px}}.proy-card span{{color:var(--gris);font-size:13px}}
+.cta-fin{{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:22px 0 30px}}
+.nota-legal{{font-size:11.5px;color:var(--muted);line-height:1.7;max-width:70ch;padding:14px 0 26px}}
+.ok-msg{{color:var(--accent);font-size:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="https://atlantisglobalrealty.com/"><img class="wm-img" src="../assets/wordmark.png" alt="Atlantis Global Realty"></a>
+  </header>
+  <main>
+    <p class="ml" style="margin-top:22px">Propuesta · {folio}</p>
+    <h1>{titulo}</h1>
+    <p class="lead" style="max-width:64ch">{intro}</p>
+    {proyectos_html}
+    {secciones_html}
+    {prototipo_html}
+    <div class="cta-fin">
+      <a class="btn" href="https://atlantisglobalrealty.com/book-videocall.html">Agenda tu diagnóstico →</a>
+      <button class="btn btn-ghost" id="btn-aceptar">Aceptar esta propuesta</button>
+      <span class="ok-msg" id="acepta-st"></span>
+    </div>
+    <p class="nota-legal">Contenido educativo. No es asesoría financiera, legal ni tributaria. Los precios y condiciones son del constructor y pueden cambiar sin previo aviso; los confirmamos juntos en el diagnóstico.</p>
+  </main>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span><a href="https://atlantisglobalrealty.com">atlantisglobalrealty.com</a></span>
+</div></footer>
+<script>
+document.getElementById('yy').textContent=new Date().getFullYear();
+document.getElementById('btn-aceptar').addEventListener('click',function(){{
+  var st=document.getElementById('acepta-st');st.textContent='Enviando…';
+  fetch('{motor}/presupuestos/aceptar/{folio}?t={token}',{{method:'POST'}})
+    .then(function(r){{return r.json();}})
+    .then(function(){{st.textContent='¡Recibido! Te contactamos para el siguiente paso.';}})
+    .catch(function(){{st.textContent='No se pudo registrar. Escríbenos a contact@atlantisglobalrealty.com';}});
+}});
+</script>
+</body>
+</html>
+"""
+
+
+@app.post("/presupuestos/generar")
+def presupuestos_generar(body: dict = Body(...), authorization: str = Header(None)):
+    """Arma con IA una PROPUESTA personalizada segun el perfil del lead y su(s)
+    proyecto(s) de interes. Montos y fechas SOLO de las fichas (nunca inventa).
+    Puede llevar un prototipo vinculado. Queda en borrador."""
+    _auth(authorization)
+    import uuid as _uuid
+    ws = body.get("workspace") if body.get("workspace") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    slice_ws = data.setdefault(ws, {})
+    lead = next((l for l in slice_ws.get("leads", [])
+                 if l.get("id") == body.get("leadId")), None)
+    nombre = str(body.get("nombre") or (lead or {}).get("nombre") or "").strip()
+    email = str(body.get("email") or (lead or {}).get("email") or "").strip()
+    if not nombre and not email:
+        raise HTTPException(400, "leadId o nombre/email requerido")
+    slugs = [s for s in (body.get("proyectos") or []) if s]
+    proys = [p for p in (data.get("atlantis") or {}).get("proyectos") or []
+             if p.get("slug") in slugs]
+    hilo = next((o for o in slice_ws.get("outreach", [])
+                 if o.get("email") == email.lower()), None) if email else None
+    conv = "\n".join((("Yo: " if m.get("de") == "mi" else "Ellos: ") + (m.get("texto") or "")[:400])
+                     for m in ((hilo or {}).get("conversacion") or [])[-6:])
+    fichas = "\n\n".join(json.dumps({k: p.get(k) for k in
+                                     ("slug", "constructora", "ciudad", "pais", "entrega",
+                                      "precioDesde", "es")}, ensure_ascii=False)[:1800]
+                         for p in proys) or "(sin proyectos elegidos)"
+    perfil = json.dumps({k: (lead or {}).get(k) for k in
+                         ("nombre", "email", "etapa", "fuente", "notas", "type")},
+                        ensure_ascii=False) if lead else f"Nombre: {nombre}, correo: {email}"
+    memoria = _memoria_marca(f"propuesta {nombre} {' '.join(slugs)}")
+    d = _claude_json(
+        "Arma una PROPUESTA personalizada de Atlantis Global Realty para esta persona. "
+        "REGLA DURA: precios, fechas y datos de proyectos SOLO de las fichas de abajo; si un "
+        "dato no esta, no lo menciones. Nada de promesas de retorno ni escasez artificial. "
+        "Tono consultivo, cercano y sobrio.\n\n"
+        f"PERFIL DE LA PERSONA:\n{perfil}\n\n"
+        + (f"CONVERSACION PREVIA (para personalizar):\n{conv}\n\n" if conv else "")
+        + f"PROYECTO(S) DE INTERES (fichas reales):\n{fichas}\n\n"
+        + ((f"MEMORIA DE MARCA (voz real; integrala sin citarla):\n{memoria}\n\n") if memoria else "")
+        + 'Devuelve SOLO JSON: {"titulo": str (personal, ej. "Propuesta para <nombre>"), '
+        '"intro": str (2-3 frases QUE HABLEN DE SU caso y por que estos proyectos le calzan), '
+        '"secciones": [{"titulo": str, "texto": str (3-5 frases)}] (2-4 secciones: por que este '
+        'proyecto, como funciona entrar por etapas, el plan de pagos SEGUN la ficha, siguiente '
+        'paso), "cierre": str (1 frase calida)}',
+        max_tokens=5000, system=_VOZ_MARCA)
+    if not isinstance(d, dict) or not d.get("intro"):
+        raise HTTPException(502, "la IA no devolvio la propuesta")
+    presus = slice_ws.setdefault("presupuestos", [])
+    folio = f"AGR-{time.strftime('%Y')}-{len(presus) + 1:03d}"
+    reg = {"id": f"presu-{_uuid.uuid4().hex[:8]}", "folio": folio, "estado": "borrador",
+           "nombre": nombre, "email": email, "leadId": (lead or {}).get("id") or "",
+           "proyectos": slugs, "prototipo": str(body.get("prototipo") or ""),
+           "titulo": _sin_em_dash(d.get("titulo") or f"Propuesta para {nombre}"),
+           "intro": _sin_em_dash(d.get("intro") or ""),
+           "secciones": [{"titulo": _sin_em_dash(s.get("titulo") or ""),
+                          "texto": _sin_em_dash(s.get("texto") or "")}
+                         for s in (d.get("secciones") or []) if isinstance(s, dict)],
+           "cierre": _sin_em_dash(d.get("cierre") or ""),
+           "token": _uuid.uuid4().hex[:10], "creado": int(time.time()), "ws": ws}
+    presus.insert(0, reg)
+    guardar_seguro(data)
+    return {"ok": True, "presupuesto": reg}
+
+
+@app.post("/presupuestos/publicar")
+def presupuestos_publicar(body: dict = Body(...), authorization: str = Header(None)):
+    """Publica la pagina de marca de la propuesta en atlantisglobalrealty.com/p/<folio>.html."""
+    _auth(authorization)
+    folio = str(body.get("folio", "")).strip()
+    data = crm_store.leer() or {}
+    reg = None
+    for ws in WORKSPACES:
+        reg = next((p for p in (data.get(ws) or {}).get("presupuestos", [])
+                    if p.get("folio") == folio), None)
+        if reg:
+            break
+    if not reg:
+        raise HTTPException(404, "presupuesto no encontrado")
+    proys = [p for p in (data.get("atlantis") or {}).get("proyectos") or []
+             if p.get("slug") in (reg.get("proyectos") or [])]
+    proy_html = ""
+    for p in proys:
+        es = p.get("es") or {}
+        href = p.get("landingUrl") or f"https://atlantisglobalrealty.com/proyectos/{p.get('slug')}/"
+        proy_html += (f'<a class="proy-card" href="{href}"><b>{es.get("nombre", p.get("slug"))}</b><br>'
+                      f'<span>{p.get("ciudad", "")} · {p.get("pais", "")} · {p.get("precioDesde", "")} · '
+                      f'Entrega {p.get("entrega", "")}</span></a>')
+    if proy_html:
+        proy_html = '<div class="bloq"><h2>Tu(s) proyecto(s) de interés</h2>' + proy_html + "</div>"
+    secc_html = "".join(f'<div class="bloq"><h2>{s.get("titulo", "")}</h2><p>{s.get("texto", "")}</p></div>'
+                        for s in (reg.get("secciones") or []))
+    if reg.get("cierre"):
+        secc_html += f'<div class="bloq"><p>{reg["cierre"]}</p></div>'
+    proto_html = ""
+    if reg.get("prototipo"):
+        proto_html = ('<div class="bloq"><h2>Algo hecho para ti</h2>'
+                      f'<a class="proy-card" href="{reg["prototipo"]}"><b>Ábrelo aquí</b><br>'
+                      "<span>Una muestra real preparada para tu caso.</span></a></div>")
+    html = _PRESU_PAGINA.format(
+        titulo=reg.get("titulo", "Propuesta"), folio=reg["folio"], intro=reg.get("intro", ""),
+        proyectos_html=proy_html, secciones_html=secc_html, prototipo_html=proto_html,
+        motor=os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com").rstrip("/"),
+        token=reg.get("token", ""))
+    r = web_pub.publicar_html(f"p/{reg['folio']}.html", html)
+    if not r.get("ok"):
+        raise HTTPException(502, "no se pudo publicar: " + str(r.get("error", ""))[:150])
+    reg["estado"] = "publicado"
+    reg["url"] = f"https://atlantisglobalrealty.com/p/{reg['folio']}.html"
+    guardar_seguro(data)
+    return {"ok": True, "url": reg["url"]}
+
+
+@app.post("/presupuestos/aceptar/{folio}")
+def presupuestos_aceptar(folio: str, t: str = ""):
+    """PUBLICO (con token del folio): la persona acepta la propuesta desde la pagina.
+    Marca el presupuesto aceptado y adelanta el seguimiento del lead a HOY."""
+    data = crm_store.leer() or {}
+    for ws in WORKSPACES:
+        slice_ws = data.get(ws) or {}
+        reg = next((p for p in slice_ws.get("presupuestos", []) if p.get("folio") == folio), None)
+        if not reg:
+            continue
+        if not t or not hmac.compare_digest(t, str(reg.get("token", ""))):
+            raise HTTPException(401, "token invalido")
+        reg["estado"] = "aceptado"
+        reg["aceptado"] = int(time.time())
+        lead = next((l for l in slice_ws.get("leads", []) if l.get("id") == reg.get("leadId")), None)
+        if lead:
+            lead["followUpDate"] = time.strftime("%Y-%m-%d")
+            lead["notas"] = ((lead.get("notas") or "") + f"\nAceptó la propuesta {folio}.").strip()
+        guardar_seguro(data)
+        return {"ok": True}
+    raise HTTPException(404, "presupuesto no encontrado")
 
 
 # ------------------------------------------------------- nurturing (F4)
@@ -4715,3 +5157,9 @@ def secreto_guardar(body: dict = Body(...), authorization: str = Header(None)):
 def secreto_estado(authorization: str = Header(None)):
     _auth(authorization)
     return secretos.estado()
+
+
+# Agente de redes 24/7 (usa helpers de app dentro de sus funciones; importar al final)
+import agente_redes  # noqa: E402
+
+app.include_router(agente_redes.router)
