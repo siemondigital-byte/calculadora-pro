@@ -372,6 +372,77 @@ export function Clientes({ data, commit, ws }) {
   );
 }
 
+// ------------------------------------------------- Conversaciones del proyecto (Claude)
+
+export function Conversaciones() {
+  const [lista, setLista] = useState([]);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const cargar = () => motorGet("/conversaciones/lista").then((r) => setLista(r.conversaciones || [])).catch(() => {});
+  useEffect(() => { cargar(); }, []);
+
+  const subir = (ev) => {
+    const f = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!f) return;
+    setBusy(true);
+    const lector = new FileReader();
+    lector.onload = async () => {
+      try {
+        await motorPost("/conversaciones/subir", { nombre: f.name, texto: String(lector.result || "") });
+        setMsg(`Guardada: ${f.name}. El RAG la está aprendiendo.`);
+        cargar();
+      } catch (e) { setMsg(String(e.message || e)); }
+      finally { setBusy(false); }
+    };
+    lector.readAsText(f);
+  };
+
+  const descargar = async (nombre) => {
+    try {
+      const r = await motorGet(`/conversaciones/leer/${encodeURIComponent(nombre)}`);
+      const blob = new Blob([r.texto], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = nombre;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) { setMsg(String(e.message || e)); }
+  };
+
+  const borrar = async (nombre) => {
+    if (!window.confirm(`¿Borrar ${nombre} del servidor?`)) return;
+    await motorPost("/conversaciones/borrar", { nombre });
+    cargar();
+  };
+
+  return (
+    <div>
+      <Cab titulo="Conversaciones del proyecto" sub="Sube aquí las conversaciones exportadas de Claude sobre Atlantis: quedan guardadas en el servidor, descargables y el RAG aprende de ellas" />
+      <div className="tarjeta mb-4 !p-4">
+        <label className="boton cursor-pointer">
+          {busy ? "Subiendo…" : "⬆ Subir conversación (.md / .txt / .json)"}
+          <input type="file" accept=".md,.txt,.json" className="hidden" onChange={subir} />
+        </label>
+        {msg && <p className="mt-2 text-xs text-oro">{msg}</p>}
+      </div>
+      {lista.map((c) => (
+        <div key={c.nombre} className="tarjeta mb-2 flex items-center justify-between !p-3">
+          <div>
+            <div className="text-sm">{c.nombre}</div>
+            <div className="text-xs text-gris">{c.fecha} · {c.kb} KB</div>
+          </div>
+          <div className="flex gap-2">
+            <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => descargar(c.nombre)}>⬇ descargar</button>
+            <button className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400" onClick={() => borrar(c.nombre)}>✕</button>
+          </div>
+        </div>
+      ))}
+      {lista.length === 0 && <p className="text-sm text-gris">Aún no hay conversaciones guardadas.</p>}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- Agente de redes 24/7
 
 export function AgenteRedes({ data, ws, recargar }) {

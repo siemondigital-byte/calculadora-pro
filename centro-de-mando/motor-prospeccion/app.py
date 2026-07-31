@@ -597,6 +597,86 @@ def _memoria_marca(consulta):
         return ""
 
 
+# -------------------------------------------- conversaciones del proyecto (Claude)
+
+_CONV_DIR = os.path.join(DATA_DIR, "conversaciones")
+
+
+def _conv_nombre(n):
+    import unicodedata
+    n = unicodedata.normalize("NFKD", n or "").encode("ascii", "ignore").decode()
+    n = re.sub(r"[^A-Za-z0-9\-_. ]", "", n).strip().replace(" ", "-")[:80]
+    return n or "conversacion"
+
+
+@app.post("/conversaciones/subir")
+def conversaciones_subir(body: dict = Body(...), authorization: str = Header(None)):
+    """Carpeta del proyecto: guarda una conversacion exportada de Claude en el
+    servidor (/data/conversaciones) y la ingiere al RAG (memoria del proyecto)."""
+    _auth(authorization)
+    import base64
+    texto = str(body.get("texto") or "")
+    if not texto and body.get("b64"):
+        b64 = str(body["b64"])
+        if "," in b64[:80]:
+            b64 = b64.split(",", 1)[1]
+        try:
+            texto = base64.b64decode(b64).decode("utf-8", "ignore")
+        except Exception:
+            raise HTTPException(400, "archivo invalido")
+    if len(texto.strip()) < 50:
+        raise HTTPException(400, "la conversacion llego vacia")
+    nombre = _conv_nombre(str(body.get("nombre") or "conversacion"))
+    if not nombre.endswith((".md", ".txt", ".json")):
+        nombre += ".md"
+    os.makedirs(_CONV_DIR, exist_ok=True)
+    with open(os.path.join(_CONV_DIR, nombre), "w", encoding="utf-8") as f:
+        f.write(texto)
+    # al RAG en fondo: el conocimiento del proyecto queda consultable
+    import threading
+    threading.Thread(target=rag.ingerir, args=([{
+        "id": f"conv-{nombre}", "titulo": f"Conversacion del proyecto: {nombre}",
+        "texto": texto[:120000], "meta": {"fuente": "conversacion-claude"},
+    }],), daemon=True).start()
+    return {"ok": True, "nombre": nombre}
+
+
+@app.get("/conversaciones/lista")
+def conversaciones_lista(authorization: str = Header(None)):
+    _auth(authorization)
+    out = []
+    try:
+        for n in sorted(os.listdir(_CONV_DIR)):
+            ruta = os.path.join(_CONV_DIR, n)
+            if os.path.isfile(ruta):
+                st = os.stat(ruta)
+                out.append({"nombre": n, "kb": round(st.st_size / 1024, 1),
+                            "fecha": time.strftime("%Y-%m-%d", time.localtime(st.st_mtime))})
+    except FileNotFoundError:
+        pass
+    return {"ok": True, "conversaciones": out}
+
+
+@app.get("/conversaciones/leer/{nombre}")
+def conversaciones_leer(nombre: str, authorization: str = Header(None)):
+    _auth(authorization)
+    nombre = _conv_nombre(nombre) if "/" in nombre or ".." in nombre else nombre
+    ruta = os.path.join(_CONV_DIR, os.path.basename(nombre))
+    if not os.path.isfile(ruta):
+        raise HTTPException(404, "no existe")
+    with open(ruta, encoding="utf-8") as f:
+        return {"ok": True, "nombre": os.path.basename(nombre), "texto": f.read()}
+
+
+@app.post("/conversaciones/borrar")
+def conversaciones_borrar(body: dict = Body(...), authorization: str = Header(None)):
+    _auth(authorization)
+    ruta = os.path.join(_CONV_DIR, os.path.basename(str(body.get("nombre") or "")))
+    if os.path.isfile(ruta):
+        os.remove(ruta)
+    return {"ok": True}
+
+
 # ------------------------------------------------- recortador de enlaces (/r/)
 
 def _slug_corto(s):

@@ -9,7 +9,7 @@ import AdsView from "./AdsView.jsx";
 import EstudioYtView from "./EstudioYtView.jsx";
 import NegociosView from "./NegociosView.jsx";
 import PrototiposView from "./PrototiposView.jsx";
-import { AgenteRedes, Clientes, Facturacion, Presupuestos, Proyectos } from "./ModulosNuevos.jsx";
+import { AgenteRedes, Clientes, Conversaciones, Facturacion, Presupuestos, Proyectos } from "./ModulosNuevos.jsx";
 import {
   cambiarClave,
   clearToken,
@@ -98,7 +98,7 @@ const NAV = {
         ["fuentes", "Fuentes / UTM"],
       ],
     },
-    { sec: "Configuración", items: [["accesos", "Accesos"]] },
+    { sec: "Configuración", items: [["accesos", "Accesos"], ["conversaciones", "Conversaciones Claude"]] },
   ],
   cicloderiqueza: [
     { sec: "Panel", items: [["panel", "Panel"]] },
@@ -151,7 +151,7 @@ const NAV = {
         ["fuentes", "Fuentes / UTM"],
       ],
     },
-    { sec: "Configuración", items: [["accesos", "Accesos"]] },
+    { sec: "Configuración", items: [["accesos", "Accesos"], ["conversaciones", "Conversaciones Claude"]] },
   ],
 };
 
@@ -266,6 +266,7 @@ export default function App() {
     clientes: <Clientes {...props} />,
     facturacion: <Facturacion {...props} />,
     agente: <AgenteRedes {...props} />,
+    conversaciones: <Conversaciones {...props} />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
     blogseo: <BlogSeoView {...props} />,
