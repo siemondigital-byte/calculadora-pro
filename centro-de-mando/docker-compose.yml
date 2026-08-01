@@ -38,8 +38,25 @@ services:
       # push web: la privada es la RUTA al PEM dentro del volumen /data
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-/data/vapid_private.pem}
+      # publicacion al sitio (web_pub/proyectos_web y scripts publicar-*):
+      # sin este mapeo el motor pierde el FTP al recrearse (KeyError FTP_HOST)
+      - FTP_HOST=${FTP_HOST:-}
+      - FTP_PORT=${FTP_PORT:-21}
+      - FTP_USER=${FTP_USER:-}
+      - FTP_PASS=${FTP_PASS:-}
+      - FTP_DIR=${FTP_DIR:-}
+      # base vectorial del RAG (coleccion 'atlantis')
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+    depends_on:
+      - qdrant
     volumes:
       - ./data:/data
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - qdrant-data:/qdrant/storage
 
   web:
     build:
@@ -65,3 +82,4 @@ services:
 volumes:
   caddy-data:
   caddy-config:
+  qdrant-data:
