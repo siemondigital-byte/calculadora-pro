@@ -291,3 +291,37 @@ def estado(coll=COLL):
         return {"ok": True, "puntos": pts, "voyage": bool(_key()), "hibrido": True}
     except Exception as e:
         return {"ok": False, "error": str(e)[:120], "voyage": bool(_key())}
+
+
+def mapa(coll=COLL):
+    """Datos para el MAPA VIVO (portado del nucleo Siemon): cada documento como nodo
+    (titulo, fuente, peso = numero de trozos), agrupado por fuente. Escanea Qdrant."""
+    _ensure(coll)
+    docs, offset = {}, None
+    for _ in range(60):
+        body = {"limit": 400, "with_payload": True, "with_vector": False}
+        if offset:
+            body["offset"] = offset
+        try:
+            j = requests.post(f"{QDRANT}/collections/{coll}/points/scroll",
+                              json=body, timeout=30).json().get("result", {})
+        except Exception:
+            break
+        for p in (j.get("points") or []):
+            pl = p.get("payload") or {}
+            did = pl.get("doc_id")
+            if not did:
+                continue
+            if did not in docs:
+                docs[did] = {"id": did, "titulo": pl.get("titulo") or did,
+                             "fuente": pl.get("fuente") or pl.get("tipo") or "otros", "peso": 0}
+            docs[did]["peso"] += 1
+        offset = j.get("next_page_offset")
+        if not offset:
+            break
+    nodos = list(docs.values())
+    fuentes = {}
+    for n in nodos:
+        fuentes[n["fuente"]] = fuentes.get(n["fuente"], 0) + 1
+    fuentes_l = sorted([{"fuente": k, "n": v} for k, v in fuentes.items()], key=lambda x: -x["n"])
+    return {"ok": True, "nodos": nodos, "fuentes": fuentes_l, "total": len(nodos)}

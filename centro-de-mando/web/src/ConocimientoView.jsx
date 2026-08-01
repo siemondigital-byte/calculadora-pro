@@ -20,6 +20,34 @@ export default function ConocimientoView({ tab: tabInicial }) {
   const [busy, setBusy] = useState("");
   const [ensenar, setEnsenar] = useState("");
   const [msg, setMsg] = useState("");
+  const [mapa, setMapa] = useState(null);
+  const [verMapa, setVerMapa] = useState(false);
+
+  const ETIQ = { oferta: "Oferta y producto", programa: "Programas", posicionamiento: "Posicionamiento",
+    ensenanza: "Enseñanzas", documento: "Documentos", conversacion: "Conversaciones", correo: "Correos",
+    publicacion: "Publicaciones", diagnostico: "Perfiles de compradores", texto: "Notas", otros: "Otros" };
+
+  async function cargarMapa() {
+    setVerMapa(true); setBusy("mapa");
+    try {
+      const r = await fetch(MOTOR + "/rag/mapa", { headers: H() });
+      const d = await r.json();
+      if (d.ok) setMapa(d); else aviso("No pude leer el mapa: " + (d.error || ""));
+    } catch { aviso("No pude conectar con el motor."); }
+    setBusy("");
+  }
+
+  async function publicarMapa() {
+    if (!window.confirm("¿Publicar el mapa en la web pública (atlantisglobalrealty.com/mapa-conocimiento.html)? Es un snapshot del estado actual.")) return;
+    setBusy("pubmapa");
+    try {
+      const r = await fetch(MOTOR + "/rag/mapa_publicar", { method: "POST", headers: H(), body: JSON.stringify({}) });
+      const d = await r.json();
+      aviso(d.ok ? `Mapa publicado ✓ ${d.url}` : "No pude publicarlo: " + (d.error || ""));
+      if (d.ok) window.open(d.url, "_blank");
+    } catch { aviso("No pude conectar con el motor."); }
+    setBusy("");
+  }
 
   const cargarEstado = () => {
     fetch(MOTOR + "/rag/estado", { headers: H() }).then((r) => r.json()).then(setEstado).catch(() => {});
@@ -138,6 +166,41 @@ export default function ConocimientoView({ tab: tabInicial }) {
               ))}
             </div>
           )}
+
+          {/* Mapa vivo (interno) + publicación externa */}
+          <div className="tarjeta mb-5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span style={{ color: C.cream, fontWeight: 600, fontSize: 14 }}>🗺 Mapa vivo de tu base</span>
+              {!verMapa && <button className="boton-secundario !px-3 !py-1.5 text-xs" onClick={cargarMapa}>{busy === "mapa" ? "Leyendo…" : "Ver el mapa"}</button>}
+              {verMapa && <button className="boton-secundario !px-3 !py-1.5 text-xs" onClick={cargarMapa}>{busy === "mapa" ? "Leyendo…" : "↻ Actualizar"}</button>}
+              <button className="boton-secundario !px-3 !py-1.5 text-xs" onClick={publicarMapa} disabled={busy === "pubmapa"}>{busy === "pubmapa" ? "Publicando…" : "🌐 Publicar versión externa"}</button>
+              <a href="https://atlantisglobalrealty.com/mapa-conocimiento.html" target="_blank" rel="noreferrer" style={{ color: C.oro || "#D8B673", fontSize: 12 }} className="ml-auto hover:underline">ver versión grande ↗</a>
+            </div>
+            {verMapa && mapa && (
+              <>
+                <div style={{ color: C.ash, fontFamily: MONO }} className="text-[11px] mt-2 mb-3">{mapa.total} documentos · se lee EN VIVO del RAG · clic en uno para preguntarle</div>
+                <div className="flex gap-3 overflow-x-auto pb-2" style={{ alignItems: "flex-start" }}>
+                  {(mapa.fuentes || []).map((fu) => (
+                    <div key={fu.fuente} style={{ minWidth: 230, background: C.carbon, border: `1px solid ${C.line}`, borderRadius: 12, padding: 10 }}>
+                      <div style={{ color: C.oro || "#D8B673", fontFamily: MONO }} className="text-[10px] uppercase mb-2 flex items-center gap-1.5">
+                        <span style={{ width: 8, height: 8, borderRadius: 3, background: C.oro || "#D8B673", display: "inline-block" }} />
+                        {ETIQ[fu.fuente] || fu.fuente} <span style={{ color: C.ash }} className="ml-auto">{fu.n}</span>
+                      </div>
+                      {(mapa.nodos || []).filter((n) => n.fuente === fu.fuente).sort((a, b) => b.peso - a.peso).map((n) => (
+                        <button key={n.id} onClick={() => { setQ(n.titulo); setTab("conocimiento"); buscar(); }}
+                          title={`${n.peso} fragmento(s) — clic para preguntarle`}
+                          style={{ display: "block", width: "100%", textAlign: "left", background: "rgba(255,255,255,0.03)",
+                                   border: `1px solid ${C.line}`, borderRadius: 8, color: C.cream, cursor: "pointer",
+                                   padding: `${6 + Math.min(n.peso, 6)}px 10px`, marginBottom: 6, fontSize: 12 }}>
+                          {String(n.titulo).slice(0, 60)}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Enséñale + documentos + reindexar */}
           <div className="tarjeta mb-5">

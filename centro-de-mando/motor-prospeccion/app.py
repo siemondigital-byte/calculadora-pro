@@ -5296,3 +5296,78 @@ def secreto_estado(authorization: str = Header(None)):
 import agente_redes  # noqa: E402
 
 app.include_router(agente_redes.router)
+
+
+# ---------------- mapa vivo del conocimiento (interno + publicacion externa) ----------------
+
+_MAPA_FUENTE_LABEL = {
+    "oferta": "Oferta y producto", "programa": "Programas", "posicionamiento": "Posicionamiento",
+    "ensenanza": "Ensenanzas de Andrea", "documento": "Documentos", "conversacion": "Conversaciones",
+    "correo": "Correos", "publicacion": "Publicaciones", "diagnostico": "Perfiles de compradores",
+    "crm": "Historial (CRM)", "texto": "Notas", "otros": "Otros",
+}
+
+
+@app.get("/rag/mapa")
+def rag_mapa(authorization: str = Header(None)):
+    """MAPA VIVO del conocimiento: documentos agrupados por fuente, con peso por trozos."""
+    _auth(authorization)
+    return rag.mapa()
+
+
+@app.post("/rag/mapa_publicar")
+def rag_mapa_publicar(authorization: str = Header(None)):
+    """Genera el mapa como pagina ESTATICA de marca y la publica en la web publica
+    (atlantisglobalrealty.com/mapa-conocimiento.html) via web_pub, con respaldo previo."""
+    _auth(authorization)
+    import html as _h
+    import web_pub
+    m = rag.mapa()
+    if not m.get("ok"):
+        return {"ok": False, "error": "no pude leer el mapa del RAG"}
+    grupos = {}
+    for n in m["nodos"]:
+        grupos.setdefault(n["fuente"], []).append(n)
+    cols = []
+    for f in [x["fuente"] for x in m["fuentes"]]:
+        nodos = sorted(grupos.get(f, []), key=lambda x: -x["peso"])
+        bloques = "".join(
+            f'<div class="doc" style="--w:{min(int(n["peso"]), 6)}">{_h.escape(str(n["titulo"])[:70])}</div>'
+            for n in nodos)
+        label = _MAPA_FUENTE_LABEL.get(f, str(f).title())
+        cols.append(f'<div class="col"><div class="cab"><span class="dot"></span>{_h.escape(label)}'
+                    f'<span class="n">{len(nodos)}</span></div>{bloques}</div>')
+    fecha = time.strftime("%Y-%m-%d %H:%M")
+    html_doc = ("<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                "<title>Mapa de Conocimiento - Atlantis Global Realty</title>"
+                "<meta name=\"robots\" content=\"noindex\">"
+                "<style>"
+                ":root{--carbon:#0E0F12;--panel:#15161B;--line:rgba(255,255,255,.08);--oro:#D8B673;--cream:#EAE6DC;--ash:#8B8D98}"
+                "*{box-sizing:border-box}body{margin:0;background:var(--carbon);color:var(--cream);"
+                "font-family:'Montserrat',system-ui,sans-serif;padding:34px 22px}"
+                "h1{font-size:26px;margin:0 0 6px}.sub{color:var(--ash);font-size:13px;max-width:70ch;margin-bottom:8px}"
+                ".meta{color:var(--ash);font-family:ui-monospace,monospace;font-size:11px;margin-bottom:22px}"
+                ".mapa{display:flex;gap:16px;overflow-x:auto;padding-bottom:18px;align-items:flex-start}"
+                ".col{min-width:250px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}"
+                ".cab{font-family:ui-monospace,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;"
+                "color:var(--oro);margin-bottom:10px;display:flex;align-items:center;gap:6px}"
+                ".dot{width:8px;height:8px;border-radius:3px;background:var(--oro);display:inline-block}"
+                ".n{color:var(--ash);margin-left:auto}"
+                ".doc{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:9px;"
+                "padding:calc(6px + var(--w,1)*1px) 10px;margin-bottom:7px;font-size:12px;color:var(--cream)}"
+                "footer{color:var(--ash);font-size:11px;margin-top:16px}"
+                "</style></head><body>"
+                "<h1>Mapa de Conocimiento - Atlantis Global Realty</h1>"
+                "<div class=\"sub\">Todo lo que el sistema de Atlantis sabe de su negocio: la oferta, los proyectos, "
+                "los programas y lo aprendido en el camino. Cada columna es una fuente; cada bloque, un documento "
+                "(mas alto = mas contenido).</div>"
+                "<div class=\"meta\">" + str(m["total"]) + " documentos - actualizado " + fecha + " (UTC)</div>"
+                "<div class=\"mapa\">" + "".join(cols) + "</div>"
+                "<footer>Atlantis Global Realty - snapshot del conocimiento del Centro de Mando.</footer>"
+                "</body></html>")
+    res = web_pub.escribir([{"ruta": "mapa-conocimiento.html", "contenido": html_doc}], publicar_ftp=True)
+    if not res.get("ok"):
+        return {"ok": False, "error": str(res)[:160]}
+    url = os.environ.get("WEB_URL", "https://atlantisglobalrealty.com").rstrip("/") + "/mapa-conocimiento.html"
+    return {"ok": True, "url": url, "documentos": m["total"]}
