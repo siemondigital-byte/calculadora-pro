@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mapa de Conocimiento · Atlantis Global Realty</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{
+    --carbon:#0C0D10; --panel:#12131A; --panel2:#171821; --line:rgba(255,255,255,.08);
+    --oro:#D8B673; --oro2:#E7CE9C; --oro500:#A98B54; --cream:#EAE6DC; --mist:#C9CAD2; --ash:#8B8D98;
+    --sans:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:ui-monospace,'JetBrains Mono','SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 90% at 85% -5%,#1a1712 0%,var(--carbon) 55%);
+    color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5}
+  .wrap{max-width:1280px;margin:0 auto;padding:38px 26px 70px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--oro);opacity:.85}
+  h1{font-size:clamp(30px,5vw,52px);font-weight:800;letter-spacing:-.02em;margin:.35em 0 .3em;text-wrap:balance}
+  h1 .g{background:linear-gradient(100deg,var(--oro),#8FC9A0 60%,#CBC0EC);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{max-width:660px;color:var(--mist);font-size:15.5px}
+  .sub b{color:var(--cream);font-weight:700}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 8px}
+  @media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .stat .n{font-size:26px;font-weight:800;letter-spacing:-.01em}
+  .stat .n small{font-size:13px;font-weight:600;color:var(--ash)}
+  .stat .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ash);margin-top:6px}
+  .section-h{font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--oro);opacity:.8;margin:42px 0 6px}
+  h2{font-size:24px;font-weight:800;letter-spacing:-.01em;margin:0 0 4px}
+  .hint{color:var(--ash);font-size:13px;max-width:620px}
+  .mapgrid{display:flex;flex-direction:column;gap:16px;margin-top:18px}
+  @media(max-width:980px){.mapgrid{grid-template-columns:1fr}}
+  .graph{position:relative;background:radial-gradient(75% 60% at 40% 15%,#14131a,#0a0b0e);border:1px solid var(--line);border-radius:16px;overflow:auto;padding:24px 22px}
+  .stage{position:relative}
+  svg.lines{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:visible}
+  .node{position:absolute;width:158px;transform:translate(-50%,-50%);background:linear-gradient(180deg,#16151c,#100f15);
+    border:1px solid var(--line);border-radius:12px;padding:11px 12px 10px;cursor:pointer;z-index:1;
+    transition:box-shadow .16s,border-color .16s,opacity .16s}
+  .node:hover,.node.active{border-color:var(--nc);box-shadow:0 0 0 1px var(--nc),0 0 26px -3px var(--nc);z-index:3}
+  .node.dim{opacity:.24}
+  .node .ico{width:18px;height:18px;border-radius:50%;background:var(--nc);box-shadow:0 0 9px 0 var(--nc);margin-bottom:8px}
+  .node .nt{font-size:12px;font-weight:700;line-height:1.22;letter-spacing:-.01em}
+  .node .nw{display:inline-block;font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;color:var(--nc);
+    background:color-mix(in srgb,var(--nc) 13%,transparent);border:1px solid color-mix(in srgb,var(--nc) 28%,transparent);border-radius:6px;padding:2px 6px;margin-top:8px}
+  .collab{position:absolute;transform:translate(-50%,-50%);font-family:var(--mono);font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--ash);z-index:1;white-space:nowrap}
+  .legend{display:flex;flex-wrap:wrap;gap:7px 14px;margin-top:16px;font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:var(--ash)}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+  .inspector{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:18px;position:static;order:-1}
+  .insp-cat{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash)}
+  .insp-title{font-size:19px;font-weight:800;margin:3px 0 2px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 12px currentColor}
+  .insp-file{font-family:var(--mono);font-size:10.5px;color:var(--oro2);background:rgba(216,182,115,.09);border:1px solid rgba(216,182,115,.2);border-radius:7px;padding:5px 8px;display:inline-block;margin:8px 0}
+  .insp-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin:8px 0 12px}
+  .insp-metrics div{background:#0f1015;border:1px solid var(--line);border-radius:9px;padding:9px 6px;text-align:center}
+  .insp-metrics .mn{font-size:17px;font-weight:800}
+  .insp-metrics .ml{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--ash)}
+  .insp-hook{color:var(--mist);font-size:13.5px;margin:2px 0 12px}
+  .insp-conn-h{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ash);margin-bottom:6px}
+  .chip{display:inline-block;font-size:11px;color:var(--mist);background:#0f1015;border:1px solid var(--line);border-radius:999px;padding:3px 9px;margin:0 5px 5px 0;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--oro);color:var(--cream)}
+  .capas{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:820px){.capas{grid-template-columns:1fr}}
+  .grp{background:linear-gradient(180deg,rgba(22,21,28,.5),rgba(15,16,21,.3));border:1px solid var(--line);border-radius:14px;padding:14px 15px}
+  .grp-h{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px}
+  .grp-h .gd{width:9px;height:9px;border-radius:50%;box-shadow:0 0 9px currentColor}
+  .grp-h .gc{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--ash);letter-spacing:.08em}
+  .grp-list{margin-top:8px;display:flex;flex-direction:column;gap:2px}
+  .row{display:flex;align-items:flex-start;gap:9px;padding:8px 6px;border-radius:9px;cursor:pointer;transition:.14s}
+  .row:hover{background:rgba(255,255,255,.035)}
+  .row .rt{font-weight:600;font-size:12.5px;min-width:116px;flex:0 0 auto}
+  .row .rh{color:var(--ash);font-size:11.5px;line-height:1.35}
+  .row .rw{margin-left:auto;font-family:var(--mono);font-size:8.5px;color:var(--ash);white-space:nowrap;padding-top:2px}
+  .foot{margin-top:40px;color:var(--ash);font-size:12px;font-family:var(--mono);letter-spacing:.06em;border-top:1px solid var(--line);padding-top:18px}
+  .foot b{color:var(--oro2)}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">// Base de conocimiento · Atlantis Global Realty</div>
+  <h1>La memoria de <span class="g">Atlantis</span></h1>
+  <p class="sub">Todo lo que el sistema ha aprendido del negocio, ordenado por área y conectado como una <b>red</b>: cada caja es un archivo (su tamaño es cuánto sabe) y las líneas son las <b>relaciones reales</b> entre temas, calculadas por significado. <b>Esta base alimenta todo lo que el sistema genera.</b></p>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="s-files">–</div><div class="l">Archivos de memoria</div></div>
+    <div class="stat"><div class="n" id="s-words">–</div><div class="l">Palabras de contexto</div></div>
+    <div class="stat"><div class="n" id="s-chars">–</div><div class="l">Caracteres (aprox)</div></div>
+    <div class="stat"><div class="n" id="s-links">–</div><div class="l">Conexiones temáticas</div></div>
+  </div>
+
+  <div class="section-h">// El mapa</div>
+  <h2>Cómo se conecta el conocimiento</h2>
+  <p class="hint">Ordenado por área (columnas). Pasa el ratón por una caja para ver su contenido e iluminar sus conexiones; haz clic para fijarla.</p>
+
+  <div class="mapgrid">
+    <div>
+      <div class="graph"><div class="stage" id="stage"><svg class="lines" id="lines"></svg></div></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="inspector" id="insp">
+      <div class="insp-cat" id="i-cat">Inspector</div>
+      <div class="insp-title" id="i-title"><span class="dot" style="color:var(--oro)"></span>Memoria de Atlantis</div>
+      <div class="insp-file" id="i-file">base de conocimiento</div>
+      <div class="insp-metrics">
+        <div><div class="mn" id="i-words">–</div><div class="ml">Palabras</div></div>
+        <div><div class="mn" id="i-chars">–</div><div class="ml">Caract.</div></div>
+        <div><div class="mn" id="i-conn">–</div><div class="ml">Conex.</div></div>
+      </div>
+      <div class="insp-hook" id="i-hook">Pasa el ratón por una caja del mapa para ver su contenido y sus conexiones. Cada pieza se enlaza con las demás — eso es lo que hace que el sistema responda con criterio, no genérico.</div>
+      <div class="insp-conn-h" id="i-connh" style="display:none">Se conecta con</div>
+      <div id="i-conns"></div>
+    </div>
+  </div>
+
+  <div class="section-h">// En detalle</div>
+  <h2>Las capas, por área</h2>
+  <p class="hint">El conocimiento agrupado por área. Pasa el ratón sobre una fila para iluminar su nodo en el mapa; haz clic para fijarlo.</p>
+  <div class="capas" id="capas"></div>
+
+  <div class="foot">Mapa de conocimiento de <b>Atlantis Global Realty</b> · actualizado %%FECHA%% (UTC) · La misma base alimenta el buscador por significado (RAG) del Centro de Mando.</div>
+</div>
+
+<script>
+const CAT=%%CAT%%;
+const COLS=%%COLS%%;
+const N=%%N%%;
+let nodes=N.map(([id,t,cat,w,links,hook])=>({id,t,cat,w,links,hook}));
+const byId={}; nodes.forEach(n=>byId[n.id]=n);
+const edges=[]; const eset=new Set();
+nodes.forEach(n=>n.links.forEach(l=>{ if(byId[l]){ const k=[n.id,l].sort().join('|'); if(!eset.has(k)){eset.add(k); edges.push([n.id,l]);} }}));
+nodes.forEach(n=>n.deg=0); edges.forEach(([a,b])=>{ byId[a].deg++; byId[b].deg++; });
+const totW=nodes.reduce((s,n)=>s+n.w,0), fmt=x=>x.toLocaleString('es-ES');
+function s(id,v){document.getElementById(id).textContent=v;}
+s('s-files',nodes.length); document.getElementById('s-words').innerHTML=fmt(totW)+' <small>pal.</small>';
+document.getElementById('s-chars').innerHTML=fmt(Math.round(totW*6.1))+' <small>car.</small>'; s('s-links',edges.length);
+document.getElementById('legend').innerHTML=COLS.map(k=>CAT[k]).map(c=>`<span><i style="background:${c.c}"></i>${c.l}</span>`).join('')+`<span style="opacity:.7">tamaño = palabras · línea = relación</span>`;
+
+// ---- layout DETERMINISTA por columnas (ordenado, sin solapes) ----
+const stage=document.getElementById('stage'), svg=document.getElementById('lines');
+const COLW=178, ROWH=104, PADX=20, PADY=34, BOXW=158;
+let maxRows=0;
+COLS.forEach((cat,ci)=>{
+  const list=nodes.filter(n=>n.cat===cat).sort((a,b)=>b.w-a.w);
+  maxRows=Math.max(maxRows,list.length);
+  const h=document.createElement('div'); h.className='collab'; h.textContent=CAT[cat].l;
+  h.style.left=(PADX+ci*COLW+BOXW/2)+'px'; h.style.top='8px'; stage.appendChild(h);
+  list.forEach((n,ri)=>{ n.gx=PADX+ci*COLW+BOXW/2; n.gy=PADY+18+ri*ROWH+ROWH/2;
+    const el=document.createElement('div'); el.className='node'; el.dataset.id=n.id; el.style.setProperty('--nc',CAT[n.cat].c);
+    el.style.left=n.gx+'px'; el.style.top=n.gy+'px';
+    el.innerHTML=`<div class="ico"></div><div class="nt">${n.t}</div><div class="nw">${fmt(n.w)} pal</div>`;
+    stage.appendChild(el); n.el=el; });
+});
+stage.style.width=(PADX*2+COLS.length*COLW)+'px';
+stage.style.height=(PADY+40+maxRows*ROWH)+'px';
+
+function drawLines(active){
+  let html='<defs><filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+  edges.forEach(([a,b])=>{ const p=byId[a], q=byId[b]; if(p.gx==null||q.gx==null)return;
+    const on=active&&(a===active||b===active);
+    const col=on?CAT[byId[active].cat].c:'#C4A96B', op=on?.95:(active?.05:.16), wdt=on?2.2:1;
+    const mx=(p.gx+q.gx)/2;
+    html+=`<path d="M${p.gx},${p.gy} C${mx},${p.gy} ${mx},${q.gy} ${q.gx},${q.gy}" fill="none" stroke="${col}" stroke-width="${wdt}" stroke-opacity="${op}" ${on?'filter="url(#glow)"':''}/>`;
+  });
+  svg.innerHTML=html; svg.setAttribute('width',stage.style.width); svg.setAttribute('height',stage.style.height);
+}
+function highlight(id){
+  const conn=new Set(); if(id){ conn.add(id); edges.forEach(([a,b])=>{ if(a===id)conn.add(b); if(b===id)conn.add(a); }); }
+  nodes.forEach(n=>{ n.el.classList.toggle('active',n.id===id); n.el.classList.toggle('dim', !!id&&!conn.has(n.id)); });
+  drawLines(id);
+}
+function setInsp(n){ const c=CAT[n.cat];
+  document.getElementById('i-cat').textContent=c.l;
+  document.getElementById('i-title').innerHTML=`<span class="dot" style="color:${c.c}"></span>${n.t}`;
+  document.getElementById('i-file').textContent=n.id;
+  s('i-words',fmt(n.w)); s('i-chars',n.w>1000?fmt(Math.round(n.w*6.1/1000))+'k':fmt(Math.round(n.w*6.1))); s('i-conn',n.deg);
+  document.getElementById('i-hook').textContent=n.hook||'';
+  const cs=[]; edges.forEach(([a,b])=>{ if(a===n.id)cs.push(b); if(b===n.id)cs.push(a); });
+  const ch=document.getElementById('i-connh'), cc=document.getElementById('i-conns');
+  if(cs.length){ ch.style.display='block'; cc.innerHTML=[...new Set(cs)].map(id=>`<span class="chip" data-id="${id}">${byId[id].t}</span>`).join(''); } else { ch.style.display='none'; cc.innerHTML=''; }
+}
+let pinned=null;
+stage.addEventListener('mouseover',e=>{ const n=e.target.closest('.node'); if(n&&!pinned){ highlight(n.dataset.id); setInsp(byId[n.dataset.id]); } });
+stage.addEventListener('mouseout',e=>{ const n=e.target.closest('.node'); if(n&&!pinned&&(!e.relatedTarget||!e.relatedTarget.closest('.node')))highlight(null); });
+document.addEventListener('click',e=>{
+  const n=e.target.closest('.node'); if(n){ pinned=(pinned===n.dataset.id)?null:n.dataset.id; highlight(pinned); setInsp(byId[n.dataset.id]); return; }
+  const chip=e.target.closest('.chip'); if(chip&&byId[chip.dataset.id]){ pinned=chip.dataset.id; highlight(pinned); setInsp(byId[pinned]); }
+});
+drawLines(null);
+
+document.getElementById('capas').innerHTML=COLS.map(cat=>{
+  const list=nodes.filter(n=>n.cat===cat).sort((a,b)=>b.w-a.w); if(!list.length)return '';
+  const c=CAT[cat];
+  return `<div class="grp"><div class="grp-h"><span class="gd" style="color:${c.c};background:${c.c}"></span>${c.l}<span class="gc">${list.length} archivo${list.length>1?'s':''}</span></div>
+    <div class="grp-list">${list.map(n=>`<div class="row" data-id="${n.id}"><div class="rt">${n.t}</div><div class="rh">${n.hook||''}</div><div class="rw">${fmt(n.w)} pal</div></div>`).join('')}</div></div>`;
+}).join('');
+document.getElementById('capas').addEventListener('mouseover',e=>{ const r=e.target.closest('.row'); if(r&&byId[r.dataset.id]&&!pinned){ highlight(r.dataset.id); setInsp(byId[r.dataset.id]); } });
+document.getElementById('capas').addEventListener('mouseout',()=>{ if(!pinned)highlight(null); });
+document.getElementById('capas').addEventListener('click',e=>{ const r=e.target.closest('.row'); if(r&&byId[r.dataset.id]){ pinned=r.dataset.id; highlight(pinned); setInsp(byId[pinned]); document.querySelector('.graph').scrollIntoView({behavior:'smooth',block:'center'}); } });
+</script>
+</html>

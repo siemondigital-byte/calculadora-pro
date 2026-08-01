@@ -332,3 +332,58 @@ def listar_docs(coll=COLL):
     m = mapa(coll=coll)
     return [{"doc_id": n["id"], "titulo": n["titulo"], "fuente": n["fuente"]}
             for n in (m.get("nodos") or [])]
+
+
+def mapa_rico(coll=COLL, max_links=3, umbral=0.45):
+    """Mapa CON RELACIONES REALES para la pagina publica (patron Siemon): por documento,
+    titulo, fuente, palabras (aprox por caracteres reales) y sus vecinos semanticos
+    (Qdrant recommend sobre un punto representativo, excluyendo el propio doc)."""
+    _ensure(coll)
+    docs, offset = {}, None
+    for _ in range(60):
+        body = {"limit": 400, "with_payload": True, "with_vector": False}
+        if offset:
+            body["offset"] = offset
+        try:
+            j = requests.post(f"{QDRANT}/collections/{coll}/points/scroll",
+                              json=body, timeout=30).json().get("result", {})
+        except Exception:
+            break
+        for p in (j.get("points") or []):
+            pl = p.get("payload") or {}
+            did = pl.get("doc_id")
+            if not did:
+                continue
+            d = docs.setdefault(did, {"id": did, "titulo": pl.get("titulo") or did,
+                                      "fuente": pl.get("fuente") or pl.get("tipo") or "otros",
+                                      "chars": 0, "punto": p.get("id"), "hook": ""})
+            txt = pl.get("texto") or ""
+            d["chars"] += len(txt)
+            if not d["hook"] and txt:
+                d["hook"] = txt[:150].replace("\n", " ").strip()
+        offset = j.get("next_page_offset")
+        if not offset:
+            break
+    # vecinos semanticos por documento (relaciones REALES, no inventadas)
+    for did, d in docs.items():
+        d["links"] = []
+        try:
+            r = requests.post(f"{QDRANT}/collections/{coll}/points/recommend", json={
+                "positive": [d["punto"]], "limit": max_links + 2, "with_payload": ["doc_id"],
+                "score_threshold": umbral,
+                "filter": {"must_not": [{"key": "doc_id", "match": {"value": did}}]},
+            }, timeout=20).json().get("result", [])
+            vistos = set()
+            for h in r:
+                odid = (h.get("payload") or {}).get("doc_id")
+                if odid and odid in docs and odid not in vistos:
+                    vistos.add(odid)
+                    d["links"].append(odid)
+                if len(d["links"]) >= max_links:
+                    break
+        except Exception:
+            pass
+        d["palabras"] = max(1, int(d["chars"] / 5.8))
+        d.pop("punto", None)
+        d.pop("chars", None)
+    return {"ok": True, "nodos": list(docs.values()), "total": len(docs)}
