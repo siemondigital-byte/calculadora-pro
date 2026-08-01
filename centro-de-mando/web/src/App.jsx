@@ -1910,12 +1910,38 @@ function Compradores({ data, commit, ws }) {
     commit(siguiente);
   };
 
+  // finanzas REALES, calculadas de los registros (nunca de lo tecleado a mano):
+  // ingresos = ventas pagadas; comisiones = % de cada embajador sobre SUS ventas pagadas
+  const embajadores = data[ws]?.embajadores || [];
+  const pagadas = compradores.filter((c) => !c.reembolsado);
+  const reembolsadas = compradores.filter((c) => c.reembolsado);
+  const valorDe = (c) => parseFloat(c.valor) || 44;
+  const ingresos = pagadas.reduce((s, c) => s + valorDe(c), 0);
+  const comisiones = pagadas.reduce((s, c) => {
+    const e = embajadores.find((x) => x.id === c.embajador);
+    return s + (e ? valorDe(c) * ((parseFloat(e.comision_pct) || 0) / 100) : 0);
+  }, 0);
+
   return (
     <div>
       <Encabezado
         titulo="Compradores"
         sub={`Producto a ${config.precio || "44 USD"} · garantía de 7 días`}
       />
+      <div className="mb-6 grid gap-3 sm:grid-cols-5">
+        {[["Ingresos", ingresos.toFixed(2) + " USD", pagadas.length + " ventas pagadas"],
+          ["Ventas", String(pagadas.length), "no reembolsadas"],
+          ["Reembolsos", String(reembolsadas.length), reembolsadas.reduce((s, c) => s + valorDe(c), 0).toFixed(2) + " USD"],
+          ["Comisiones", comisiones.toFixed(2) + " USD", "a embajadores"],
+          ["Ganancia", (ingresos - comisiones).toFixed(2) + " USD", "ingresos − comisiones"],
+        ].map(([t, v, s]) => (
+          <div key={t} className="tarjeta !p-3">
+            <div className="text-xs uppercase text-gris">{t}</div>
+            <div className="text-xl font-semibold text-oro">{v}</div>
+            <div className="text-xs text-gris">{s}</div>
+          </div>
+        ))}
+      </div>
       <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
         <input
           className="campo"
@@ -2001,7 +2027,12 @@ function Compradores({ data, commit, ws }) {
 
 function Afiliados({ data, commit, ws }) {
   const afiliados = data[ws]?.afiliados || [];
+  const embajadores = data[ws]?.embajadores || [];
+  const compradores = data[ws]?.compradores || [];
+  const config = cfg(data, ws);
   const [nuevo, setNuevo] = useState({ canal: "", vertical: "finanzas e inversión" });
+  const [alta, setAlta] = useState({ nombre: "", email: "", pct: config.comisionPct || "40" });
+  const [copiado, setCopiado] = useState("");
   const VERTICALES = [
     "productividad/hábitos",
     "mentalidad",
@@ -2022,12 +2053,110 @@ function Afiliados({ data, commit, ws }) {
     setNuevo({ canal: "", vertical: VERTICALES[2] });
   };
 
+  // token de atribución: viaja como src/sck del checkout y el motor imputa la venta
+  const genToken = () =>
+    "EMB-" + Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+  const linkCon = (base, token) => (base ? base + (base.includes("?") ? "&" : "?") + "src=" + token : "");
+  const statsDe = (id, pct) => {
+    const ventas = compradores.filter((c) => c.embajador === id && !c.reembolsado);
+    const monto = ventas.reduce((s, c) => s + (parseFloat(c.valor) || 44), 0);
+    return { n: ventas.length, comision: monto * ((parseFloat(pct) || 0) / 100) };
+  };
+
+  const activarEmbajador = (e) => {
+    e.preventDefault();
+    if (!alta.nombre.trim()) return;
+    const siguiente = structuredClone(data);
+    const lista = siguiente[ws].embajadores || [];
+    siguiente[ws].embajadores = [
+      ...lista,
+      { id: uid("emb"), nombre: alta.nombre.trim(), email: alta.email.trim(),
+        comision_pct: parseFloat(alta.pct) || 0, token: genToken(),
+        estado: "activo", creado: hoyISO() },
+    ];
+    commit(siguiente);
+    setAlta({ nombre: "", email: "", pct: config.comisionPct || "40" });
+  };
+  const promover = (a) => setAlta({ nombre: a.canal, email: a.email || "", pct: config.comisionPct || "40" });
+  const setCfg = (k, v) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].config = { ...(siguiente[ws].config || {}), [k]: v };
+    commit(siguiente);
+  };
+  const copiar = (txt, tag) => {
+    navigator.clipboard?.writeText(txt);
+    setCopiado(tag); setTimeout(() => setCopiado(""), 1500);
+  };
+
   return (
     <div>
       <Encabezado
         titulo="Afiliados / Embajadores"
-        sub="YouTubers de las 5 verticales · comisión se define en la llamada de partners"
+        sub="El producto se promociona a través de embajadores: cada uno con su enlace de atribución, sus ventas y su comisión (calculadas de las compras reales)"
       />
+
+      {/* Config del programa: los enlaces de compra a los que se les añade el token */}
+      <div className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <div className="sm:col-span-4 text-xs uppercase text-gris">Config del programa (enlaces de compra y comisión por defecto)</div>
+        <input className="campo sm:col-span-2" placeholder="Link de compra ES (Hotmart)" defaultValue={config.linkCompraES || ""} onBlur={(e) => setCfg("linkCompraES", e.target.value.trim())} />
+        <input className="campo" placeholder="Link de compra EN" defaultValue={config.linkCompraEN || ""} onBlur={(e) => setCfg("linkCompraEN", e.target.value.trim())} />
+        <input className="campo" placeholder="% comisión por defecto" defaultValue={config.comisionPct || "40"} onBlur={(e) => setCfg("comisionPct", e.target.value.trim())} />
+      </div>
+
+      {/* Alta de embajador ACTIVO (con token) */}
+      <form onSubmit={activarEmbajador} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <div className="sm:col-span-4 text-xs uppercase text-gris">Activar embajador (genera su token y su enlace)</div>
+        <input className="campo" placeholder="Nombre o canal" value={alta.nombre} onChange={(e) => setAlta({ ...alta, nombre: e.target.value })} />
+        <input className="campo" type="email" placeholder="Email" value={alta.email} onChange={(e) => setAlta({ ...alta, email: e.target.value })} />
+        <input className="campo" placeholder="% comisión" value={alta.pct} onChange={(e) => setAlta({ ...alta, pct: e.target.value })} />
+        <button className="boton">Activar</button>
+      </form>
+
+      {/* Embajadores activos: token, enlaces, ventas y comisión REALES */}
+      {embajadores.length > 0 && (
+        <div className="mb-6 overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-gris/20 text-left text-gris">
+                <th className="p-2">Embajador</th>
+                <th className="p-2">Token</th>
+                <th className="p-2">Enlace</th>
+                <th className="p-2 text-right">%</th>
+                <th className="p-2 text-right">Ventas</th>
+                <th className="p-2 text-right">Comisión</th>
+              </tr>
+            </thead>
+            <tbody>
+              {embajadores.map((m) => {
+                const st = statsDe(m.id, m.comision_pct);
+                const lES = linkCon(config.linkCompraES, m.token);
+                const lEN = linkCon(config.linkCompraEN, m.token);
+                return (
+                  <tr key={m.id} className="border-b border-gris/10">
+                    <td className="p-2">{m.nombre}<div className="text-xs text-gris">{m.email}</div></td>
+                    <td className="p-2 font-mono text-xs text-oro">{m.token}</td>
+                    <td className="p-2 text-xs">
+                      {lES ? (
+                        <>
+                          <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => copiar(lES, m.id + "es")}>{copiado === m.id + "es" ? "✓ copiado" : "Copiar ES"}</button>
+                          {lEN && <button className="boton-secundario !ml-1 !px-2 !py-1 text-xs" onClick={() => copiar(lEN, m.id + "en")}>{copiado === m.id + "en" ? "✓" : "EN"}</button>}
+                        </>
+                      ) : (
+                        <span className="text-gris">Pon el link de compra en la config ↑</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right text-gris">{m.comision_pct}%</td>
+                    <td className="p-2 text-right">{st.n}</td>
+                    <td className="p-2 text-right text-oro">{st.comision.toFixed(2)} USD</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Candidatos (prospección) */}
       <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-3">
         <input
           className="campo"
@@ -2044,7 +2173,7 @@ function Afiliados({ data, commit, ws }) {
             <option key={v}>{v}</option>
           ))}
         </select>
-        <button className="boton">Agregar</button>
+        <button className="boton">Agregar candidato</button>
       </form>
 
       {afiliados.map((a) => (
@@ -2052,15 +2181,18 @@ function Afiliados({ data, commit, ws }) {
           <div>
             <div className="text-sm">{a.canal}</div>
             <div className="text-xs text-gris">
-              {a.vertical} · Fit Score: {a.fitScore ?? "por calcular (fase 4)"}
+              {a.vertical} · Fit Score: {a.fitScore ?? "por calcular"}
             </div>
           </div>
-          <span className="text-xs text-oro">{a.estado}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-oro">{a.estado}</span>
+            <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => promover(a)}>Activar ↑</button>
+          </div>
         </div>
       ))}
-      {afiliados.length === 0 && (
+      {afiliados.length === 0 && embajadores.length === 0 && (
         <p className="text-sm text-gris">
-          El descubrimiento automático (skill youtube-embajadores) llega en la fase 4.
+          Agrega candidatos (o usa la Prospección de embajadores) y actívalos con su % de comisión.
         </p>
       )}
     </div>

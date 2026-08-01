@@ -238,7 +238,7 @@ export default function ContenidoView({ data, commit, ws, flash, pubDraft, clear
     try {
       const r = await fetch(MOTOR + "/generar_contenido", {
         method: "POST", headers: { "content-type": "application/json", Authorization: "Bearer " + getToken() },
-        body: JSON.stringify({ red: netId, tipo: "post", tema, idioma: idiomaRed }),
+        body: JSON.stringify({ red: netId, tipo: "post", tema, idioma: idiomaRed, ws }),
       });
       const d = await r.json();
       if (d.contenido) { setCopysRed((m) => ({ ...m, [netId]: d.contenido })); guardarOpcion(data, commit, "temaContenido", tema, TEMAS_PRESET); }

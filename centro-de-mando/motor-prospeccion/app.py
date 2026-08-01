@@ -1281,10 +1281,21 @@ def generar_contenido(body: dict = Body(...), authorization: str = Header(None))
                      f"debe caber en {tope} caracteres. Breve y potente, 1 o "
                      "2 hashtags maximo.")
     memoria = _memoria_marca(f"{tema} {red}") if tema else ""
+    # aditivo: ENFOQUE por workspace (canal unificado, angulo distinto). La agencia posiciona
+    # con contenido entretenido/de valor y muestra sus PROYECTOS; el producto se promociona en el
+    # mismo canal y recluta embajadores.
+    _enfoque = {
+        "atlantis": ("\nENFOQUE (agencia): posicionar a Atlantis en redes con contenido ENTRETENIDO y "
+                     "de VALOR, y dar a conocer sus PROYECTOS inmobiliarios (avances, zonas, proceso, "
+                     "decisiones de inversion contadas con honestidad).\n"),
+        "cicloderiqueza": ("\nENFOQUE (producto): promocionar el Ciclo de Riqueza Inmobiliaria (44 USD) "
+                           "en el MISMO canal de Atlantis, y cuando el angulo lo amerite, invitar a "
+                           "creadores a ser embajadores/afiliados (CTA a la llamada de partners).\n"),
+    }.get(str(body.get("ws") or "").strip(), "")
     prompt = (
         f"Crea contenido en {'espanol neutro latinoamericano' if idioma == 'es' else 'ingles'}. "
         f"Red: {red}. Tipo: {tipo}. Tema: {tema or '(deducelo del contenido base)'}.\n"
-        f"{guia}{tope_nota}\n"
+        f"{guia}{tope_nota}{_enfoque}\n"
         + ((f"\nMEMORIA DE MARCA (historial real; integrala sin citarla):\n{memoria}\n") if memoria else "")
         + "Devuelve SOLO el contenido, listo para usar, sin preambulos.")
     try:
@@ -5103,6 +5114,23 @@ def compra_registrar(body: dict = Body(...), authorization: str = Header(None)):
         "bonos": True,
         "reembolsado": False,
     })
+    # aditivo (finanzas + embajadores): persistir el VALOR real de la venta y atribuirla al
+    # embajador cuando el checkout trae su token (src/sck de Hotmart = EMB-XXXX). Best-effort:
+    # jamas rompe el alta de la compra.
+    try:
+        if body.get("valor") not in (None, ""):
+            comprador["valor"] = float(body.get("valor"))
+        elif not comprador.get("valor"):
+            comprador["valor"] = float((config.get("precioNum") or 44))
+        comprador["moneda"] = str(body.get("moneda") or comprador.get("moneda") or "USD").upper()
+        _src = str(body.get("src") or body.get("sck") or body.get("origen") or "").strip().upper()
+        if _src.startswith("EMB-"):
+            for _e in (slice_ws.get("embajadores") or []):
+                if str(_e.get("token") or "").upper() == _src:
+                    comprador["embajador"] = _e.get("id")
+                    break
+    except Exception:
+        pass
 
     password = None
     usuario = next(
