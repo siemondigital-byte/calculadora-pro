@@ -5,20 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mapa de Conocimiento · Atlantis Global Realty</title>
 <meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --carbon:#0C0D10; --panel:#12131A; --panel2:#171821; --line:rgba(255,255,255,.08);
-    --oro:#D8B673; --oro2:#E7CE9C; --oro500:#A98B54; --cream:#EAE6DC; --mist:#C9CAD2; --ash:#8B8D98;
-    --sans:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --carbon:#0B0A08; --panel:#171410; --panel2:#1E1912; --line:rgba(255,255,255,.08);
+    --oro:#C6A87F; --oro2:#DEC7A0; --oro500:#96784F; --cream:#F5F2EC; --mist:#D1CDC7; --ash:#8B8D98;
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
     --mono:ui-monospace,'JetBrains Mono','SF Mono',Menlo,monospace;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(120% 90% at 85% -5%,#1a1712 0%,var(--carbon) 55%);
+  body{margin:0;background:radial-gradient(120% 90% at 85% -5%,#1E1710 0%,var(--carbon) 55%);
     color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5}
   .wrap{max-width:1280px;margin:0 auto;padding:38px 26px 70px}
   .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--oro);opacity:.85}
   h1{font-size:clamp(30px,5vw,52px);font-weight:800;letter-spacing:-.02em;margin:.35em 0 .3em;text-wrap:balance}
-  h1 .g{background:linear-gradient(100deg,var(--oro),#8FC9A0 60%,#CBC0EC);-webkit-background-clip:text;background-clip:text;color:transparent}
+  h1 .g{background:linear-gradient(100deg,var(--oro500),var(--oro) 45%,var(--oro2) 80%,var(--cream));-webkit-background-clip:text;background-clip:text;color:transparent}
   .sub{max-width:660px;color:var(--mist);font-size:15.5px}
   .sub b{color:var(--cream);font-weight:700}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 8px}
@@ -40,7 +41,8 @@
     transition:box-shadow .16s,border-color .16s,opacity .16s}
   .node:hover,.node.active{border-color:var(--nc);box-shadow:0 0 0 1px var(--nc),0 0 26px -3px var(--nc);z-index:3}
   .node.dim{opacity:.24}
-  .node .ico{width:18px;height:18px;border-radius:50%;background:var(--nc);box-shadow:0 0 9px 0 var(--nc);margin-bottom:8px}
+  .node .ico{width:18px;height:18px;color:var(--nc);filter:drop-shadow(0 0 5px var(--nc));margin-bottom:8px}
+  .node .ico svg{width:18px;height:18px;display:block}
   .node .nt{font-size:12px;font-weight:700;line-height:1.22;letter-spacing:-.01em}
   .node .nw{display:inline-block;font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;color:var(--nc);
     background:color-mix(in srgb,var(--nc) 13%,transparent);border:1px solid color-mix(in srgb,var(--nc) 28%,transparent);border-radius:6px;padding:2px 6px;margin-top:8px}
@@ -50,7 +52,8 @@
   .inspector{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:18px;position:static;order:-1}
   .insp-cat{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash)}
   .insp-title{font-size:19px;font-weight:800;margin:3px 0 2px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
-  .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 12px currentColor}
+  .dot{width:13px;height:13px;flex:0 0 auto;filter:drop-shadow(0 0 6px currentColor)}
+  .dot svg{width:13px;height:13px;display:block}
   .insp-file{font-family:var(--mono);font-size:10.5px;color:var(--oro2);background:rgba(216,182,115,.09);border:1px solid rgba(216,182,115,.2);border-radius:7px;padding:5px 8px;display:inline-block;margin:8px 0}
   .insp-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin:8px 0 12px}
   .insp-metrics div{background:#0f1015;border:1px solid var(--line);border-radius:9px;padding:9px 6px;text-align:center}
@@ -99,7 +102,7 @@
     </div>
     <div class="inspector" id="insp">
       <div class="insp-cat" id="i-cat">Inspector</div>
-      <div class="insp-title" id="i-title"><span class="dot" style="color:var(--oro)"></span>Memoria de Atlantis</div>
+      <div class="insp-title" id="i-title"><span class="dot" style="color:var(--oro)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M7 3v4a5 5 0 0 0 10 0V3M9 22h6"/></svg></span>Memoria de Atlantis</div>
       <div class="insp-file" id="i-file">base de conocimiento</div>
       <div class="insp-metrics">
         <div><div class="mn" id="i-words">–</div><div class="ml">Palabras</div></div>
@@ -121,6 +124,7 @@
 </div>
 
 <script>
+const TRIDENTE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M7 3v4a5 5 0 0 0 10 0V3M9 22h6"/></svg>';
 const CAT=%%CAT%%;
 const COLS=%%COLS%%;
 const N=%%N%%;
@@ -147,7 +151,7 @@ COLS.forEach((cat,ci)=>{
   list.forEach((n,ri)=>{ n.gx=PADX+ci*COLW+BOXW/2; n.gy=PADY+18+ri*ROWH+ROWH/2;
     const el=document.createElement('div'); el.className='node'; el.dataset.id=n.id; el.style.setProperty('--nc',CAT[n.cat].c);
     el.style.left=n.gx+'px'; el.style.top=n.gy+'px';
-    el.innerHTML=`<div class="ico"></div><div class="nt">${n.t}</div><div class="nw">${fmt(n.w)} pal</div>`;
+    el.innerHTML=`<div class="ico">${TRIDENTE}</div><div class="nt">${n.t}</div><div class="nw">${fmt(n.w)} pal</div>`;
     stage.appendChild(el); n.el=el; });
 });
 stage.style.width=(PADX*2+COLS.length*COLW)+'px';
@@ -157,7 +161,7 @@ function drawLines(active){
   let html='<defs><filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
   edges.forEach(([a,b])=>{ const p=byId[a], q=byId[b]; if(p.gx==null||q.gx==null)return;
     const on=active&&(a===active||b===active);
-    const col=on?CAT[byId[active].cat].c:'#C4A96B', op=on?.95:(active?.05:.16), wdt=on?2.2:1;
+    const col=on?CAT[byId[active].cat].c:'#96784F', op=on?.95:(active?.05:.16), wdt=on?2.2:1;
     const mx=(p.gx+q.gx)/2;
     html+=`<path d="M${p.gx},${p.gy} C${mx},${p.gy} ${mx},${q.gy} ${q.gx},${q.gy}" fill="none" stroke="${col}" stroke-width="${wdt}" stroke-opacity="${op}" ${on?'filter="url(#glow)"':''}/>`;
   });
@@ -170,7 +174,7 @@ function highlight(id){
 }
 function setInsp(n){ const c=CAT[n.cat];
   document.getElementById('i-cat').textContent=c.l;
-  document.getElementById('i-title').innerHTML=`<span class="dot" style="color:${c.c}"></span>${n.t}`;
+  document.getElementById('i-title').innerHTML=`<span class="dot" style="color:${c.c}">${TRIDENTE}</span>${n.t}`;
   document.getElementById('i-file').textContent=n.id;
   s('i-words',fmt(n.w)); s('i-chars',n.w>1000?fmt(Math.round(n.w*6.1/1000))+'k':fmt(Math.round(n.w*6.1))); s('i-conn',n.deg);
   document.getElementById('i-hook').textContent=n.hook||'';
