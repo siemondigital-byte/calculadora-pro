@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import MaquetadorView from "./MaquetadorView.jsx";
 import ConocimientoView from "./ConocimientoView.jsx";
+import DiagnosticoView from "./DiagnosticoView.jsx";
 import MercadoView from "./MercadoView.jsx";
 import BlogSeoView from "./BlogSeoView.jsx";
 import EstudioUnificado from "./EstudioUnificado.jsx";
@@ -61,6 +62,7 @@ const NAV = {
         ["pipeline", "Pipeline"],
         ["seguimiento", "Seguimiento"],
         ["consultas", "Reuniones (diagnóstico)"],
+        ["diagnostico", "Diagnóstico del comprador"],
         ["prototipos", "Prototipos"],
         ["presupuestos", "Presupuestos"],
       ],
@@ -250,6 +252,7 @@ export default function App() {
     pipeline: <Pipeline {...props} />,
     seguimiento: <Seguimiento {...props} />,
     consultas: <Consultas {...props} />,
+    diagnostico: <DiagnosticoView {...props} />,
     fuentes: <Fuentes {...props} />,
     compradores: <Compradores {...props} />,
     afiliados: <Afiliados {...props} />,
