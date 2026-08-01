@@ -37,6 +37,18 @@ H = {"Authorization": "Bearer " + os.environ["CRON_KEY"]}
 # Voyage gratis: 3 RPM; el motor reintenta con espera, asi que damos margen
 c = httpx.Client(timeout=300)
 
+# el motor puede estar recien reconstruido: esperar a que escuche
+import time
+for _ in range(60):
+    try:
+        c.get(f"{BASE}/", timeout=5)
+        break
+    except Exception:
+        time.sleep(2)
+else:
+    print("ERROR: el motor no respondio en 120s; mira docker logs del contenedor")
+    sys.exit(2)
+
 st = c.get(f"{BASE}/rag/estado", headers=H).json()
 if not st.get("voyage"):
     print("ERROR: falta VOYAGE_API_KEY. Agregala en Centro de Mando > Accesos")
