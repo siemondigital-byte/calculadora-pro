@@ -5305,6 +5305,8 @@ _MAPA_FUENTE_LABEL = {
     "ensenanza": "Ensenanzas de Andrea", "documento": "Documentos", "conversacion": "Conversaciones",
     "correo": "Correos", "publicacion": "Publicaciones", "diagnostico": "Perfiles de compradores",
     "crm": "Historial (CRM)", "texto": "Notas", "otros": "Otros",
+    "conversacion-claude": "Conversaciones Claude", "aprendizaje": "Aprendizajes", "voz": "Voz propia",
+    "manual": "Agregados a mano", "nube": "Buzon nube", "diagnostico": "Perfiles de compradores",
 }
 
 
