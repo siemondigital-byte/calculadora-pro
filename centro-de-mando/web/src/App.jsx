@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import MaquetadorView from "./MaquetadorView.jsx";
+import ConocimientoView from "./ConocimientoView.jsx";
 import MercadoView from "./MercadoView.jsx";
 import BlogSeoView from "./BlogSeoView.jsx";
 import EstudioUnificado from "./EstudioUnificado.jsx";
@@ -44,7 +45,7 @@ const cfg = (data, ws) => data?.[ws]?.config || {};
 // 6 la web que recibe → 7 medir para decidir.
 const NAV = {
   atlantis: [
-    { sec: "Panel", items: [["panel", "Panel"]] },
+    { sec: "Panel", items: [["panel", "Panel"], ["conocimiento", "Base de conocimiento"]] },
     {
       sec: "1 · Conseguir prospectos",
       items: [
@@ -98,10 +99,10 @@ const NAV = {
         ["fuentes", "Fuentes / UTM"],
       ],
     },
-    { sec: "Configuración", items: [["accesos", "Accesos"], ["conversaciones", "Conversaciones Claude"]] },
+    { sec: "Configuración", items: [["accesos", "Accesos"]] },
   ],
   cicloderiqueza: [
-    { sec: "Panel", items: [["panel", "Panel"]] },
+    { sec: "Panel", items: [["panel", "Panel"], ["conocimiento", "Base de conocimiento"]] },
     {
       sec: "1 · Conseguir prospectos",
       items: [
@@ -151,7 +152,7 @@ const NAV = {
         ["fuentes", "Fuentes / UTM"],
       ],
     },
-    { sec: "Configuración", items: [["accesos", "Accesos"], ["conversaciones", "Conversaciones Claude"]] },
+    { sec: "Configuración", items: [["accesos", "Accesos"]] },
   ],
 };
 
@@ -266,7 +267,8 @@ export default function App() {
     clientes: <Clientes {...props} />,
     facturacion: <Facturacion {...props} />,
     agente: <AgenteRedes {...props} />,
-    conversaciones: <Conversaciones {...props} />,
+    conocimiento: <ConocimientoView {...props} />,
+    conversaciones: <ConocimientoView {...props} tab="conversaciones" />,
     maquetador: <MaquetadorView {...props} />,
     mercado: <MercadoView {...props} />,
     blogseo: <BlogSeoView {...props} />,
