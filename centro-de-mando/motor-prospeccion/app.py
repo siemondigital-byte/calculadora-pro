@@ -5371,3 +5371,126 @@ def rag_mapa_publicar(authorization: str = Header(None)):
         return {"ok": False, "error": str(res)[:160]}
     url = os.environ.get("WEB_URL", "https://atlantisglobalrealty.com").rstrip("/") + "/mapa-conocimiento.html"
     return {"ok": True, "url": url, "documentos": m["total"]}
+
+
+# -------- Base de conocimiento nivel Siemon: preguntar (citando), organizar e ingerir --------
+
+@app.post("/rag/ingerir")
+def rag_ingerir_docs(body: dict = Body(...), authorization: str = Header(None)):
+    """Ingiere documentos con titulo propio (el boton 'Agregar documentos' del modulo).
+    docs=[{id, titulo, texto, meta?}]."""
+    _auth(authorization)
+    return rag.ingerir(body.get("docs") or [])
+
+
+def _org_ctx_atlantis():
+    """Trozos reales de los pilares del negocio, para Organizar (contradicciones/resumen)."""
+    partes = []
+    for q in ("posicionamiento de la agencia", "oferta del ciclo de riqueza",
+              "programa de embajadores", "proyectos inmobiliarios", "voz de la marca"):
+        try:
+            for h in (rag.buscar_hibrido(q, k=3) or {}).get("resultados", []):
+                t = f"[{h.get('titulo')}]\n{h.get('texto')}"
+                if t not in partes:
+                    partes.append(t)
+        except Exception:
+            continue
+    return "\n\n".join(partes)[:12000]
+
+
+@app.post("/rag/preguntar")
+def rag_preguntar(body: dict = Body(...), authorization: str = Header(None)):
+    """RAG completo nivel Siemon: busca por significado y Claude REDACTA citando los archivos."""
+    _auth(authorization)
+    q = (body.get("query") or "").strip()
+    if not q:
+        return {"ok": False, "error": "falta_query"}
+    res = rag.buscar_hibrido(q, k=int(body.get("k") or 6))
+    hits = res.get("resultados", [])
+    if not hits:
+        return {"ok": True, "respuesta": "No encontré nada sobre eso en la base de conocimiento todavía.",
+                "fuentes": []}
+    ctx = "\n\n".join(f"[{h.get('titulo')}]\n{h.get('texto')}" for h in hits)
+    prompt = ("Eres el asistente de Atlantis Global Realty (arquitectos de patrimonio) y su producto "
+              "Ciclo de Riqueza Inmobiliaria. Responde la pregunta usando SOLO el CONTEXTO (la base de "
+              "conocimiento real del negocio). Si la respuesta no está en el contexto, dilo con honestidad. "
+              "Sé claro y concreto, en espanol neutro, sin em dashes. Cita entre [corchetes] los archivos "
+              "que usaste.\n\n"
+              "JERARQUÍA DE VERDAD: las fuentes de Oferta, Posicionamiento y Programas son CANÓNICAS y "
+              "mandan sobre conversaciones o notas viejas; ante contradicción, responde con la versión "
+              "canónica. Nunca prometas retornos ni inventes cifras.\n\n"
+              f"CONTEXTO:\n{ctx}\n\nPREGUNTA: {q}\n\nRESPUESTA:")
+    try:
+        ans = _claude_texto(prompt, max_tokens=900)
+        if isinstance(ans, tuple):
+            ans, _err = ans
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "respuesta": "", "fuentes": [], "error": str(e)[:150]}
+    fuentes = []
+    for h in hits:
+        t = h.get("titulo")
+        if t and t not in fuentes:
+            fuentes.append(t)
+    return {"ok": bool(ans), "respuesta": _sin_em_dash(ans or ""), "fuentes": fuentes[:5]}
+
+
+@app.post("/rag/organizar")
+def rag_organizar(body: dict = Body(...), authorization: str = Header(None)):
+    """Asistente 'Organizar' (nivel Siemon): indice | contradicciones | vacios | duplicados |
+    resumen | libre (con foco)."""
+    _auth(authorization)
+    try:
+        docs = rag.listar_docs()
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:120]}
+    if not docs:
+        return {"ok": True, "texto": "Tu base de conocimiento aún está vacía. Agrega documentos o reindexa el CRM y vuelve a organizar."}
+    lista = ("\n".join(f"- {d.get('titulo') or d.get('doc_id')}  ·  fuente: {d.get('fuente') or '?'}"
+                       for d in docs))[:9000]
+    tarea = (body.get("tarea") or "indice").strip().lower()
+    foco = (body.get("foco") or body.get("pregunta") or "").strip()
+    base = ("Eres el bibliotecario del negocio de Andrea (Atlantis Global Realty, arquitectos de "
+            "patrimonio, y su producto Ciclo de Riqueza Inmobiliaria a 44 USD). Responde en espanol, "
+            "claro, concreto y accionable. Cero em dashes. NO inventes documentos que no esten en la "
+            "lista o el contenido que te doy.\n\n")
+    if tarea == "contradicciones":
+        u = (base + "Trozos REALES de su base sobre los pilares del negocio:\n\n" + _org_ctx_atlantis()
+             + "\n\nTAREA: detecta CONTRADICCIONES o informacion DESACTUALIZADA. Por cada choque: "
+               "(1) que dice una version, (2) que dice la otra, (3) cual dejar como verdad vigente. "
+               "Si no hay contradicciones claras, dilo y senala matices a vigilar."
+             + (f"\nEnfocate en: {foco}." if foco else ""))
+        maxt = 1600
+    elif tarea == "resumen":
+        u = (base + "Trozos reales de su base:\n\n" + _org_ctx_atlantis()
+             + "\n\nTAREA: FOTO EJECUTIVA de lo que la base sabe hoy: posicionamiento, oferta, "
+               "programa de embajadores, proyectos y voz. Corto, en vinetas. Marca lo flojo."
+             + (f"\nEnfocate en: {foco}." if foco else ""))
+        maxt = 1400
+    elif tarea == "vacios":
+        u = (base + "LISTA de documentos:\n\n" + lista
+             + "\n\nTAREA: que areas del negocio tienen POCO o NADA documentado (agencia, producto, "
+               "embajadores, proyectos, procesos, clientes, precios). Por vacio: que documento crear y por que."
+             + (f"\nEnfocate en: {foco}." if foco else ""))
+        maxt = 1200
+    elif tarea == "duplicados":
+        u = (base + "LISTA de documentos:\n\n" + lista
+             + "\n\nTAREA: documentos DUPLICADOS o que se pisan. Agrupalos y di cual conservar."
+             + (f"\nEnfocate en: {foco}." if foco else ""))
+        maxt = 1200
+    elif tarea in ("libre", "pregunta") or (foco and tarea not in ("indice", "")):
+        u = (base + "LISTA de documentos:\n\n" + lista
+             + f"\n\nTAREA de Andrea: {foco or tarea}\nResponde apoyandote solo en lo que hay en su base.")
+        maxt = 1400
+    else:
+        u = (base + "LISTA de documentos de su base (RAG):\n\n" + lista
+             + "\n\nTAREA: organiza su informacion: 1) INDICE por areas. 2) POSIBLES DUPLICADOS. "
+               "3) VACIOS a documentar. 4) Un siguiente paso concreto."
+             + (f"Enfocate especialmente en: {foco}.\n" if foco else ""))
+        maxt = 1600
+    try:
+        texto = _claude_texto(u, max_tokens=maxt)
+        if isinstance(texto, tuple):
+            texto, _err = texto
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:150]}
+    return {"ok": True, "texto": _sin_em_dash((texto or "").strip()), "n_docs": len(docs), "tarea": tarea}

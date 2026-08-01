@@ -325,3 +325,10 @@ def mapa(coll=COLL):
         fuentes[n["fuente"]] = fuentes.get(n["fuente"], 0) + 1
     fuentes_l = sorted([{"fuente": k, "n": v} for k, v in fuentes.items()], key=lambda x: -x["n"])
     return {"ok": True, "nodos": nodos, "fuentes": fuentes_l, "total": len(nodos)}
+
+
+def listar_docs(coll=COLL):
+    """Lista de documentos unicos (doc_id, titulo, fuente) — la usa el asistente Organizar."""
+    m = mapa(coll=coll)
+    return [{"doc_id": n["id"], "titulo": n["titulo"], "fuente": n["fuente"]}
+            for n in (m.get("nodos") or [])]
