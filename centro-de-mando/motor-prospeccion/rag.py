@@ -246,16 +246,25 @@ def ingerir_crm():
     return r
 
 
-def aprender(texto, tipo="texto", extra=""):
+def aprender(texto, tipo="texto", extra="", doc_id=""):
     """APRENDIZAJE EN VIVO: cada correo o publicacion que el dueno envia entra a
-    la base (dedup por hash del contenido). Asi el sistema suena cada vez mas a el."""
+    la base (dedup por hash del contenido). Asi el sistema suena cada vez mas a el.
+    Con doc_id determinista ('fuente:tema', ej. 'decision:precio-checkout') la
+    re-ingesta ACTUALIZA ese tema en vez de acumular versiones: es el contrato
+    del ritual de cierre de sesion (destilar decisiones/voz/trampas/estado)."""
     texto = (texto or "").strip()
     if len(texto) < 40:
         return {"ok": False, "error": "muy_corto"}
+    doc_id = (doc_id or "").strip()
     h = hashlib.md5(texto.encode()).hexdigest()[:10]
+    if doc_id:
+        titulo = f"Conocimiento ({tipo}): {doc_id}" + ((" · " + extra) if extra else "")
+    else:
+        doc_id = f"voz-{tipo}-{h}"
+        titulo = f"Voz propia ({tipo}){(': ' + extra) if extra else ''}"
     return ingerir([{
-        "id": f"voz-{tipo}-{h}",
-        "titulo": f"Voz propia ({tipo}){(': ' + extra) if extra else ''}",
+        "id": doc_id,
+        "titulo": titulo,
         "texto": texto[:6000],
         "meta": {"fuente": "aprendizaje", "tipo": tipo},
     }])

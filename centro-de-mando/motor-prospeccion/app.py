@@ -574,10 +574,12 @@ def rag_buscar(body: dict = Body(...), authorization: str = Header(None)):
 
 @app.post("/rag/aprender")
 def rag_aprender(body: dict = Body(...), authorization: str = Header(None)):
-    """Aprendizaje en vivo: lo que el dueno escribe/envia entra a la memoria."""
+    """Aprendizaje en vivo: lo que el dueno escribe/envia entra a la memoria.
+    Con doc_id determinista ('fuente:tema') la re-ingesta actualiza el tema
+    (destilacion del cierre de sesion). PROHIBIDO ingerir secretos o PII."""
     _auth(authorization)
     return rag.aprender(str(body.get("texto") or ""), str(body.get("tipo") or "texto"),
-                        str(body.get("extra") or ""))
+                        str(body.get("extra") or ""), str(body.get("doc_id") or ""))
 
 
 def _rag_aprender_fondo(texto, tipo, extra=""):

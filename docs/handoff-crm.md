@@ -94,7 +94,32 @@
    CRM o a credenciales n8n (importadas por CLI si el navegador corrompe el campo).
 5. Commits con mensaje claro en español; nunca desde el VPS.
 
-## 5 · Pendientes conocidos (estado al 2026-07-30)
+## 5 · Ritual de cierre: alimentar el RAG (regla de Andrea, 2026-08-01)
+
+Lo aprendido en una sesión NO muere con la ventana de contexto. Antes de cerrar
+(y tras cada decisión/trampa importante), se DESTILA y se ingiere al RAG del
+negocio — módulo Conocimiento del motor:
+
+- **El RAG real** (`motor-prospeccion/rag.py`): embeddings Voyage + Qdrant del
+  VPS (colección `atlantis`), búsqueda híbrida. Requiere `VOYAGE_API_KEY` en
+  Accesos. Endpoints: `POST /rag/aprender {texto, tipo, doc_id?, extra?}`
+  (con `doc_id` determinista `fuente:tema` la re-ingesta ACTUALIZA el tema),
+  `POST /rag/buscar {q, k?}`, `GET /rag/estado`, `POST /rag/reindexar`
+  (ingiere todo el historial del CRM). El módulo Conversaciones
+  (`/conversaciones/subir`) ingiere transcripciones completas, pero la
+  destilación vale más que el volcado crudo.
+- **Cómo**: escribir los docs destilados (300-1500 chars, UNO por tema) en
+  `centro-de-mando/rag-ingesta/sesion-AAAA-MM-DD.json` y correr EN el VPS
+  `bash centro-de-mando/scripts/ingerir-rag.sh` (ingiere todo el folder,
+  idempotente, y verifica en vivo con una búsqueda).
+- **Qué destilar** (en orden de valor): decisiones de Andrea y su porqué;
+  correcciones de voz (antes → después → regla); hechos del negocio que no
+  están en el código; trampas resueltas (síntoma → causa → arreglo →
+  prevención); estado del sistema y siguiente paso.
+- **Qué NO ingerir jamás**: secretos, PII de compradores/leads (patrones sí,
+  datos personales no), ruido de sesión sin destilar.
+
+## 6 · Pendientes conocidos (estado al 2026-08-01)
 
 - [ ] **Aprobación de la home** `/nueva/` por el dueño → luego switch a raíz
       CON respaldo del WordPress actual (script de switch aún no existe).
@@ -109,3 +134,11 @@
       valoración) y disparadores post-visita.
 - [ ] URLs de privacidad/términos corporativos ES en la config del sitio.
 - [ ] Limpiar `/banco-candidatas/` del sitio cuando ya no haga falta la galería.
+- [ ] `VOYAGE_API_KEY` en Accesos y Qdrant alcanzable desde el motor de
+      Atlantis (`QDRANT_URL`), para que el RAG ingiera de verdad; luego correr
+      `scripts/ingerir-rag.sh` y `POST /rag/reindexar`.
+- [ ] Confirmar la salida del último `publicar-web-atlantis.sh` (Andrea lo corrió
+      pero la salida no llegó al chat) y la revisión de la home `/nueva/`.
+- [ ] `tests/test_motor.py` tiene 2 fallos pre-existentes de la ola del 2026-07-31
+      ("descartado no reaparece" y "monitorear audita propia y competidores"):
+      corresponden al agente de mejoras del núcleo.
