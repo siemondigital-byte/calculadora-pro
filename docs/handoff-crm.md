@@ -87,6 +87,11 @@
    "44 USD", disclaimer educativo, riesgos nombrados, cero cifras/testimonios
    inventados, sin escasez artificial, sin em dashes en el copy.
 2. **The Money Command (TMC) no se menciona jamás** en piezas de Atlantis/Ciclo.
+2b. **Dos marcas, dos identidades** (Andrea, 2026-08-01): el dorado sobre navy es
+   del INFOPRODUCTO (Ciclo de Riqueza / Calculadora Pro). El branding de la
+   INMOBILIARIA (Atlantis Global Realty) NO está registrado aún: ninguna pieza
+   suya se genera sin pedirle antes a Andrea su identidad; cuando la entregue,
+   se ingiere al RAG como `voz:estetica-inmobiliaria`.
 3. El dueño ejecuta lo MÍNIMO en su terminal: bloques de un solo pegado, listos.
    Todo lo demás (código, git, push, generación, Drive vía MCP) lo hace el agente.
    El agente reporta honesto: si algo no corrió, se dice.

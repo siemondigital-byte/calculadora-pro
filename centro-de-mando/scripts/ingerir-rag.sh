@@ -62,6 +62,8 @@ print(f"RAG arriba: {st.get('puntos', 0)} fragmento(s) antes de la ingesta")
 
 fallos, ultimo = 0, None
 for archivo in sorted(Path("/tmp/rag-ingesta").glob("*.json")):
+    if archivo.name.startswith("_"):
+        continue          # _verificaciones.json y similares no son documentos
     docs = json.loads(archivo.read_text(encoding="utf-8"))
     print(f"== {archivo.name}: {len(docs)} documento(s) ==")
     for d in docs:
@@ -76,17 +78,24 @@ for archivo in sorted(Path("/tmp/rag-ingesta").glob("*.json")):
 st = c.get(f"{BASE}/rag/estado", headers=H).json()
 print(f"\nRAG despues de la ingesta: {st.get('puntos', 0)} fragmento(s)")
 
-# verificacion en vivo: buscar el ultimo doc ingerido
+# verificacion en vivo: el ultimo doc ingerido + las consultas declaradas
+pruebas = []
 if ultimo:
-    consulta = " ".join(ultimo["texto"].split()[:8])
+    pruebas.append({"consulta": " ".join(ultimo["texto"].split()[:8]),
+                    "esperado": ultimo["doc_id"]})
+extra = Path("/tmp/rag-ingesta/_verificaciones.json")
+if extra.exists():
+    pruebas += json.loads(extra.read_text(encoding="utf-8"))
+for p in pruebas:
     r = c.post(f"{BASE}/rag/buscar", headers=H,
-               json={"q": consulta, "k": 5}).json()
+               json={"q": p["consulta"], "k": 5}).json()
     ids = [x.get("doc_id") for x in r.get("resultados", [])]
-    if ultimo["doc_id"] in ids:
-        print(f"VERIFICADO: '{ultimo['doc_id']}' aparece al buscarlo")
+    if p["esperado"] in ids:
+        print(f"VERIFICADO: '{p['esperado']}' responde a \"{p['consulta']}\"")
     else:
         fallos += 1
-        print(f"FALLO de verificacion: '{ultimo['doc_id']}' no aparece ({ids})")
+        print(f"FALLO de verificacion: '{p['esperado']}' no aparece para "
+              f"\"{p['consulta']}\" ({ids})")
 
 sys.exit(1 if fallos else 0)
 PY

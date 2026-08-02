@@ -132,6 +132,15 @@ web, mensajes a afiliados, respuestas a leads.
 - **Inglés solo para nombres propios de marca** en piezas en español.
 
 ### Estética (para web, assets y cualquier UI)
+
+> **ALCANCE (Andrea, 2026-08-01): esta estética es la del INFOPRODUCTO (Ciclo de
+> Riqueza / Wealth Cycle y su Calculadora Pro): dorado sobrio sobre navy y negro,
+> líneas finas, iconos de línea, cero emojis en controles. La INMOBILIARIA
+> (Atlantis Global Realty) tiene branding propio TODAVÍA NO registrado: prohibido
+> asumir que es este; para cualquier pieza de la inmobiliaria, pregunta a Andrea
+> su identidad antes de generar. Ver `alcance:infoproducto-vs-inmobiliaria` en el
+> RAG del negocio.**
+
 Lujo oscuro editorial (banca privada, no "curso edtech" ni "coach"):
 - Paleta: negro `#0A0A0C` · navy `#0F1B2D` · oro champagne `#E6C788` · crema
   `#F4EFE6` · gris `#D7D7D9`. Sin neón, sin morado/rosa de coach.
