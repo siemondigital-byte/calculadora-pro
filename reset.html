@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nueva contraseña · Calculadora de Viabilidad Inmobiliaria Pro</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0A0C'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23E6C788' stroke-width='2' stroke-dasharray='50 14' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='6' r='2.2' fill='%23E6C788'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0A0A0C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,600..800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Página "define tu nueva contraseña" (GitHub Pages, estático). El correo de
+  recuperación apunta aquí: /reset.html?token=XXX&lang=es
+  Marca Atlantis · usa auth-cliente.js al lado. Estructura tomada del kit
+  probado en producción (ojo 👁, requisitos en vivo, contador, ES/EN).
+-->
+<style>
+  :root{
+    --bg:#0A0A0C; --card:#111119; --line:rgba(230,199,136,0.18); --soft:#16161f;
+    --text:#F4EFE6; --muted:#9DA1A8; --hint:#6b6f76;
+    --accent:#E6C788; --accent-ink:#0A0A0C;
+    --danger:#d98b6a;
+    --serif:'Bodoni Moda',Georgia,serif;
+    --sans:'Instrument Sans',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#efece6; --card:#fff; --line:rgba(180,150,80,0.28); --soft:#f6f3ec;
+           --text:#1a1a1f; --muted:#55556a; --hint:#8a8a99; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       padding:20px;background:
+       radial-gradient(120% 90% at 50% 0%, #16263f 0%, #0F1B2D 42%, var(--bg) 100%);
+       color:var(--text);font-family:var(--sans)}
+  .card{width:100%;max-width:412px;background:var(--card);border:1px solid var(--line);
+        border-radius:18px;padding:30px 28px}
+  .orbit{display:block;margin:0 0 16px}
+  .eyebrow{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:2.4px;
+           text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  h1{font-family:var(--serif);font-weight:700;font-size:26px;line-height:1.12;margin:0 0 8px;color:var(--text)}
+  .sub{font-size:14px;color:var(--muted);line-height:1.55;margin:0 0 22px}
+  label{display:block;font-size:11px;font-weight:600;letter-spacing:1.4px;
+        text-transform:uppercase;color:var(--hint);margin:0 0 6px}
+  .campo{position:relative;margin-bottom:14px}
+  input{width:100%;background:var(--soft);border:1px solid var(--line);border-radius:12px;
+        padding:13px 46px 13px 14px;color:var(--text);font-family:var(--sans);font-size:15px}
+  input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(230,199,136,0.18)}
+  .ojo{position:absolute;right:8px;top:24px;background:none;border:0;cursor:pointer;
+       display:flex;align-items:center;justify-content:center;padding:8px;line-height:0;
+       color:var(--hint);transition:color .18s ease}
+  .ojo:hover{color:var(--accent)}
+  .ojo svg{display:block}
+  .reqs{list-style:none;padding:0;margin:2px 0 18px;font-size:12.5px}
+  .reqs li{color:var(--hint);margin:6px 0;transition:color .2s}
+  .reqs li.ok{color:var(--accent)}
+  .reqs li::before{content:"○ ";}
+  .reqs li.ok::before{content:"● ";}
+  button.enviar{width:100%;padding:14px;border:0;border-radius:12px;background:var(--accent);
+                color:var(--accent-ink);font-weight:700;font-size:15px;font-family:var(--sans);cursor:pointer;
+                transition:filter .2s}
+  button.enviar:hover:not(:disabled){filter:brightness(1.06)}
+  button.enviar:disabled{opacity:.45;cursor:not-allowed}
+  .msg{margin-top:14px;font-size:13px;line-height:1.5;text-align:center}
+  .msg.err{color:var(--danger)} .msg.ok{color:var(--accent)}
+  .pie{margin-top:18px;text-align:center;font-size:11.5px;color:var(--hint)}
+  a{color:var(--accent);text-decoration:none}
+  .alliance{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+            text-align:center;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--hint)}
+</style>
+</head>
+<body>
+  <main class="card">
+    <span class="orbit" aria-hidden="true">
+      <svg viewBox="0 0 36 36" width="34" height="34">
+        <circle cx="18" cy="18" r="15" fill="none" stroke="#E6C788" stroke-width="1.5" stroke-dasharray="74 20" stroke-linecap="round"></circle>
+        <circle cx="18" cy="3" r="2.4" fill="#E6C788"></circle>
+      </svg>
+    </span>
+    <p class="eyebrow" id="eyebrow">Restablecer</p>
+    <h1 id="titulo">Define tu nueva contraseña</h1>
+    <p class="sub" id="sub">Elige una contraseña segura para tu cuenta.</p>
+
+    <form id="form" novalidate>
+      <div class="campo">
+        <label for="pw" id="lbl1">Nueva contraseña</label>
+        <input id="pw" type="password" autocomplete="new-password" required />
+        <button class="ojo" type="button" data-ver="pw" aria-label="Mostrar u ocultar contraseña"></button>
+      </div>
+
+      <ul class="reqs">
+        <li id="r-largo">Al menos 8 caracteres</li>
+        <li id="r-mayus">Una mayúscula y una minúscula</li>
+        <li id="r-numero">Un número</li>
+        <li id="r-simbolo">Un símbolo (!?@#…)</li>
+      </ul>
+
+      <div class="campo">
+        <label for="pw2" id="lbl2">Confirmar contraseña</label>
+        <input id="pw2" type="password" autocomplete="new-password" required />
+        <button class="ojo" type="button" data-ver="pw2" aria-label="Mostrar u ocultar contraseña"></button>
+      </div>
+
+      <button class="enviar" id="btn" type="submit">Guardar contraseña</button>
+      <p class="msg" id="msg"></p>
+    </form>
+
+    <!-- Bloque para pedir un enlace nuevo (enlace inválido / vencido / usado) -->
+    <div id="renovar" style="display:none">
+      <div class="campo">
+        <label for="email" id="lbl-email">Tu correo</label>
+        <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com" />
+      </div>
+      <button class="enviar" id="btn-renovar" type="button">Enviar enlace nuevo</button>
+      <p class="msg" id="msg-renovar"></p>
+    </div>
+
+    <p class="pie" id="pie"></p>
+    <p class="pie" id="pie-volver" style="margin-top:10px"><a href="./index.html" id="lnk-volver">Ir a iniciar sesión</a></p>
+    <div class="alliance">Atlantis Global Realty</div>
+  </main>
+
+<script type="module">
+import { confirmarReset, pedirReset, tokenDeLaUrl, requisitos, idioma } from './auth-cliente.js';
+
+const $ = (id) => document.getElementById(id);
+const token = tokenDeLaUrl();
+
+const TXT = {
+  es:{eyebrow:"Restablecer",titulo:"Define tu nueva contraseña",sub:"Elige una contraseña segura para tu cuenta.",
+      lbl1:"Nueva contraseña",lbl2:"Confirmar contraseña",btn:"Guardar contraseña",
+      r:["Al menos 8 caracteres","Una mayúscula y una minúscula","Un número","Un símbolo (!?@#…)"],
+      vence:(m)=>`Este enlace vence en ${m} minutos.`, venc:"El enlace venció. Pide uno nuevo abajo.",
+      guardando:"Guardando…", volver:"Ir a iniciar sesión",
+      // Bloque "pedir enlace nuevo"
+      renEyebrow:"Recuperar acceso",
+      renTituloSinToken:"Pide tu enlace de acceso",
+      renTituloVenc:"Ese enlace ya no sirve",
+      renSubSinToken:"Escribe tu correo y te enviamos un enlace para crear tu contraseña.",
+      renSubVenc:"Los enlaces caducan por seguridad. Escribe tu correo y te enviamos uno nuevo.",
+      lblEmail:"Tu correo", btnRenovar:"Enviar enlace nuevo", enviando:"Enviando…",
+      okEyebrow:"Listo", okTitulo:"Contraseña actualizada", okSub:"Ya puedes iniciar sesión con tu nueva contraseña."},
+  en:{eyebrow:"Reset",titulo:"Set your new password",sub:"Choose a strong password for your account.",
+      lbl1:"New password",lbl2:"Confirm password",btn:"Save password",
+      r:["At least 8 characters","One uppercase and one lowercase","One number","One symbol (!?@#…)"],
+      vence:(m)=>`This link expires in ${m} minutes.`, venc:"The link expired. Request a new one below.",
+      guardando:"Saving…", volver:"Go to sign in",
+      renEyebrow:"Recover access",
+      renTituloSinToken:"Request your access link",
+      renTituloVenc:"That link no longer works",
+      renSubSinToken:"Enter your email and we'll send you a link to set your password.",
+      renSubVenc:"Links expire for security. Enter your email and we'll send a fresh one.",
+      lblEmail:"Your email", btnRenovar:"Send a new link", enviando:"Sending…",
+      okEyebrow:"Done", okTitulo:"Password updated", okSub:"You can now sign in with your new password."},
+};
+const T = TXT[idioma()];
+document.documentElement.lang = idioma();
+["eyebrow","titulo","sub","lbl1","lbl2"].forEach(k => $(k).textContent = T[k]);
+$("btn").textContent = T.btn;
+$("lbl-email").textContent = T.lblEmail;
+$("btn-renovar").textContent = T.btnRenovar;
+$("lnk-volver").textContent = T.volver;
+["r-largo","r-mayus","r-numero","r-simbolo"].forEach((id,i) => $(id).textContent = T.r[i]);
+
+let tick = null;
+
+/** Cambia la tarjeta al modo "pedir enlace nuevo" (sin token o token vencido/usado). */
+function mostrarRenovar(motivo) {
+  if (tick) clearInterval(tick);
+  $("form").style.display = "none";
+  $("pie").textContent = "";
+  $("eyebrow").textContent = T.renEyebrow;
+  if (motivo === "vencido") {
+    $("titulo").textContent = T.renTituloVenc;
+    $("sub").textContent = T.renSubVenc;
+  } else {
+    $("titulo").textContent = T.renTituloSinToken;
+    $("sub").textContent = T.renSubSinToken;
+  }
+  $("renovar").style.display = "block";
+  $("email").focus();
+}
+
+$("btn-renovar").addEventListener("click", async () => {
+  $("btn-renovar").disabled = true;
+  $("msg-renovar").textContent = T.enviando;
+  $("msg-renovar").className = "msg";
+  const res = await pedirReset($("email").value);
+  $("msg-renovar").textContent = res.mensaje;
+  $("msg-renovar").className = "msg " + (res.ok ? "ok" : "err");
+  if (res.ok) {
+    // Enviado: deja el botón deshabilitado para evitar reenvíos accidentales.
+    $("email").disabled = true;
+  } else {
+    $("btn-renovar").disabled = false;
+  }
+});
+
+$("email").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btn-renovar").click(); } });
+
+if (!token) {
+  mostrarRenovar("sinToken");
+}
+
+// Íconos de línea (estética luxury) para mostrar/ocultar la contraseña.
+const ICON_EYE = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 12S6 4.8 12 4.8 22.2 12 22.2 12 18 19.2 12 19.2 1.8 12 1.8 12Z"/><circle cx="12" cy="12" r="3.1"/></svg>';
+const ICON_OFF = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 5.1A10.6 10.6 0 0 1 12 4.8c6 0 10.2 7.2 10.2 7.2a18.6 18.6 0 0 1-2.8 3.6"/><path d="M6.5 6.6A18.4 18.4 0 0 0 1.8 12S6 19.2 12 19.2a10 10 0 0 0 3.5-.6"/><path d="M10.1 10.1a3.1 3.1 0 0 0 4.3 4.3"/><path d="M3 3l18 18"/></svg>';
+document.querySelectorAll(".ojo").forEach(b => {
+  b.innerHTML = ICON_EYE;
+  b.addEventListener("click", () => {
+    const i = $(b.dataset.ver);
+    const ver = i.type === "password";
+    i.type = ver ? "text" : "password";
+    b.innerHTML = ver ? ICON_OFF : ICON_EYE;
+  });
+});
+
+$("pw").addEventListener("input", () => {
+  const r = requisitos($("pw").value);
+  $("r-largo").classList.toggle("ok", r.largo);
+  $("r-mayus").classList.toggle("ok", r.mayus);
+  $("r-numero").classList.toggle("ok", r.numero);
+  $("r-simbolo").classList.toggle("ok", r.simbolo);
+});
+
+if (token) {
+  let restan = 60 * 60;
+  $("pie").textContent = T.vence(Math.ceil(restan / 60));
+  tick = setInterval(() => {
+    restan -= 1;
+    if (restan <= 0) {
+      clearInterval(tick);
+      mostrarRenovar("vencido");   // vence en pantalla → ofrece pedir uno nuevo
+      return;
+    }
+    $("pie").textContent = T.vence(Math.ceil(restan / 60));
+  }, 1000);
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("btn").disabled = true;
+  $("msg").textContent = T.guardando;
+  $("msg").className = "msg";
+
+  const res = await confirmarReset(token, $("pw").value, $("pw2").value);
+
+  if (res.ok) {
+    if (tick) clearInterval(tick);
+    // Estado de éxito: reencabeza la tarjeta y deja UN solo enlace (#pie-volver).
+    $("eyebrow").textContent = T.okEyebrow;
+    $("titulo").textContent = T.okTitulo;
+    $("sub").textContent = T.okSub;
+    $("form").style.display = "none";
+    $("renovar").style.display = "none";
+    $("pie").textContent = "";
+    return;
+  }
+
+  // errToken = enlace vencido o ya usado → llévalo a pedir uno nuevo (no callejón sin salida).
+  if (res.expirado) {
+    mostrarRenovar("vencido");
+    $("msg-renovar").textContent = res.mensaje;
+    $("msg-renovar").className = "msg err";
+  } else {
+    $("msg").textContent = res.mensaje;
+    $("msg").className = "msg err";
+    $("btn").disabled = false;
+  }
+});
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('service-worker.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "Calculadora de Viabilidad Inmobiliaria Pro",
+  "short_name": "Viabilidad Pro",
+  "description": "Analiza la viabilidad de una inversión inmobiliaria con el método Ciclo de Riqueza: flujo de caja, TIR apalancada, LTV y Número de Seguridad Económica.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0A0A0C",
+  "theme_color": "#0A0A0C",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
