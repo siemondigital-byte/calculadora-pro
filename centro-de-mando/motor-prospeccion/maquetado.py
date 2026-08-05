@@ -1,11 +1,11 @@
 """Marcado de textos editables para el maquetador (fase de marcado, portada
-del nucleo Siemon). Toma un HTML cualquiera y le inserta data-mq-id en los
-elementos de texto para que el editor los reconozca.
+del nucleo Siemon). Toma un HTML cualquiera y le inserta el marcador data-edit
+(el que descubre el editor y localiza el motor quirurgico por unicidad).
 
 Las tres reglas duras (aprendidas en Siemon):
 1. MARCADO INCREMENTAL: si la pagina ya tiene elementos marcados, sus ids se
-   RESPETAN y solo se numeran los nodos nuevos (renumerar rompe las ediciones
-   guardadas contra ids viejos).
+   RESPETAN (incluidos nombres manuales como data-edit="hero") y solo se
+   numeran los nodos nuevos (renumerar rompe las ediciones guardadas).
 2. SEGUNDA PASADA PARA TITULARES: un h1-h6 con una palabra en cursiva o
    negrita (<i>/<em>/<b>/<strong>) no es "texto plano directo" y la primera
    pasada lo salta; la segunda pasada lo marca COMPLETO como unidad rica.
@@ -23,7 +23,7 @@ DE_TEXTO = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "a", "button",
             "figcaption", "blockquote", "span", "td", "th", "label", "summary")
 TITULARES = ("h1", "h2", "h3", "h4", "h5", "h6")
 INLINE_RICO = ("i", "em", "b", "strong", "u", "mark", "sup", "sub")
-ATTR = "data-mq-id"
+ATTR = "data-edit"
 
 
 def _texto_directo(el):
@@ -66,12 +66,11 @@ def marcar(html):
         siguiente = max(existentes) + 1
     nuevos = 0
 
-    def asignar(el, kind):
+    def asignar(el, _kind):
         nonlocal siguiente, nuevos
         if el.get(ATTR):          # incremental: lo ya marcado no se toca
             return
         el[ATTR] = f"mq-{siguiente}"
-        el["data-mq-kind"] = kind
         siguiente += 1
         nuevos += 1
 

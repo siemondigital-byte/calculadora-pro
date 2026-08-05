@@ -18,7 +18,7 @@ PAGINA = """<html><body>
 <h1>Arquitectura de <i>libertad</i> financiera</h1>
 <h2>Titular plano</h2>
 <p>Un parrafo editable.</p>
-<div><p data-mq-id="mq-7" data-mq-kind="texto">Ya marcado antes.</p></div>
+<div><p data-edit="mq-7">Ya marcado antes.</p></div>
 <ul><li>Item uno</li><li>Item <a href="#">con enlace</a></li></ul>
 <script>var x = 1; // no editable</script>
 </body></html>"""
@@ -35,19 +35,19 @@ check("el comentario NO se marca ni se imprime",
 import re
 m = re.search(r'<h1[^>]*>', html)
 check("titular con cursiva marcado como unidad rica",
-      m and "data-mq-id" in m.group(0) and 'data-mq-kind="rico"' in m.group(0),
+      m and "data-edit" in m.group(0),
       str(m.group(0) if m else None))
 check("la cursiva sobrevive dentro del titular", "<i>libertad</i>" in html)
 
 # 3. primera pasada: texto plano marcado
-check("titular plano marcado", re.search(r'<h2[^>]+data-mq-id', html) is not None)
-check("parrafo marcado", re.search(r'<p[^>]+data-mq-id[^>]*>Un parrafo', html) is not None)
+check("titular plano marcado", re.search(r'<h2[^>]+data-edit', html) is not None)
+check("parrafo marcado", re.search(r'<p[^>]+data-edit[^>]*>Un parrafo', html) is not None)
 
 # 4. incremental: el id existente se respeta y no se renumera
-check("id existente respetado", 'data-mq-id="mq-7"' in html)
+check("id existente respetado", 'data-edit="mq-7"' in html)
 check("los nuevos numeran DespuEs del mayor existente",
       resumen["existentes"] == 1 and resumen["nuevos"] >= 4
-      and 'data-mq-id="mq-8"' in html, str(resumen))
+      and 'data-edit="mq-8"' in html, str(resumen))
 
 # 5. idempotencia: re-marcar no agrega nada
 html2, resumen2 = maquetado.marcar(html)
@@ -56,10 +56,10 @@ check("re-marcar no cambia el html", html2 == html)
 
 # 6. li con enlace: el li NO es texto plano directo (no se marca entero),
 #    pero el <a> interior si
-check("el <a> dentro del li se marca", re.search(r'<a[^>]+data-mq-id', html) is not None)
+check("el <a> dentro del li se marca", re.search(r'<a[^>]+data-edit', html) is not None)
 
 # 7. script jamas se marca
-check("script no marcado", re.search(r'<script[^>]+data-mq-id', html) is None)
+check("script no marcado", re.search(r'<script[^>]+data-edit', html) is None)
 
 print()
 if fallos:
