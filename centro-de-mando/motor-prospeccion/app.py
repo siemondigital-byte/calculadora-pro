@@ -4027,6 +4027,32 @@ def web_publicar(body: dict = Body(...), authorization: str = Header(None)):
         return {"ok": False, "error": str(e)[:120]}
 
 
+@app.post("/web/marcar")
+def web_marcar(body: dict = Body(...), authorization: str = Header(None)):
+    """Fase de MARCADO del maquetador: inserta data-mq-id en los textos de un
+    archivo canonico (o de un html suelto con dry_run). Incremental: los ids
+    existentes se respetan. Con ruta y sin dry_run, escribe con respaldo."""
+    _auth(authorization)
+    import maquetado
+    html = body.get("html")
+    ruta = str(body.get("ruta") or "").strip()
+    if html is None and ruta:
+        leido = web_pub.leer(ruta)
+        if not leido.get("ok"):
+            return leido
+        html = leido.get("contenido") or leido.get("texto") or ""
+    if not html:
+        return {"ok": False, "error": "pasa ruta o html"}
+    marcado, resumen = maquetado.marcar(html)
+    if ruta and not body.get("dry_run"):
+        r = web_pub.escribir([{"ruta": ruta, "contenido": marcado}],
+                             publicar_ftp=False)
+        if not r.get("ok"):
+            return r
+    return {"ok": True, **resumen,
+            **({} if ruta and not body.get("dry_run") else {"html": marcado})}
+
+
 @app.get("/web/diff")
 def web_diff(ruta: str = "", authorization: str = Header(None)):
     """Que cambio vs lo publicado, en lenguaje humano."""
