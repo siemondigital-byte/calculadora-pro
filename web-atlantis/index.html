@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlantis Global Realty — Wealth architects</title>
+<link rel="icon" type="image/png" href="assets/favicon-atlantis.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+.hero-h{min-height:62vh;display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center;padding:40px 0 30px}
+.hero-h h1{font-size:clamp(38px,5.4vw,62px);font-weight:500;line-height:1.12;max-width:17ch;margin:14px 0 20px}
+.hero-h .lead{max-width:52ch}
+.hero-h .foto{width:100%;border-radius:6px;border:1px solid var(--line);box-shadow:0 40px 80px -30px rgba(0,0,0,.55)}
+.cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px}
+.banda{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;padding:6px 0 34px}
+.banda img{width:100%;height:330px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.manifiesto{padding:60px 0 30px;border-top:1px solid var(--line)}
+.citas{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:8px}
+.cita{border-left:2px solid var(--accent);padding:6px 0 6px 20px;font-size:16.5px;line-height:1.6;color:var(--ink)}
+.pilares{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;padding:26px 0 40px}
+.pilar{border:1px dashed rgba(201,168,126,.45);border-radius:4px;padding:24px 22px}
+.pilar .num{font:700 11px/1 'Figtree',sans-serif;letter-spacing:.18em;color:var(--accent)}
+.pilar h3{font-size:18px;font-weight:600;margin:12px 0 8px}
+.pilar p{font-size:14.5px;color:var(--gris);line-height:1.65;margin:0}
+.bloques-fin{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:10px 0 50px}
+.bfin{padding:28px 26px}
+.bfin h3{font-size:20px;font-weight:600;margin:0 0 8px}
+.bfin p{color:var(--gris);font-size:14.5px;margin:0 0 18px}
+@media(max-width:920px){.citas,.pilares,.bloques-fin,.hero-h,.banda{grid-template-columns:1fr}.hero-h{gap:32px;min-height:0}.banda img{height:240px}}
+@media(max-width:560px){.topbar{flex-wrap:wrap}.topbar .btn{padding:13px 20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="./"><img class="wm-img" src="assets/wordmark.png" alt="Atlantis Global Realty"></a>
+    <div class="controls">
+      <div class="lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
+      <a class="btn" href="book-call.html" data-i18n="tcta">Appointment</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-h">
+      <div>
+        <p class="ml" data-i18n="eyebrow">Wealth architects</p>
+        <h1 data-i18n-html="h1">Financial freedom <b>architecture</b> for visionary investors</h1>
+        <p class="lead" data-i18n="lead">We are not a real estate agency. We design, structure and accompany the construction of real estate wealth, project by project, with the risks on the table.</p>
+        <div class="cta-row">
+          <a class="btn" href="book-videocall.html" data-i18n="cta1">Book a diagnostic →</a>
+          <a class="btn btn-ghost" href="proyectos/index.html" data-i18n="cta2">Selected projects</a>
+        </div>
+      </div>
+      <img class="foto" src="assets/fotos/atlantis-01.jpg" alt="Residential tower at dusk">
+    </section>
+
+    <section class="manifiesto">
+      <p class="ml" data-i18n="t_man">Our principles</p>
+      <div class="citas">
+        <p class="cita" data-i18n="c1">Agencies sell properties. We implement a system.</p>
+        <p class="cita" data-i18n="c2">We do not look for clients. We work with people committed to building their own legacy.</p>
+        <p class="cita" data-i18n="c3">Risks are named, never hidden. The consultation is a diagnostic, not a sale.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="pilares">
+        <div class="pilar"><span class="num">01</span><h3 data-i18n="p1t">Diagnostic</h3><p data-i18n="p1d">Your starting point: capital, borrowing capacity, horizon. Numbers first, opinions later.</p></div>
+        <div class="pilar"><span class="num">02</span><h3 data-i18n="p2t">Structure</h3><p data-i18n="p2d">Pre-construction entry, staged payments with the developer, and an exit designed before signing.</p></div>
+        <div class="pilar"><span class="num">03</span><h3 data-i18n="p3t">Accompaniment</h3><p data-i18n="p3d">Verified developers, written commitments and follow-through from reservation to delivery.</p></div>
+      </div>
+    </section>
+
+    <section class="banda">
+      <img src="assets/fotos/atlantis-02.jpg" alt="Residential towers under construction at dusk">
+      <img src="assets/fotos/atlantis-03.jpg" alt="Modern building facade">
+    </section>
+
+    <section class="bloques-fin">
+      <div class="card bfin">
+        <h3 data-i18n="g1t">Free guide: where to invest in 2026</h3>
+        <p data-i18n="g1d">Markets compared by appreciation, rental yield and risk. Data, not hunches.</p>
+        <a class="btn btn-ghost" href="download-guide.html" data-i18n="g1c">Download the guide →</a>
+      </div>
+      <div class="card bfin">
+        <h3 data-i18n="g2t">A diagnostic, not a sales call</h3>
+        <p data-i18n="g2d">15 minutes to hear your case and define the next step. Free and without commitment.</p>
+        <a class="btn" href="book-call.html" data-i18n="g2c">Book your call →</a>
+      </div>
+    </section>
+  </main>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span data-i18n="disc">Educational content. Not financial, legal or tax advice.</span>
+  <span><a data-href-es="legales/privacidad.html" data-href-en="legales/privacy.html" href="legales/privacy.html" data-i18n="priv">Privacy</a> · <a href="unsubscribe/" data-i18n="baja">Email preferences</a></span>
+  <span data-i18n-html="fotocred">Photography: Jan van der Wolf, 鲨柿笔亚 and Germán Latasa · <a href="https://www.pexels.com" rel="noopener">Pexels</a></span>
+</div></footer>
+<script>
+window.I18N={
+ en:{eyebrow:"Wealth architects",h1:"Financial freedom <b>architecture</b> for visionary investors",
+  lead:"We are not a real estate agency. We design, structure and accompany the construction of real estate wealth, project by project, with the risks on the table.",
+  cta1:"Book a diagnostic →",cta2:"Selected projects",tcta:"Appointment",
+  t_man:"Our principles",
+  c1:"Agencies sell properties. We implement a system.",
+  c2:"We do not look for clients. We work with people committed to building their own legacy.",
+  c3:"Risks are named, never hidden. The consultation is a diagnostic, not a sale.",
+  p1t:"Diagnostic",p1d:"Your starting point: capital, borrowing capacity, horizon. Numbers first, opinions later.",
+  p2t:"Structure",p2d:"Pre-construction entry, staged payments with the developer, and an exit designed before signing.",
+  p3t:"Accompaniment",p3d:"Verified developers, written commitments and follow-through from reservation to delivery.",
+  g1t:"Free guide: where to invest in 2026",g1d:"Markets compared by appreciation, rental yield and risk. Data, not hunches.",g1c:"Download the guide →",
+  g2t:"A diagnostic, not a sales call",g2d:"15 minutes to hear your case and define the next step. Free and without commitment.",g2c:"Book your call →",
+  disc:"Educational content. Not financial, legal or tax advice.",priv:"Privacy",baja:"Email preferences",
+  fotocred:'Photography: Jan van der Wolf, 鲨柿笔亚 and Germán Latasa · <a href="https://www.pexels.com" rel="noopener">Pexels</a>'},
+ es:{eyebrow:"Arquitectos de patrimonio",h1:"Arquitectura de <b>libertad financiera</b> para inversionistas con visión",
+  lead:"No somos una agencia de bienes raíces. Diseñamos, estructuramos y acompañamos la construcción de patrimonio inmobiliario, proyecto a proyecto, con los riesgos sobre la mesa.",
+  cta1:"Agenda tu diagnóstico →",cta2:"Proyectos seleccionados",tcta:"Agendar",
+  t_man:"Nuestros principios",
+  c1:"Las agencias venden propiedades. Nosotros implementamos un sistema.",
+  c2:"No buscamos clientes. Trabajamos con personas comprometidas con construir su propio legado.",
+  c3:"Los riesgos se nombran, no se esconden. La consulta es un diagnóstico, no una venta.",
+  p1t:"Diagnóstico",p1d:"Tu punto de partida: capital, capacidad de endeudamiento, horizonte. Primero los números, después las opiniones.",
+  p2t:"Estructura",p2d:"Entrada en preventa, pagos por etapas con la constructora y una salida diseñada antes de firmar.",
+  p3t:"Acompañamiento",p3d:"Constructoras verificadas, compromisos por escrito y seguimiento de la separación a la entrega.",
+  g1t:"Guía gratuita: dónde invertir en 2026",g1d:"Mercados comparados por valorización, renta y riesgo. Datos, no corazonadas.",g1c:"Descargar la guía →",
+  g2t:"Un diagnóstico, no una llamada de ventas",g2d:"15 minutos para escuchar tu caso y definir el siguiente paso. Sin costo y sin compromiso.",g2c:"Agenda tu llamada →",
+  disc:"Contenido educativo. No es asesoría financiera, legal ni tributaria.",priv:"Privacidad",baja:"Preferencias de correo",
+  fotocred:'Fotografía: Jan van der Wolf, 鲨柿笔亚 y Germán Latasa · <a href="https://www.pexels.com" rel="noopener">Pexels</a>'}
+};
+</script>
+<script src="assets/app.js"></script>
+<script>document.getElementById('yy').textContent=new Date().getFullYear();</script>
+</body>
+</html>

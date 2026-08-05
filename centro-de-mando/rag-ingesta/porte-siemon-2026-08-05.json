@@ -1,0 +1,12 @@
+[
+ {
+  "doc_id": "trampa:medir-por-el-camino-real",
+  "tipo": "trampa",
+  "texto": "Trampa evitada en el porte Siemon a Atlantis (2026-08-05): la fase de marcado del maquetador se implementó primero emitiendo data-mq-id, pero el editor del panel descubre elementos por [data-edit] y el motor quirúrgico localiza por unicidad de ese atributo: el marcado habría sido invisible. Regla que va antes que el código: antes de decir listo, preguntarse qué endpoint o atributo usa DE VERDAD el front para ese caso y medir ahí; verificar en las dos direcciones (que el robot no cuente Y que una persona sí). La misma regla obligó a no excluir GoogleImageProxy en la capa de robots del rastreo de correos, porque es como Gmail carga las aperturas reales."
+ },
+ {
+  "doc_id": "estado:porte-siemon-2026-08-05",
+  "tipo": "estado",
+  "texto": "Porte de mejoras Siemon a Atlantis completado en código y tests el 2026-08-05, en 4 bloques. (1) Rastreo de correos: pixel único por envío, cuatro capas de exclusión en orden (robots, ?yo=1, referrer del CRM, IP aprendida) en pixel, clics del nurturing y recortador /r; rebotes DSN y respuestas humanas detienen la secuencia con métricas; copia en Enviados sin pixel. (2) Señales de página con tiempo de lectura y push máximo 1/día por objeto (lecturas de 8s+). (3) Maquetador: fase de marcado con data-edit (el marcador real del editor), incremental, segunda pasada para titulares con cursiva, filtro de PreformattedString para que los comentarios no se impriman. (4) Bilingüe: ?lang=en en las páginas del sitio y kit de enlaces con variante EN (campaña -en, cortos -en). PENDIENTE de despliegue: rebuild del motor (incluye beautifulsoup4 nuevo) y re-publicar assets del sitio; verificar en vivo la copia a Enviados de Hostinger y la capa de IP con X-Forwarded-For de Caddy."
+ }
+]

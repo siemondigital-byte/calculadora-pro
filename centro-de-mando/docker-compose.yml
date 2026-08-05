@@ -1,0 +1,85 @@
+# Centro de Mando · Atlantis Global Realty
+# Subdominios (DNS A -> IP del VPS, ANTES de levantar, para que Caddy emita TLS):
+#   crm.atlantisglobalrealty.com    -> web (PWA)
+#   motor.atlantisglobalrealty.com  -> motor (FastAPI)
+#   hooks.atlantisglobalrealty.com  -> n8n
+# Postiz (publicar.*) y Umami (analitica.*) se agregan en fase 5.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  motor:
+    build: ./motor-prospeccion
+    restart: unless-stopped
+    environment:
+      # CRM_PASSWORD solo como semilla inicial; la clave viva se rota desde
+      # Accesos y queda en /data/clave.txt. CRON_KEY y TOKEN_SECRET son
+      # ESTABLES: no rotarlos al rotar la clave de login.
+      - CRM_PASSWORD=${CRM_PASSWORD:?definir en .env}
+      - CRON_KEY=${CRON_KEY:?definir en .env}
+      - TOKEN_SECRET=${TOKEN_SECRET:?definir en .env}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_MODEL=claude-sonnet-5
+      # respaldo gratis de IA (Gemini) cuando Anthropic queda sin saldo
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # backend de datos: 'json' (legado) o 'sqlite' (crm.db + espejo crm.json).
+      # Se cambia en el .env del VPS cuando la migracion este verificada.
+      - CRM_BACKEND=${CRM_BACKEND:-json}
+      - MOTOR_URL=${MOTOR_URL:-https://motor.atlantisglobalrealty.com}
+      # push web: la privada es la RUTA al PEM dentro del volumen /data
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-/data/vapid_private.pem}
+      # publicacion al sitio (web_pub/proyectos_web y scripts publicar-*):
+      # sin este mapeo el motor pierde el FTP al recrearse (KeyError FTP_HOST)
+      - FTP_HOST=${FTP_HOST:-}
+      - FTP_PORT=${FTP_PORT:-21}
+      - FTP_USER=${FTP_USER:-}
+      - FTP_PASS=${FTP_PASS:-}
+      - FTP_DIR=${FTP_DIR:-}
+      # base vectorial del RAG (coleccion 'atlantis')
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+    depends_on:
+      - qdrant
+    volumes:
+      - ./data:/data
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_MOTOR_URL: ${VITE_MOTOR_URL:-https://motor.atlantisglobalrealty.com}
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=hooks.atlantisglobalrealty.com
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://hooks.atlantisglobalrealty.com/
+      - GENERIC_TIMEZONE=America/Bogota
+      # el Code node no trae crypto por defecto; sin esta variable el cifrado
+      # de propuestas rompe al recrear el contenedor (autocorreccion)
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+
+volumes:
+  caddy-data:
+  caddy-config:
+  qdrant-data:

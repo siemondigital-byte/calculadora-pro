@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proyectos — Atlantis Global Realty</title>
+<link rel="icon" type="image/png" href="../assets/favicon-atlantis.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+.grid-p{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px;padding:26px 0 40px}
+.proy{display:block;text-decoration:none;overflow:hidden;padding:0}
+.proy img{width:100%;height:200px;object-fit:cover;display:block}
+.proy .pad{padding:20px 22px 24px}
+.proy h2{font-size:21px;font-weight:600;margin:6px 0 8px;color:var(--ink)}
+.proy .datos{font-size:13px;color:var(--gris)}
+.proy:hover{border-color:rgba(201,168,126,.5)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="https://atlantisglobalrealty.com/"><img class="wm-img" src="../assets/wordmark.png" alt="Atlantis Global Realty"></a>
+    <div class="controls"><div class="lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div></div>
+  </header>
+  <main>
+    <p class="ml" style="margin-top:22px" data-i18n="eyebrow">Proyectos</p>
+    <h1 data-i18n="titulo">Proyectos seleccionados</h1>
+    <p class="lead" style="max-width:60ch" data-i18n="lead">Cada proyecto pasa nuestro filtro: constructora verificable, estructura de pagos sana y zona con demanda real.</p>
+    <div class="grid-p">
+    </div>
+  </main>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span data-i18n="disc">Contenido educativo. No es asesoría financiera, legal ni tributaria.</span>
+  <span><a data-href-es="../legales/privacidad.html" data-href-en="../legales/privacy.html" href="../legales/privacidad.html" data-i18n="priv">Privacidad</a></span>
+</div></footer>
+<script>window.I18N={"es": {"eyebrow": "Proyectos", "titulo": "Proyectos seleccionados", "lead": "Cada proyecto pasa nuestro filtro: constructora verificable, estructura de pagos sana y zona con demanda real.", "priv": "Privacidad", "disc": "Contenido educativo. No es asesoría financiera, legal ni tributaria."}, "en": {"eyebrow": "Projects", "titulo": "Selected projects", "lead": "Every project passes our filter: verifiable developer, sound payment structure and real-demand location.", "priv": "Privacy", "disc": "Educational content. Not financial, legal or tax advice."}};</script>
+<script src="../assets/app.js"></script>
+<script>document.getElementById('yy').textContent=new Date().getFullYear();</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+{
+  "name": "Monitoreo semanal de mercado - Atlantis",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "11 8 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Cada lunes 8:11am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/mercado/monitorear",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REEMPLAZAR_CRON_KEY"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "name": "Motor: re-auditar web propia y competidores",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    }
+  ],
+  "connections": {
+    "Cada lunes 8:11am": { "main": [[{ "node": "Motor: re-auditar web propia y competidores", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

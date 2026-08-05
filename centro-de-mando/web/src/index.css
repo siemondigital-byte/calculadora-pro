@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================ TIPOGRAFIA REAL DE MARCA
+   Pondar (display/wordmark) + Inter variable (texto/UI), self-hosted en
+   /public/fonts. font-display swap: si el archivo falta, cae al fallback. */
+@font-face {
+  font-family: "Pondar";
+  src: url("/fonts/Pondar.otf") format("opentype");
+  font-weight: 300 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "InterVar";
+  src: url("/fonts/Inter-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "InterVar";
+  src: url("/fonts/Inter-Italic-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ============================================================ TEMA DE MARCA
+   Atlantis Global Realty — banca privada editorial. Para re-brandear el CRM
+   completo, SOLO se edita este bloque (las vistas leen estas variables). */
+:root {
+  /* tripletes RGB (para que Tailwind aplique opacidades tipo bg-oro/30) */
+  /* Paleta tomada del sitio vivo atlantisglobalrealty.com: oscuro CALIDO
+     (marron/carbon, no navy) + acento champagne/tan mate de los botones */
+  --marca-fondo-rgb: 11 10 8;
+  --marca-acento-rgb: 198 168 127;
+  --marca-carbon-rgb: 30 25 18;
+  --marca-texto-rgb: 245 242 236;
+  --marca-texto-suave-rgb: 209 205 199;
+  /* colores ya resueltos (para estilos inline de las vistas) */
+  --marca-fondo: rgb(var(--marca-fondo-rgb));
+  --marca-panel: #171410;
+  --marca-carbon: rgb(var(--marca-carbon-rgb));
+  --marca-linea: rgba(255, 255, 255, 0.08);
+  --marca-acento: rgb(var(--marca-acento-rgb));  /* champagne/tan del sitio */
+  --marca-acento-claro: #DEC7A0;
+  --marca-acento-oscuro: #96784F;
+  --marca-acento-suave: rgb(var(--marca-acento-rgb) / 0.12);
+  --marca-acento-linea: rgb(var(--marca-acento-rgb) / 0.30);
+  --marca-texto: rgb(var(--marca-texto-rgb));    /* crema */
+  --marca-texto-suave: rgb(var(--marca-texto-suave-rgb));  /* gris */
+  --marca-texto-apagado: #8B8D98;
+  --marca-ok: #7FB89B;
+  --marca-aviso: #D8B673;
+  --marca-peligro: #D08A8A;
+  /* Tipografia oficial de marca: logo en Pondar (interlineado 0.71) — no esta
+     en Google Fonts, el wordmark lo aproximan caps espaciadas de Inter — y
+     cuerpo/UI en Inter (interlineado 1.06). */
+  --marca-fuente-display: "InterVar", "Inter", system-ui, sans-serif;
+  --marca-fuente-sans: "InterVar", "Inter", system-ui, sans-serif;
+  /* Pondar (fuente REAL del logo): solo texto de marca en MAYUSCULAS y sin
+     acentos, porque Pondar no incluye tildes ni ñ. */
+  --marca-fuente-logo: "Pondar", "InterVar", "Inter", system-ui, sans-serif;
+  --marca-fuente-mono: ui-monospace, SFMono-Regular, monospace;
+  --marca-interlineado: 1.06;
+  --marca-interlineado-logo: 0.71;
+}
+
+@layer base {
+  body {
+    @apply bg-negro text-crema font-sans antialiased;
+    line-height: var(--marca-interlineado);
+  }
+  ::selection {
+    @apply bg-oro/30;
+  }
+}
+
+@layer components {
+  .campo {
+    @apply w-full rounded-md border border-gris/20 bg-navy/60 px-3 py-2 text-sm text-crema placeholder-gris/50 focus:border-oro focus:outline-none focus:ring-1 focus:ring-oro;
+  }
+  .boton {
+    @apply rounded-md bg-oro px-4 py-2 text-sm font-semibold text-negro transition hover:bg-oro/85 focus:outline-none focus:ring-2 focus:ring-oro focus:ring-offset-2 focus:ring-offset-negro disabled:opacity-40;
+  }
+  .boton-secundario {
+    @apply rounded-md border border-oro/40 px-4 py-2 text-sm font-medium text-oro transition hover:bg-oro/10 focus:outline-none focus:ring-2 focus:ring-oro focus:ring-offset-2 focus:ring-offset-negro;
+  }
+  .tarjeta {
+    @apply rounded-xl border border-gris/10 bg-navy/40 p-5;
+  }
+  /* Wordmark de marca (aprox. Pondar): caps espaciadas, interlineado 0.71 */
+  .wordmark {
+    line-height: var(--marca-interlineado-logo);
+    font-family: var(--marca-fuente-logo);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    font-weight: 300;
+  }
+  /* tamanos compactos usados por las vistas portadas del Centro de Mando */
+  .fs-9 { font-size: 9px; }
+  .fs-10 { font-size: 10px; }
+  .fs-11 { font-size: 11px; }
+  .fs-12 { font-size: 12px; }
+  .fs-13 { font-size: 13px; }
+  .fs-24 { font-size: 24px; }
+}

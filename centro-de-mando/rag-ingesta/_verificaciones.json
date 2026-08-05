@@ -1,0 +1,6 @@
+[
+ {"consulta": "qué branding uso para el infoproducto",
+  "esperado": "alcance:infoproducto-vs-inmobiliaria"},
+ {"consulta": "el dorado y el navy son de la inmobiliaria",
+  "esperado": "alcance:infoproducto-vs-inmobiliaria"}
+]

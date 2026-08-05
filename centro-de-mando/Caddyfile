@@ -1,0 +1,11 @@
+crm.atlantisglobalrealty.com {
+	reverse_proxy web:80
+}
+
+motor.atlantisglobalrealty.com {
+	reverse_proxy motor:8000
+}
+
+hooks.atlantisglobalrealty.com {
+	reverse_proxy n8n:5678
+}

@@ -1,0 +1,54 @@
+{
+  "_nota": "PROYECTO DE EJEMPLO para validar el diseño. publicar=false: nunca sube al sitio. Copia esta carpeta como plantilla para un proyecto real (datos del brochure del constructor, sin inventar cifras).",
+  "slug": "_ejemplo",
+  "publicar": false,
+  "constructora": "Constructora Ejemplo S.A.",
+  "ciudad": "Cartagena",
+  "pais": "Colombia",
+  "entrega": "2028",
+  "precioDesde": "Desde 120.000 USD",
+  "calLink": "",
+  "es": {
+    "nombre": "Proyecto Ejemplo",
+    "eslogan": "Frente a la bahía, con la estructura de un ciclo completo.",
+    "descripcion": "Torre residencial en preventa sobre la bahía. Unidades pensadas para renta corta y valorización por etapa de entrada, con plan de pagos directo con la constructora y acompañamiento de Atlantis de principio a fin.",
+    "tipologias": [
+      "Apartaestudios de 38 m2",
+      "Una alcoba de 52 m2",
+      "Dos alcobas de 68 m2"
+    ],
+    "amenidades": [
+      "Piscina en cubierta",
+      "Gimnasio",
+      "Coworking",
+      "Lobby con recepción",
+      "Parqueadero"
+    ],
+    "planPagos": "Separación, 30% en cuotas sin intereses durante la obra y 70% contra entrega (crédito hipotecario opcional sobre el saldo)."
+  },
+  "en": {
+    "nombre": "Proyecto Ejemplo",
+    "eslogan": "On the bay, with the structure of a full cycle.",
+    "descripcion": "Pre-construction residential tower on the bay. Units designed for short-term rental and stage-entry appreciation, with a payment plan directly with the developer and Atlantis accompaniment from start to finish.",
+    "tipologias": [
+      "Studios, 38 m2",
+      "One bedroom, 52 m2",
+      "Two bedrooms, 68 m2"
+    ],
+    "amenidades": [
+      "Rooftop pool",
+      "Gym",
+      "Coworking",
+      "Lobby with reception",
+      "Parking"
+    ],
+    "planPagos": "Reservation, 30% in interest-free installments during construction and 70% at delivery (optional mortgage on the balance)."
+  },
+  "imagenes": [
+    "hero.jpg",
+    "galeria-1.jpg",
+    "galeria-2.jpg",
+    "galeria-3.jpg"
+  ],
+  "precioDesdeEn": "From USD 120,000"
+}

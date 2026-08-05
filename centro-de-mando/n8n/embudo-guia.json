@@ -1,0 +1,131 @@
+{
+  "name": "Embudo · guia (lead magnet)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-magnet",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook guia",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "lead-magnet"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Payload de la landing guia: {name,email,lang,source}\nconst b = $input.first().json.body || $input.first().json;\nconst email = (b.email || '').trim().toLowerCase();\nif (!email || email.indexOf('@') < 1) return [];\nconst lang = (b.lang === 'en') ? 'en' : 'es';\nconst GUIDE = {\"es\": \"https://atlantisglobalrealty.com/download/guia-inversion.pdf\", \"en\": \"https://atlantisglobalrealty.com/download/investment-guide.pdf\"};\nreturn [{ json: {\n  tipo: '12', email, lang,\n  nombre: b.name || b.nombre || (lang === 'en' ? 'investor' : 'inversionista'),\n  guide_url: GUIDE[lang],\n  workspace: 'atlantis', idioma: lang,\n  type: b.source || 'guia', fuente: b.utm_source || 'web',\n} }];"
+      },
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/crm/lead",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({workspace: $json.workspace, email: $json.email, nombre: $json.nombre, idioma: $json.idioma, type: $json.type, fuente: $json.fuente}) }}",
+        "options": {}
+      },
+      "name": "Motor: crear lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        680,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const previo = $('Normalizar').first().json;\nconst T = {\"12-es\": \"<!DOCTYPE html>\\n<html lang=\\\"es\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\">\\n<meta name=\\\"color-scheme\\\" content=\\\"dark\\\">\\n<title>Tu guía está lista</title>\\n<!-- Remitente: contact@atlantisglobalrealty.com -->\\n</head>\\n<body style=\\\"margin:0;padding:0;background:#040606;\\\">\\n<div style=\\\"display:none;max-height:0;overflow:hidden;mso-hide:all;\\\">Descarga tu guía: dónde invertir en 2026.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>\\n<table role=\\\"presentation\\\" width=\\\"100%\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"background:#040606;\\\">\\n<tr><td align=\\\"center\\\" style=\\\"padding:40px 16px 48px;\\\">\\n<table role=\\\"presentation\\\" width=\\\"600\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"max-width:600px;width:100%;\\\">\\n  <tr><td align=\\\"center\\\" style=\\\"padding:6px 0 32px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;\\\">\\n    <!-- Producción: reemplazar el src por la URL pública del wordmark para máxima compatibilidad (Gmail bloquea data-URI) -->\\n    <img src=\\\"https://atlantisglobalrealty.com/emails/assets/wordmark.png\\\" width=\\\"210\\\" alt=\\\"ATLANTIS · GLOBAL REALTY\\\" style=\\\"display:block;margin:0 auto;width:210px;max-width:62%;height:auto;border:0;\\\">\\n  </td></tr>\\n  <tr><td style=\\\"background:#0F1B2D;border:1px solid rgba(201,168,126,.22);border-top:3px solid #C9A87E;border-radius:4px;padding:44px 40px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;\\\">\\n    <div style=\\\"font-size:11px;font-weight:700;letter-spacing:.16em;color:#C9A87E;text-transform:uppercase;\\\"><span style=\\\"font-size:8px;vertical-align:2px;\\\">&#9632;&#8202;&#9632;</span>&nbsp;&nbsp;Guía gratuita</div>\\n    <h1 style=\\\"margin:18px 0 14px;font-size:32px;line-height:1.22;font-weight:600;color:#F4EFE6;\\\">Tu guía está <span style=\\\"color:#C9A87E;border-bottom:2px solid #C9A87E;\\\">lista</span></h1>\\n    <p style=\\\"margin:0 0 26px;font-size:15px;line-height:1.65;color:#D7D7D9;\\\">Hola {{name}}, gracias por tu interés. Aquí tienes tu copia — toda cifra de la guía lleva su fuente y su año.</p>\\n    <table role=\\\"presentation\\\" width=\\\"100%\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td style=\\\"background:#0A1626;border:1px solid rgba(201,168,126,.35);border-radius:4px;padding:26px 28px;\\\" align=\\\"center\\\">\\n      <div style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.3em;color:#C9A87E;text-transform:uppercase;\\\">Guía · 2026</div>\\n      <div style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:21px;line-height:1.3;font-weight:600;color:#F4EFE6;padding:12px 0 14px;\\\">Dónde invertir en 2026: mercados inmobiliarios con mayor valorización</div>\\n      <div style=\\\"border-top:1px solid rgba(201,168,126,.25);padding-top:12px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:9px;font-weight:600;letter-spacing:.2em;color:rgba(244,239,230,.55);text-transform:uppercase;\\\">Atlantis Global Realty &nbsp;·&nbsp; atlantisglobalrealty.com</div>\\n    </td></tr></table>\\n    <table role=\\\"presentation\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"margin:24px 0 2px;\\\">\\n      <tr><td style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.9;color:#D7D7D9;\\\"><span style=\\\"color:#C9A87E;\\\">&#8594;</span>&nbsp;&nbsp;<b style=\\\"color:#F4EFE6;\\\">Tu perfil inversionista:</b> la estrategia que se ajusta a tu capital y horizonte.</td></tr>\\n      <tr><td style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.9;color:#D7D7D9;\\\"><span style=\\\"color:#C9A87E;\\\">&#8594;</span>&nbsp;&nbsp;<b style=\\\"color:#F4EFE6;\\\">5 mercados con proyección,</b> comparados por valorización, renta y riesgo.</td></tr>\\n      <tr><td style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.9;color:#D7D7D9;\\\"><span style=\\\"color:#C9A87E;\\\">&#8594;</span>&nbsp;&nbsp;<b style=\\\"color:#F4EFE6;\\\">Errores costosos</b> que frenan al inversionista extranjero — y cómo evitarlos.</td></tr>\\n    </table>\\n    <table role=\\\"presentation\\\" width=\\\"100%\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"margin:28px 0 6px;\\\"><tr>\\n      <td style=\\\"border-radius:2px;background:#C9A87E;\\\" align=\\\"center\\\">\\n        <a href=\\\"{{guide_url}}\\\" style=\\\"display:block;padding:17px 30px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0A0A0C;text-decoration:none;border-radius:2px;\\\">Descargar la guía</a>\\n      </td>\\n    </tr></table>\\n    <p style=\\\"margin:16px 0 0;font-size:13px;line-height:1.6;color:rgba(244,239,230,.55);\\\">Si el botón no funciona, copia y pega este enlace en tu navegador: {{guide_url}}</p>\\n  </td></tr>\\n  <tr><td align=\\\"center\\\" style=\\\"padding:28px 20px 0;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;\\\">\\n    <p style=\\\"margin:0 0 8px;font-size:11px;line-height:1.7;color:rgba(244,239,230,.55);\\\">Contenido educativo. No es asesoría financiera, legal ni tributaria.</p>\\n    <p style=\\\"margin:0;font-size:11px;line-height:1.7;color:rgba(244,239,230,.55);\\\">© Atlantis Global Realty · <a href=\\\"https://atlantisglobalrealty.com\\\" style=\\\"color:#C9A87E;text-decoration:none;\\\">atlantisglobalrealty.com</a><br>\\n    <a href=\\\"{{unsubscribe_url}}\\\" style=\\\"color:rgba(244,239,230,.55);text-decoration:underline;\\\">Darme de baja</a></p>\\n  </td></tr>\\n</table>\\n</td></tr>\\n</table>\\n</body>\\n</html>\", \"12-en\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\">\\n<meta name=\\\"color-scheme\\\" content=\\\"dark\\\">\\n<title>Your guide is ready</title>\\n<!-- Remitente: contact@atlantisglobalrealty.com -->\\n</head>\\n<body style=\\\"margin:0;padding:0;background:#040606;\\\">\\n<div style=\\\"display:none;max-height:0;overflow:hidden;mso-hide:all;\\\">Download your guide: where to invest in 2026.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>\\n<table role=\\\"presentation\\\" width=\\\"100%\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"background:#040606;\\\">\\n<tr><td align=\\\"center\\\" style=\\\"padding:40px 16px 48px;\\\">\\n<table role=\\\"presentation\\\" width=\\\"600\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"max-width:600px;width:100%;\\\">\\n  <tr><td align=\\\"center\\\" style=\\\"padding:6px 0 32px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;\\\">\\n    <!-- Producción: reemplazar el src por la URL pública del wordmark para máxima compatibilidad (Gmail bloquea data-URI) -->\\n    <img src=\\\"https://atlantisglobalrealty.com/emails/assets/wordmark.png\\\" width=\\\"210\\\" alt=\\\"ATLANTIS · GLOBAL REALTY\\\" style=\\\"display:block;margin:0 auto;width:210px;max-width:62%;height:auto;border:0;\\\">\\n  </td></tr>\\n  <tr><td style=\\\"background:#0F1B2D;border:1px solid rgba(201,168,126,.22);border-top:3px solid #C9A87E;border-radius:4px;padding:44px 40px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;\\\">\\n    <div style=\\\"font-size:11px;font-weight:700;letter-spacing:.16em;color:#C9A87E;text-transform:uppercase;\\\"><span style=\\\"font-size:8px;vertical-align:2px;\\\">&#9632;&#8202;&#9632;</span>&nbsp;&nbsp;Free guide</div>\\n    <h1 style=\\\"margin:18px 0 14px;font-size:32px;line-height:1.22;font-weight:600;color:#F4EFE6;\\\">Your guide is <span style=\\\"color:#C9A87E;border-bottom:2px solid #C9A87E;\\\">ready</span></h1>\\n    <p style=\\\"margin:0 0 26px;font-size:15px;line-height:1.65;color:#D7D7D9;\\\">Hi {{name}}, thank you for your interest. Here is your copy — every figure in the guide cites its source and year.</p>\\n    <table role=\\\"presentation\\\" width=\\\"100%\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td style=\\\"background:#0A1626;border:1px solid rgba(201,168,126,.35);border-radius:4px;padding:26px 28px;\\\" align=\\\"center\\\">\\n      <div style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.3em;color:#C9A87E;text-transform:uppercase;\\\">Guide · 2026</div>\\n      <div style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:21px;line-height:1.3;font-weight:600;color:#F4EFE6;padding:12px 0 14px;\\\">Where to invest in 2026: real-estate markets with the highest appreciation</div>\\n      <div style=\\\"border-top:1px solid rgba(201,168,126,.25);padding-top:12px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:9px;font-weight:600;letter-spacing:.2em;color:rgba(244,239,230,.55);text-transform:uppercase;\\\">Atlantis Global Realty &nbsp;·&nbsp; atlantisglobalrealty.com</div>\\n    </td></tr></table>\\n    <table role=\\\"presentation\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"margin:24px 0 2px;\\\">\\n      <tr><td style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.9;color:#D7D7D9;\\\"><span style=\\\"color:#C9A87E;\\\">&#8594;</span>&nbsp;&nbsp;<b style=\\\"color:#F4EFE6;\\\">Your investor profile:</b> the strategy that fits your capital and horizon.</td></tr>\\n      <tr><td style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.9;color:#D7D7D9;\\\"><span style=\\\"color:#C9A87E;\\\">&#8594;</span>&nbsp;&nbsp;<b style=\\\"color:#F4EFE6;\\\">5 high-projection markets,</b> compared by appreciation, rental yield and risk.</td></tr>\\n      <tr><td style=\\\"font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.9;color:#D7D7D9;\\\"><span style=\\\"color:#C9A87E;\\\">&#8594;</span>&nbsp;&nbsp;<b style=\\\"color:#F4EFE6;\\\">Costly mistakes</b> that stall foreign investors — and how to avoid them.</td></tr>\\n    </table>\\n    <table role=\\\"presentation\\\" width=\\\"100%\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"margin:28px 0 6px;\\\"><tr>\\n      <td style=\\\"border-radius:2px;background:#C9A87E;\\\" align=\\\"center\\\">\\n        <a href=\\\"{{guide_url}}\\\" style=\\\"display:block;padding:17px 30px;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0A0A0C;text-decoration:none;border-radius:2px;\\\">Download the guide</a>\\n      </td>\\n    </tr></table>\\n    <p style=\\\"margin:16px 0 0;font-size:13px;line-height:1.6;color:rgba(244,239,230,.55);\\\">If the button does not work, copy and paste this link into your browser: {{guide_url}}</p>\\n  </td></tr>\\n  <tr><td align=\\\"center\\\" style=\\\"padding:28px 20px 0;font-family:Figtree,Inter,Helvetica,Arial,sans-serif;\\\">\\n    <p style=\\\"margin:0 0 8px;font-size:11px;line-height:1.7;color:rgba(244,239,230,.55);\\\">Educational content. Not financial, legal or tax advice.</p>\\n    <p style=\\\"margin:0;font-size:11px;line-height:1.7;color:rgba(244,239,230,.55);\\\">© Atlantis Global Realty · <a href=\\\"https://atlantisglobalrealty.com\\\" style=\\\"color:#C9A87E;text-decoration:none;\\\">atlantisglobalrealty.com</a><br>\\n    <a href=\\\"{{unsubscribe_url}}\\\" style=\\\"color:rgba(244,239,230,.55);text-decoration:underline;\\\">Unsubscribe</a></p>\\n  </td></tr>\\n</table>\\n</td></tr>\\n</table>\\n</body>\\n</html>\"};\nconst WEB = {\"12-es\": \"https://atlantisglobalrealty.com/emails/descarga-guia.html\", \"12-en\": \"https://atlantisglobalrealty.com/emails/guide-download.html\"};\nconst SUBJ = {\"12-es\": \"Tu guía está lista\", \"12-en\": \"Your guide is ready\"};\nconst FROM = \"Atlantis Global Realty <contact@atlantisglobalrealty.com>\";\nconst d = previo;\nlet html = T[d.tipo + '-' + d.lang];\nconst tags = {\n  nombre: d.nombre, name: d.nombre, fecha: d.fecha || '', hora: d.hora || '',\n  zona_horaria: d.zona_horaria || '', telefono: d.telefono || '',\n  meeting_url: d.meeting_url || '', calendar_url: d.calendar_url || '',\n  reschedule_url: d.reschedule_url || '', book_url: d.reschedule_url || '',\n  guide_url: d.guide_url || '', browser_url: WEB[d.tipo + '-' + d.lang] || '',\n  privacy_url: 'https://atlantisglobalrealty.com/privacy',\n  unsubscribe_url: 'https://atlantisglobalrealty.com/unsubscribe?email='\n    + encodeURIComponent(d.email) + '&lang=' + d.lang,\n};\nfor (const k of Object.keys(tags)) {\n  html = html.split('{{' + k + '}}').join(tags[k] ?? '');\n}\nreturn [{ json: { from: FROM, to: d.email, subject: SUBJ[d.tipo + '-' + d.lang], html } }];\n"
+      },
+      "name": "Armar correo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.from }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "contact@atlantisglobalrealty.com"
+        }
+      },
+      "name": "Enviar guia",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook guia": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Motor: crear lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Motor: crear lead": {
+      "main": [
+        [
+          {
+            "node": "Armar correo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar correo": {
+      "main": [
+        [
+          {
+            "node": "Enviar guia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

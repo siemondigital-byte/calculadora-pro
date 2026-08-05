@@ -1,0 +1,2523 @@
+import React, { useEffect, useRef, useState } from "react";
+import MaquetadorView from "./MaquetadorView.jsx";
+import ConocimientoView from "./ConocimientoView.jsx";
+import DiagnosticoView from "./DiagnosticoView.jsx";
+import MercadoView from "./MercadoView.jsx";
+import BlogSeoView from "./BlogSeoView.jsx";
+import EstudioUnificado from "./EstudioUnificado.jsx";
+import CalendarioView from "./CalendarioView.jsx";
+import AnaliticaView from "./AnaliticaView.jsx";
+import AdsView from "./AdsView.jsx";
+import EstudioYtView from "./EstudioYtView.jsx";
+import NegociosView from "./NegociosView.jsx";
+import PrototiposView from "./PrototiposView.jsx";
+import { AgenteRedes, Clientes, Conversaciones, Facturacion, Presupuestos, Proyectos } from "./ModulosNuevos.jsx";
+import {
+  cambiarClave,
+  clearToken,
+  estadoSecretos,
+  guardarSecreto,
+  loadData,
+  motorGet,
+  motorPost,
+  saveData,
+  seed,
+} from "./db.js";
+
+// ---------------------------------------------------------------- utilidades
+
+const hoyISO = () => new Date().toISOString().slice(0, 10);
+const mesActual = () => new Date().toISOString().slice(0, 7);
+const sumarDias = (dias) => {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+};
+const uid = (pref) => `${pref}-${Math.random().toString(36).slice(2, 10)}`;
+
+// Config SIEMPRE desde data.<ws>.config (autocorreccion #10: nada hardcodeado)
+const cfg = (data, ws) => data?.[ws]?.config || {};
+
+// ---------------------------------------------------------------- navegacion
+
+// Menú ordenado por el FLUJO del negocio: cada sección alimenta a la siguiente.
+// 1 conseguir gente → 2 venderle (lead→reunión→propuesta) → 3 el producto que
+// vende (proyectos) → 4 cobrar y cuidar → 5 lo que atrae (contenido/pauta) →
+// 6 la web que recibe → 7 medir para decidir.
+const NAV = {
+  atlantis: [
+    { sec: "Panel", items: [["panel", "Panel"], ["conocimiento", "Base de conocimiento"]] },
+    {
+      sec: "1 · Conseguir prospectos",
+      items: [
+        ["prospeccion", "Prospección"],
+        ["correo", "Correo"],
+        ["agente", "Agente de redes 24/7"],
+      ],
+    },
+    {
+      sec: "2 · Vender",
+      items: [
+        ["leads", "Leads"],
+        ["pipeline", "Pipeline"],
+        ["seguimiento", "Seguimiento"],
+        ["consultas", "Reuniones (diagnóstico)"],
+        ["diagnostico", "Diagnóstico del comprador"],
+        ["prototipos", "Prototipos"],
+        ["presupuestos", "Presupuestos"],
+      ],
+    },
+    {
+      sec: "3 · Proyectos y cierre",
+      items: [
+        ["proyectos", "Proyectos"],
+        ["negocios", "Negocios (comisiones)"],
+      ],
+    },
+    {
+      sec: "4 · Clientes y cobro",
+      items: [
+        ["clientes", "Clientes"],
+        ["facturacion", "Facturación"],
+      ],
+    },
+    {
+      sec: "5 · Contenido y pauta",
+      items: [
+        ["contenido", "Contenido"],
+        ["estudioyt", "Estudio YouTube"],
+        ["calendario", "Calendario"],
+        ["blogseo", "Blog y SEO"],
+        ["nurturing", "Nurturing"],
+        ["ads", "Ads (pauta)"],
+      ],
+    },
+    { sec: "6 · Tu web", items: [["maquetador", "Maquetador (mi web)"]] },
+    {
+      sec: "7 · Medir y decidir",
+      items: [
+        ["analitica", "Analítica"],
+        ["mercado", "Estudio de mercado"],
+        ["fuentes", "Fuentes / UTM"],
+      ],
+    },
+    { sec: "Configuración", items: [["accesos", "Accesos"]] },
+  ],
+  cicloderiqueza: [
+    { sec: "Panel", items: [["panel", "Panel"], ["conocimiento", "Base de conocimiento"]] },
+    {
+      sec: "1 · Conseguir prospectos",
+      items: [
+        ["prospeccion", "Prospección (embajadores)"],
+        ["correo", "Correo"],
+      ],
+    },
+    {
+      sec: "2 · Vender",
+      items: [
+        ["leads", "Leads"],
+        ["pipeline", "Pipeline"],
+        ["seguimiento", "Seguimiento"],
+        ["presupuestos", "Presupuestos"],
+      ],
+    },
+    {
+      sec: "3 · Producto 44 USD",
+      items: [
+        ["compradores", "Compradores"],
+        ["afiliados", "Afiliados"],
+        ["appusuarios", "App · Calculadora Pro"],
+      ],
+    },
+    {
+      sec: "4 · Clientes y cobro",
+      items: [
+        ["clientes", "Clientes"],
+        ["facturacion", "Facturación"],
+      ],
+    },
+    {
+      sec: "5 · Contenido y pauta",
+      items: [
+        ["contenido", "Contenido"],
+        ["estudioyt", "Estudio YouTube"],
+        ["calendario", "Calendario"],
+        ["blogseo", "Blog y SEO"],
+        ["nurturing", "Nurturing"],
+        ["ads", "Ads (pauta)"],
+      ],
+    },
+    {
+      sec: "6 · Medir y decidir",
+      items: [
+        ["analitica", "Analítica"],
+        ["fuentes", "Fuentes / UTM"],
+      ],
+    },
+    { sec: "Configuración", items: [["accesos", "Accesos"]] },
+  ],
+};
+
+// ---------------------------------------------------------------- shell
+
+export default function App() {
+  const [data, setData] = useState(null);
+  const [vista, setVista] = useState("panel");
+  const [navAbierto, setNavAbierto] = useState(false);
+  const [errorCarga, setErrorCarga] = useState("");
+  const guardandoRef = useRef(0);
+  const ultimaEdicionRef = useRef(0);
+  // aviso de dos ventanas abiertas: aunque el motor ya fusiona (blindaje _rev),
+  // trabajar en una sola ventana sigue siendo lo sano; esto lo hace visible.
+  const [otraVentana, setOtraVentana] = useState(false);
+
+  const ws = data?.workspace === "cicloderiqueza" ? "cicloderiqueza" : "atlantis";
+
+  useEffect(() => {
+    let bc = null;
+    try {
+      bc = new BroadcastChannel("atlantis-cm-ventanas");
+      const idv = Math.random().toString(36).slice(2);
+      bc.onmessage = (ev) => {
+        if (ev.data === "ping") {
+          setOtraVentana(true);
+          try { bc.postMessage({ pong: idv }); } catch { /* nada */ }
+        } else if (ev.data && ev.data.pong && ev.data.pong !== idv) setOtraVentana(true);
+      };
+      bc.postMessage("ping");
+    } catch { /* navegador sin BroadcastChannel */ }
+    return () => { try { bc && bc.close(); } catch { /* nada */ } };
+  }, []);
+
+  useEffect(() => {
+    loadData()
+      .then((d) => setData(d || seed()))
+      .catch((e) => setErrorCarga(String(e)));
+  }, []);
+
+  // commit optimista: pinta ya, guarda el documento COMPLETO detras
+  const commit = (siguiente) => {
+    setData(siguiente);
+    ultimaEdicionRef.current = Date.now();
+    guardandoRef.current += 1;
+    saveData(siguiente)
+      .catch(() => {})
+      .finally(() => {
+        guardandoRef.current -= 1;
+      });
+  };
+
+  // reload al reenfocar: trae escrituras server-side sin pisar lo no guardado
+  useEffect(() => {
+    const alEnfocar = () => {
+      if (guardandoRef.current > 0) return;
+      if (Date.now() - ultimaEdicionRef.current < 4000) return;
+      loadData().then(setData).catch(() => {});
+    };
+    window.addEventListener("focus", alEnfocar);
+    return () => window.removeEventListener("focus", alEnfocar);
+  }, []);
+
+  if (errorCarga)
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6 text-center">
+        <div>
+          <p className="text-red-400">No se pudo cargar el CRM: {errorCarga}</p>
+          <button className="boton mt-4" onClick={() => window.location.reload()}>
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  if (!data)
+    return (
+      <div className="flex min-h-screen items-center justify-center text-gris">
+        Cargando el Centro de Mando...
+      </div>
+    );
+
+  const cambiarWorkspace = (nuevo) => {
+    commit({ ...data, workspace: nuevo });
+    setVista("panel");
+  };
+
+  const recargar = () => loadData().then(setData).catch(() => {});
+
+  const props = { data, commit, ws, recargar };
+  const VISTAS = {
+    panel: <Panel {...props} />,
+    prospeccion: <Prospeccion {...props} />,
+    correo: <Correo {...props} />,
+    leads: <Leads {...props} />,
+    pipeline: <Pipeline {...props} />,
+    seguimiento: <Seguimiento {...props} />,
+    consultas: <Consultas {...props} />,
+    diagnostico: <DiagnosticoView {...props} />,
+    fuentes: <Fuentes {...props} />,
+    compradores: <Compradores {...props} />,
+    afiliados: <Afiliados {...props} />,
+    appusuarios: <AppUsuarios {...props} />,
+    contenido: <EstudioUnificado {...props} />,
+    calendario: <CalendarioView {...props} />,
+    analitica: <AnaliticaView {...props} />,
+    ads: <AdsView {...props} />,
+    estudioyt: <EstudioYtView {...props} />,
+    negocios: <NegociosView {...props} />,
+    prototipos: <PrototiposView {...props} />,
+    nurturing: <Nurturing {...props} />,
+    proyectos: <Proyectos {...props} />,
+    presupuestos: <Presupuestos {...props} />,
+    clientes: <Clientes {...props} />,
+    facturacion: <Facturacion {...props} />,
+    agente: <AgenteRedes {...props} />,
+    conocimiento: <ConocimientoView {...props} />,
+    conversaciones: <ConocimientoView {...props} tab="conversaciones" />,
+    maquetador: <MaquetadorView {...props} />,
+    mercado: <MercadoView {...props} />,
+    blogseo: <BlogSeoView {...props} />,
+    accesos: <Accesos {...props} />,
+  };
+
+  const titulo =
+    NAV[ws].flatMap((s) => s.items).find(([v]) => v === vista)?.[1] || "Panel";
+
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      {otraVentana && (
+        <div className="fixed inset-x-0 top-0 z-50 bg-red-700 px-4 py-2 text-center text-xs font-medium text-white">
+          Tienes el Centro de Mando abierto en otra ventana. Cierra una para no
+          pisarte los cambios (el sistema fusiona, pero mejor una sola).
+        </div>
+      )}
+      {/* barra superior movil */}
+      <div className="flex items-center gap-3 border-b border-gris/10 p-4 md:hidden">
+        <button
+          aria-label="Abrir menú"
+          className="text-oro"
+          onClick={() => setNavAbierto(true)}
+        >
+          ☰
+        </button>
+        <img src="/wordmark.png" alt="Atlantis Global Realty" className="h-7 w-auto" />
+        <span className="text-sm text-gris">· {titulo}</span>
+      </div>
+
+      {navAbierto && (
+        <div
+          className="fixed inset-0 z-20 bg-negro/70 md:hidden"
+          onClick={() => setNavAbierto(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed z-30 h-full w-64 shrink-0 overflow-y-auto border-r border-gris/10 bg-negro p-5 transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 ${
+          navAbierto ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="mb-6">
+          {/* Lockup oficial de marca: el delta hace de A. No deformar: alto fijo, ancho auto. */}
+          <img src="/wordmark.png" alt="Atlantis Global Realty" className="h-14 w-auto" />
+        </div>
+
+        <select
+          aria-label="Línea de negocio"
+          className="campo mb-6"
+          value={ws}
+          onChange={(e) => cambiarWorkspace(e.target.value)}
+        >
+          <option value="atlantis">Atlantis · Inmobiliaria</option>
+          <option value="cicloderiqueza">Ciclo de Riqueza · 44 USD</option>
+        </select>
+
+        {NAV[ws].map(({ sec, items }) => (
+          <div key={sec} className="mb-5">
+            <div className="mb-2 text-xs uppercase tracking-wider text-gris/60">
+              {sec}
+            </div>
+            {items.map(([v, etiqueta]) => (
+              <button
+                key={v}
+                onClick={() => {
+                  setVista(v);
+                  setNavAbierto(false);
+                }}
+                className={`mb-1 block w-full rounded-md px-3 py-2 text-left text-sm transition ${
+                  vista === v
+                    ? "bg-oro/15 text-oro"
+                    : "text-crema/80 hover:bg-navy/60"
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+        ))}
+
+        <button
+          className="mt-4 text-xs text-gris/60 hover:text-gris"
+          onClick={() => {
+            clearToken();
+            window.location.reload();
+          }}
+        >
+          Salir
+        </button>
+      </aside>
+
+      <main className="min-w-0 flex-1 p-5 md:p-8">{VISTAS[vista] || VISTAS.panel}</main>
+      <AsistenteFlotante ws={ws} recargar={recargar} />
+    </div>
+  );
+}
+
+// ------------------------------------------- Credenciales de portales (manual)
+
+function TarjetaPortales({ data, commit, ws }) {
+  const portales = data?.[ws]?.accesos || [];
+  const [nuevo, setNuevo] = useState({ nombre: "", url: "", usuario: "", clave: "", nota: "" });
+  const [visible, setVisible] = useState({});
+
+  const guardar = () => {
+    if (!nuevo.nombre) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].accesos = [
+      ...(siguiente[ws].accesos || []),
+      { id: uid("acc"), ...nuevo },
+    ];
+    commit(siguiente);
+    setNuevo({ nombre: "", url: "", usuario: "", clave: "", nota: "" });
+  };
+
+  const eliminar = (id) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].accesos = (siguiente[ws].accesos || []).filter((a) => a.id !== id);
+    commit(siguiente);
+  };
+
+  return (
+    <div className="tarjeta mb-6">
+      <div className="mb-1 text-sm font-semibold">Credenciales de portales (manual)</div>
+      <p className="mb-3 text-xs text-gris/70">
+        Tu bóveda de accesos: Hotmart, hPanel, Supabase, redes, lo que necesites.
+        Se guardan en tu CRM (protegidas por tu clave de acceso).
+      </p>
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-5">
+        <input className="campo" placeholder="Portal (ej. Hotmart)" value={nuevo.nombre}
+          onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+        <input className="campo" placeholder="URL" value={nuevo.url}
+          onChange={(e) => setNuevo({ ...nuevo, url: e.target.value })} />
+        <input className="campo" placeholder="Usuario / email" value={nuevo.usuario}
+          onChange={(e) => setNuevo({ ...nuevo, usuario: e.target.value })} autoComplete="off" />
+        <input className="campo" type="password" placeholder="Contraseña" value={nuevo.clave}
+          onChange={(e) => setNuevo({ ...nuevo, clave: e.target.value })} autoComplete="new-password" />
+        <button className="boton" disabled={!nuevo.nombre} onClick={guardar}>
+          Guardar
+        </button>
+      </div>
+
+      {portales.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center gap-3 border-b border-gris/10 py-2 text-sm last:border-0">
+          <span className="font-semibold">{a.nombre}</span>
+          {a.url && (
+            <a href={a.url.startsWith("http") ? a.url : `https://${a.url}`} target="_blank"
+              rel="noreferrer" className="text-xs text-oro hover:underline">
+              abrir
+            </a>
+          )}
+          {a.usuario && <span className="text-xs text-gris">{a.usuario}</span>}
+          {a.clave && (
+            <button className="text-xs text-gris hover:text-crema"
+              onClick={() => setVisible({ ...visible, [a.id]: !visible[a.id] })}>
+              {visible[a.id] ? a.clave : "••••••••"}
+            </button>
+          )}
+          {a.clave && (
+            <button className="boton-secundario !px-2 !py-0.5 text-xs"
+              onClick={() => navigator.clipboard?.writeText(a.clave)}>
+              copiar
+            </button>
+          )}
+          {a.nota && <span className="text-xs text-gris/60">{a.nota}</span>}
+          <button className="ml-auto text-xs text-red-400/70 hover:text-red-400"
+            onClick={() => eliminar(a.id)}>
+            eliminar
+          </button>
+        </div>
+      ))}
+      {portales.length === 0 && (
+        <p className="text-xs text-gris">Sin credenciales guardadas todavía.</p>
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------ Push (campana)
+
+function base64aUint8(base64) {
+  const relleno = "=".repeat((4 - (base64.length % 4)) % 4);
+  const crudo = atob((base64 + relleno).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...crudo].map((c) => c.charCodeAt(0)));
+}
+
+function TarjetaPush() {
+  const [estado, setEstado] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+
+  const activar = async () => {
+    setOcupado(true);
+    setEstado("");
+    try {
+      const { clave } = await motorGet("/push/clave_publica");
+      if (!clave) {
+        setEstado("El motor no tiene VAPID configurado (variables VAPID_PUBLIC_KEY/PRIVATE_KEY).");
+        return;
+      }
+      const permiso = await Notification.requestPermission();
+      if (permiso !== "granted") {
+        setEstado("Permiso de notificaciones denegado en este navegador.");
+        return;
+      }
+      const registro = await navigator.serviceWorker.ready;
+      const suscripcion = await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64aUint8(clave),
+      });
+      await motorPost("/push/suscribir", { suscripcion: suscripcion.toJSON() });
+      const prueba = await motorPost("/push/probar", {});
+      setEstado(prueba.ok ? "Notificaciones activas en este dispositivo." : prueba.motivo);
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  return (
+    <div className="tarjeta mb-6 max-w-md space-y-3">
+      <div className="text-sm font-semibold">Notificaciones push</div>
+      <p className="text-xs text-gris/70">
+        Recordatorio diario de seguimientos pendientes y consultas del día. En
+        iPhone requiere instalar la app en pantalla de inicio (iOS 16.4+).
+      </p>
+      <button className="boton" disabled={ocupado} onClick={activar}>
+        {ocupado ? "Activando…" : "Activar en este dispositivo"}
+      </button>
+      {estado && <p className="text-xs text-gris">{estado}</p>}
+    </div>
+  );
+}
+
+// ------------------------------------------------------ Asistente flotante
+
+function AsistenteFlotante({ ws, recargar }) {
+  const [abierto, setAbierto] = useState(false);
+  const [mensajes, setMensajes] = useState([]);
+  const [texto, setTexto] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const finRef = useRef(null);
+
+  useEffect(() => {
+    finRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [mensajes]);
+
+  const enviar = async (e) => {
+    e?.preventDefault();
+    const mensaje = texto.trim();
+    if (!mensaje || cargando) return;
+    setTexto("");
+    setMensajes((m) => [...m, { de: "yo", texto: mensaje }]);
+    setCargando(true);
+    try {
+      const r = await motorPost("/asistente", { mensaje, workspace: ws });
+      setMensajes((m) => [...m, { de: "ia", texto: r.respuesta, aplicadas: r.aplicadas }]);
+      if (r.aplicadas?.length) await recargar();
+    } catch (err) {
+      setMensajes((m) => [...m, { de: "ia", texto: `No pude procesarlo: ${err.message || err}` }]);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        aria-label="Abrir asistente"
+        onClick={() => setAbierto(!abierto)}
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-oro text-2xl text-negro shadow-lg transition hover:scale-105"
+      >
+        {abierto ? "×" : "◎"}
+      </button>
+
+      {abierto && (
+        <div className="fixed bottom-24 right-5 z-40 flex max-h-[70vh] w-[min(24rem,calc(100vw-2.5rem))] flex-col rounded-xl border border-gris/20 bg-negro shadow-2xl">
+          <div className="border-b border-gris/10 p-3">
+            <span className="font-display text-oro">Asistente</span>
+            <span className="ml-2 text-xs text-gris">ejecuta sobre el CRM</span>
+          </div>
+          <div className="min-h-40 flex-1 space-y-2 overflow-y-auto p-3">
+            {mensajes.length === 0 && (
+              <p className="text-xs text-gris">
+                Pídeme cosas: "crea el lead Ana ana@correo.com", "mueve a Ana a
+                Contactado", "agenda diagnóstico con Ana el viernes 10am", "pon la
+                meta del mes en 20000".
+              </p>
+            )}
+            {mensajes.map((m, i) => (
+              <div key={i} className={m.de === "yo" ? "text-right" : ""}>
+                <div
+                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    m.de === "yo" ? "bg-oro/15 text-crema" : "bg-navy/60 text-crema/90"
+                  }`}
+                >
+                  {m.texto}
+                  {m.aplicadas?.length > 0 && (
+                    <div className="mt-1 border-t border-gris/20 pt-1 text-xs text-oro">
+                      {m.aplicadas.map((a, j) => (
+                        <div key={j}>✓ {a}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {cargando && <div className="text-xs text-gris">Pensando…</div>}
+            <div ref={finRef} />
+          </div>
+          <form onSubmit={enviar} className="flex gap-2 border-t border-gris/10 p-3">
+            <input
+              className="campo"
+              placeholder="Escribe una orden…"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+            />
+            <button className="boton shrink-0 !px-3" disabled={cargando || !texto.trim()}>
+              →
+            </button>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Panel
+
+function Panel({ data, commit, ws }) {
+  const config = cfg(data, ws);
+  const slice = data[ws] || {};
+  const leads = slice.leads || [];
+  const mes = mesActual();
+  const meta = (slice.metas || {})[mes] || 0;
+
+  const inicioMes = `${mes}-01`;
+  const leadsMes = leads.filter((l) => {
+    const f = l.creado ? new Date(l.creado * 1000).toISOString().slice(0, 10) : "";
+    return f >= inicioMes;
+  });
+  const etapaFinal = config.stages?.includes("Cliente") ? "Cliente" : "Comprador";
+  const cerrados = leads.filter((l) => l.etapa === etapaFinal);
+  const vencidos = leads.filter(
+    (l) => l.followUpDate && l.followUpDate < hoyISO() && !["Descartado", "Baja"].includes(l.etapa)
+  );
+  const valorCerrado = cerrados.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+  const avance = meta > 0 ? Math.min(100, Math.round((valorCerrado / meta) * 100)) : 0;
+
+  const ponerMeta = () => {
+    const v = window.prompt(`Meta de ${mes} (${config.moneda || "USD"})`, meta || "");
+    if (v === null) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].metas = { ...(siguiente[ws].metas || {}), [mes]: Number(v) || 0 };
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado titulo={config.nombre || "Panel"} sub={`Panel · ${mes}`} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi etiqueta="Leads del mes" valor={leadsMes.length} />
+        <Kpi
+          etiqueta={etapaFinal === "Comprador" ? "Compradores" : "Clientes"}
+          valor={cerrados.length}
+        />
+        <Kpi etiqueta="Seguimientos vencidos" valor={vencidos.length} alerta={vencidos.length > 0} />
+        <Kpi etiqueta="Leads totales" valor={leads.length} />
+      </div>
+
+      {(() => {
+        // métricas de actividad real (portadas del cockpit de Siemon)
+        const enviados = slice.enviados || [];
+        const outreach = slice.outreach || [];
+        const hoy = hoyISO();
+        const envHoy = enviados.filter((e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === hoy).length;
+        const respondieron = outreach.filter((h) => (h.conversacion || []).some((m) => m.de && m.de !== "mi")).length;
+        const tasa = enviados.length ? Math.round((respondieron / enviados.length) * 100) : 0;
+        const prospNuevos = (slice.prospectos || []).filter((p) => p.estado === "nuevo").length;
+        const publicMes = (slice.publicaciones || []).filter((p) => (p.fecha || "") >= inicioMes).length;
+        const dias = [];
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
+          dias.push({ dia: iso.slice(5), n: enviados.filter((e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === iso).length });
+        }
+        const max = Math.max(1, ...dias.map((d) => d.n));
+        const etapas = (config.stages || []).map((et) => ({ etapa: et, n: leads.filter((l) => l.etapa === et).length }));
+        const maxEt = Math.max(1, ...etapas.map((e) => e.n));
+        // dinero en juego: valor del pipeline ponderado por la probabilidad de cada etapa (config)
+        const prob = config.probabilidadPorEtapa || {};
+        const abiertos = leads.filter((l) => !["Descartado", "Baja", "Reembolsado"].includes(l.etapa));
+        const pipeTotal = abiertos.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+        const pipePond = abiertos.reduce((s, l) => s + (Number(l.valor) || 0) * ((prob[l.etapa] || 0) / 100), 0);
+        const facturas = slice.facturas || [];
+        const pagadoMes = facturas.filter((f) => f.estado === "pagada" && (f.fecha || "") >= inicioMes)
+          .reduce((s, f) => s + (Number(f.monto) || 0), 0);
+        const porCobrar = facturas.filter((f) => ["enviada", "vencida"].includes(f.estado))
+          .reduce((s, f) => s + (Number(f.monto) || 0), 0);
+        const presus = slice.presupuestos || [];
+        const presuActivos = presus.filter((p) => ["borrador", "publicado"].includes(p.estado)).length;
+        const presuAceptados = presus.filter((p) => p.estado === "aceptado").length;
+        const proys = (data.atlantis?.proyectos || []);
+        const reuniones = (slice.consultas || []).filter((c) => c.estado === "agendada").length;
+        const moneda = config.moneda || "USD";
+        // leads nuevos por día (2 semanas)
+        const diasLeads = dias.map((d) => ({ ...d, n: leads.filter((l) => {
+          const f = l.creado ? new Date(l.creado * 1000).toISOString().slice(0, 10) : (l.createdAt || "").slice(0, 10);
+          return f && f.slice(5) === d.dia;
+        }).length }));
+        const maxL = Math.max(1, ...diasLeads.map((d) => d.n));
+        return (
+          <>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi etiqueta="Correos enviados (hoy)" valor={`${enviados.length} (${envHoy})`} />
+              <Kpi etiqueta="Respondieron · tasa" valor={`${respondieron} · ${tasa}%`} />
+              <Kpi etiqueta="Prospectos por revisar" valor={prospNuevos} />
+              <Kpi etiqueta="Publicaciones del mes" valor={publicMes} />
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="tarjeta !p-4">
+                <div className="text-xs uppercase text-gris">Dinero en juego (pipeline)</div>
+                <div className="text-2xl font-semibold text-oro">{Math.round(pipePond).toLocaleString()} <span className="text-xs">{moneda}</span></div>
+                <div className="text-xs text-gris">ponderado · {pipeTotal.toLocaleString()} {moneda} en total</div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="text-xs uppercase text-gris">Cobrado este mes · por cobrar</div>
+                <div className="text-2xl font-semibold">{pagadoMes.toLocaleString()} <span className="text-xs">{moneda}</span></div>
+                <div className="text-xs text-gris">por cobrar: {porCobrar.toLocaleString()} {moneda}</div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="text-xs uppercase text-gris">Presupuestos</div>
+                <div className="text-2xl font-semibold">{presuActivos}<span className="text-xs text-gris"> activos</span></div>
+                <div className="text-xs text-oro">{presuAceptados} aceptado(s)</div>
+              </div>
+              {ws === "atlantis" ? (
+                <div className="tarjeta !p-4">
+                  <div className="text-xs uppercase text-gris">Proyectos · reuniones</div>
+                  <div className="text-2xl font-semibold">{proys.filter((p) => p.publicar).length}/{proys.length}<span className="text-xs text-gris"> publicados</span></div>
+                  <div className="text-xs text-gris">{reuniones} reunión(es) agendada(s)</div>
+                </div>
+              ) : (
+                <div className="tarjeta !p-4">
+                  <div className="text-xs uppercase text-gris">Compradores del mes</div>
+                  <div className="text-2xl font-semibold">{(slice.compradores || []).filter((c) => {
+                    const f = c.creado ? new Date(c.creado * 1000).toISOString().slice(0, 10) : (c.fecha || "");
+                    return f >= inicioMes;
+                  }).length}</div>
+                  <div className="text-xs text-gris">{(slice.compradores || []).length} en total</div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="tarjeta !p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-gris">Leads por día · 2 semanas</div>
+                <div className="flex h-20 items-end gap-1">
+                  {diasLeads.map((d, i) => (
+                    <div key={i} className="flex-1" title={`${d.dia}: ${d.n}`}>
+                      <div className={`w-full rounded-t ${d.n ? "bg-oro/70" : "bg-gris/15"}`}
+                        style={{ height: `${Math.max(4, (d.n / maxL) * 64)}px` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1 flex justify-between text-[9px] text-gris"><span>{diasLeads[0]?.dia}</span><span>hoy</span></div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-gris">Correos por día · 2 semanas</div>
+                <div className="flex h-20 items-end gap-1">
+                  {dias.map((d, i) => (
+                    <div key={i} className="flex-1" title={`${d.dia}: ${d.n}`}>
+                      <div className={`w-full rounded-t ${d.n ? "bg-oro/70" : "bg-gris/15"}`}
+                        style={{ height: `${Math.max(4, (d.n / max) * 64)}px` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1 flex justify-between text-[9px] text-gris"><span>{dias[0]?.dia}</span><span>hoy</span></div>
+              </div>
+              <div className="tarjeta !p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-gris">Embudo por etapa</div>
+                <div className="flex flex-col gap-1.5">
+                  {etapas.map((e) => (
+                    <div key={e.etapa} className="flex items-center gap-2 text-xs">
+                      <span className="w-28 shrink-0 truncate text-gris">{e.etapa}</span>
+                      <div className="h-2 flex-1 overflow-hidden rounded bg-gris/15">
+                        <div className="h-full bg-oro/70" style={{ width: `${(e.n / maxEt) * 100}%` }} />
+                      </div>
+                      <span className="w-5 text-right">{e.n}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      <div className="tarjeta mt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gris">Meta del mes</div>
+            <div className="font-display text-3xl text-oro">
+              {valorCerrado.toLocaleString()} / {meta.toLocaleString()}{" "}
+              <span className="text-base">{config.moneda || "USD"}</span>
+            </div>
+          </div>
+          <button className="boton-secundario" onClick={ponerMeta}>
+            {meta ? "Cambiar meta" : "Definir meta"}
+          </button>
+        </div>
+        <div className="mt-4 h-2 rounded-full bg-navy">
+          <div
+            className="h-2 rounded-full bg-oro transition-all"
+            style={{ width: `${avance}%` }}
+          />
+        </div>
+        <div className="mt-2 text-right text-xs text-gris">{avance}%</div>
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ etiqueta, valor, alerta }) {
+  return (
+    <div className="tarjeta">
+      <div className="text-sm text-gris">{etiqueta}</div>
+      <div className={`font-display text-4xl ${alerta ? "text-red-400" : "text-oro"}`}>
+        {valor}
+      </div>
+    </div>
+  );
+}
+
+function Encabezado({ titulo, sub }) {
+  return (
+    <div className="mb-6">
+      <h1 className="font-display text-2xl text-crema">{titulo}</h1>
+      {sub && <p className="text-sm text-gris">{sub}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Prospección
+
+function Prospeccion({ data, ws, recargar }) {
+  const prospectos = data[ws]?.prospectos || [];
+  const VERTICALES = [
+    "productividad/hábitos",
+    "mentalidad",
+    "finanzas e inversión",
+    "crecimiento personal",
+    "crecimiento profesional",
+  ];
+  const [consulta, setConsulta] = useState("");
+  const [vertical, setVertical] = useState(VERTICALES[2]);
+  const [manual, setManual] = useState({ nombre: "", email: "" });
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [saludo, setSaludo] = useState(null); // {nombre, texto}
+
+  const generarSaludo = async (p) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/saludo_linkedin", {
+        nombre: p.titulo || p.nombre || p.canal || "",
+        bio: p.descripcion || "",
+        workspace: ws,
+      });
+      setSaludo({ nombre: p.titulo || p.nombre || p.canal, texto: r.saludo, url: p.redes?.linkedin });
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const llamar = async (ruta, body, mensajeOk) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost(ruta, { ...body, workspace: ws });
+      setEstado(mensajeOk(r));
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Prospección"
+        sub={
+          ws === "cicloderiqueza"
+            ? "Embajadores de YouTube por vertical · Ambassador Fit Score"
+            : "Prospectos que encajan con el avatar"
+        }
+      />
+
+      <div className="tarjeta mb-4 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo sm:col-span-2"
+          placeholder="Buscar canales de YouTube (ej: finanzas personales latam)"
+          value={consulta}
+          onChange={(e) => setConsulta(e.target.value)}
+        />
+        <select
+          className="campo"
+          value={vertical}
+          onChange={(e) => setVertical(e.target.value)}
+        >
+          {VERTICALES.map((v) => (
+            <option key={v}>{v}</option>
+          ))}
+        </select>
+        <button
+          className="boton"
+          disabled={cargando || !consulta}
+          onClick={() =>
+            llamar("/prospectar", { consulta, vertical }, (r) => `${r.nuevos} prospectos nuevos.`)
+          }
+        >
+          {cargando ? "Buscando..." : "Prospectar YouTube"}
+        </button>
+      </div>
+
+      <div className="tarjeta mb-4 grid gap-3 sm:grid-cols-3">
+        <input
+          className="campo"
+          placeholder="Nombre (captura manual)"
+          value={manual.nombre}
+          onChange={(e) => setManual({ ...manual, nombre: e.target.value })}
+        />
+        <input
+          className="campo"
+          type="email"
+          placeholder="Email"
+          value={manual.email}
+          onChange={(e) => setManual({ ...manual, email: e.target.value })}
+        />
+        <button
+          className="boton-secundario"
+          disabled={cargando || (!manual.nombre && !manual.email)}
+          onClick={() =>
+            llamar("/prospectos/capturar", manual, () => "Prospecto capturado.").then(() =>
+              setManual({ nombre: "", email: "" })
+            )
+          }
+        >
+          Capturar manual
+        </button>
+      </div>
+
+      {estado && <p className="mb-4 text-sm text-oro">{estado}</p>}
+
+      {saludo && (
+        <div className="tarjeta mb-4">
+          <div className="mb-1 text-sm font-semibold">Saludo LinkedIn · {saludo.nombre}</div>
+          <p className="whitespace-pre-wrap text-sm text-crema/90">{saludo.texto}</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              className="boton-secundario !px-3 !py-1 text-xs"
+              onClick={() => navigator.clipboard?.writeText(saludo.texto)}
+            >
+              Copiar
+            </button>
+            {saludo.url && (
+              <a href={saludo.url} target="_blank" rel="noreferrer" className="boton-secundario !px-3 !py-1 text-xs">
+                Abrir perfil
+              </a>
+            )}
+            <button className="boton-secundario !px-3 !py-1 text-xs" onClick={() => setSaludo(null)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Prospecto</th>
+              <th className="p-2">Vertical</th>
+              <th className="p-2">Subs</th>
+              <th className="p-2">Score</th>
+              <th className="p-2">Estado</th>
+              <th className="p-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {prospectos.map((p) => (
+              <tr key={p.id} className="border-b border-gris/10">
+                <td className="p-2">
+                  {p.url ? (
+                    <a href={p.url} target="_blank" rel="noreferrer" className="text-oro hover:underline">
+                      {p.titulo || p.nombre || p.canal}
+                    </a>
+                  ) : (
+                    p.titulo || p.nombre || p.canal || p.email
+                  )}
+                  {(p.email || p.web || p.redes) && (
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-gris">
+                      {p.email && <span>{p.email}</span>}
+                      {p.web && (
+                        <a href={p.web} target="_blank" rel="noreferrer" className="hover:text-oro">
+                          web
+                        </a>
+                      )}
+                      {["instagram", "linkedin", "tiktok", "twitter", "facebook"].map(
+                        (red) =>
+                          p.redes?.[red] && (
+                            <a key={red} href={p.redes[red]} target="_blank" rel="noreferrer" className="hover:text-oro">
+                              {red}
+                            </a>
+                          )
+                      )}
+                    </div>
+                  )}
+                  {p.nota && <div className="mt-1 text-xs text-red-400">{p.nota}</div>}
+                </td>
+                <td className="p-2 text-gris">{p.vertical || "-"}</td>
+                <td className="p-2 text-gris">{p.subs ? p.subs.toLocaleString() : "-"}</td>
+                <td className="p-2">
+                  <span className={p.score >= 60 ? "text-oro" : "text-gris"}>{p.score ?? "-"}</span>
+                </td>
+                <td className="p-2 text-gris">{p.estado}</td>
+                <td className="p-2">
+                  <div className="flex gap-2">
+                    {p.redes?.linkedin && (
+                      <button
+                        className="boton-secundario !px-2 !py-1 text-xs"
+                        disabled={cargando}
+                        onClick={() => generarSaludo(p)}
+                      >
+                        Saludo LinkedIn
+                      </button>
+                    )}
+                    {p.estado !== "promovido" && (
+                      <button
+                        className="boton-secundario !px-2 !py-1 text-xs"
+                        disabled={cargando}
+                        onClick={() =>
+                          llamar("/prospectos/promover", { id: p.id }, () => "Promovido a lead.")
+                        }
+                      >
+                        Promover
+                      </button>
+                    )}
+                    <button
+                      className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400"
+                      disabled={cargando}
+                      onClick={() =>
+                        llamar("/prospectos/descartar", { id: p.id }, () => "Descartado (blocklist).")
+                      }
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {prospectos.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gris">
+                  Sin prospectos. Busca canales arriba (requiere YOUTUBE_API_KEY en
+                  Accesos) o captura uno manual.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Correo
+
+function Correo({ data, ws, recargar }) {
+  const hilos = data[ws]?.outreach || [];
+  const [abierto, setAbierto] = useState(null);
+  const [borrador, setBorrador] = useState(null);
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+
+  const COLORES = {
+    interesado: "text-oro",
+    pregunta: "text-oro",
+    no_interesado: "text-gris",
+    baja: "text-red-400",
+    sin_clasificar: "text-gris/60",
+  };
+
+  const leerAhora = async () => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/leer_correos", {});
+      setEstado(`Leídos: ${r.leidos} · con match: ${r.conMatch}${r.errores ? ` · errores: ${r.errores}` : ""}`);
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const redactar = async (email) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost("/generar_mensaje", { email, workspace: ws });
+      setBorrador({ para: email, ...r.mensaje });
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const enviar = async () => {
+    setCargando(true);
+    try {
+      await motorPost("/enviar_correo", {
+        para: borrador.para, asunto: borrador.asunto,
+        cuerpo: (borrador.cuerpo || "").split("\n").map((p) => `<p>${p}</p>`).join(""),
+        workspace: ws,
+      });
+      setEstado(`Enviado a ${borrador.para}.`);
+      setBorrador(null);
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Correo"
+        sub="Respuestas clasificadas por IA · el cron lee la bandeja cada 15 min"
+      />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <button className="boton" disabled={cargando} onClick={leerAhora}>
+          {cargando ? "Trabajando..." : "Leer bandeja ahora"}
+        </button>
+        {(() => {
+          // conteo honesto de envios de HOY sobre el tope anti-spam (~40/dia por buzon)
+          const hoy = hoyISO();
+          const n = (data[ws]?.enviados || []).filter(
+            (e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === hoy
+          ).length;
+          return (
+            <span className={`text-xs ${n >= 40 ? "text-red-400" : "text-gris"}`}>
+              hoy: {n}/40 correos
+            </span>
+          );
+        })()}
+        {estado && <span className="text-sm text-oro">{estado}</span>}
+      </div>
+
+      {hilos.map((h) => (
+        <div key={h.email} className="tarjeta mb-2 !p-4">
+          <button
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setAbierto(abierto === h.email ? null : h.email)}
+          >
+            <div>
+              <span className="text-sm">{h.email}</span>
+              <span className={`ml-3 text-xs ${COLORES[h.clasificacion] || "text-gris"}`}>
+                {h.clasificacion || "sin clasificar"}
+              </span>
+              {h.resumen && <div className="mt-1 text-xs text-gris">{h.resumen}</div>}
+            </div>
+            <span className="text-xs text-gris">{(h.conversacion || []).length} mensajes</span>
+          </button>
+
+          {abierto === h.email && (
+            <div className="mt-3 space-y-2 border-t border-gris/10 pt-3">
+              {(h.conversacion || []).map((m, i) => (
+                <div key={i} className={`rounded-lg p-3 ${m.de === "mi" ? "bg-oro/10" : "bg-negro/40"}`}>
+                  <div className="text-xs text-gris">
+                    {m.de === "mi" ? "tú" : m.de} · {m.asunto}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-crema/90">
+                    {(m.texto || "").slice(0, 600)}
+                  </p>
+                </div>
+              ))}
+              <button
+                className="boton-secundario !px-3 !py-1 text-xs"
+                disabled={cargando}
+                onClick={() => redactar(h.email)}
+              >
+                Redactar respuesta con IA
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+      {hilos.length === 0 && (
+        <p className="text-sm text-gris">
+          Sin respuestas todavía. Configura un buzón en Accesos y activa el cron de
+          lectura (n8n, cada 15 min) o pulsa "Leer bandeja ahora".
+        </p>
+      )}
+
+      {borrador && (
+        <div className="tarjeta mt-4">
+          <div className="mb-2 text-sm font-semibold">Borrador para {borrador.para}</div>
+          <input className="campo mb-2" value={borrador.asunto || ""}
+            onChange={(e) => setBorrador({ ...borrador, asunto: e.target.value })} />
+          <textarea className="campo min-h-32" value={borrador.cuerpo || ""}
+            onChange={(e) => setBorrador({ ...borrador, cuerpo: e.target.value })} />
+          <div className="mt-3 flex gap-2">
+            <button className="boton" disabled={cargando} onClick={enviar}>
+              Enviar
+            </button>
+            <button className="boton-secundario" onClick={() => setBorrador(null)}>
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Leads
+
+function moverEtapa(data, ws, leadId, etapa) {
+  const siguiente = structuredClone(data);
+  const lead = (siguiente[ws].leads || []).find((l) => l.id === leadId);
+  if (!lead) return data;
+  lead.etapa = etapa;
+  // cadencia de seguimiento: SIEMPRE de la config, nunca constante
+  const dias = cfg(siguiente, ws).cadenciaDias?.[etapa];
+  lead.followUpDate = dias ? sumarDias(dias) : lead.followUpDate || "";
+  return siguiente;
+}
+
+function Leads({ data, commit, ws }) {
+  const config = cfg(data, ws);
+  const leads = data[ws]?.leads || [];
+  const [nuevo, setNuevo] = useState({ nombre: "", email: "", fuente: "directo" });
+
+  const agregar = (e) => {
+    e.preventDefault();
+    if (!nuevo.email) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].leads = [
+      ...(siguiente[ws].leads || []),
+      {
+        id: uid("lead"),
+        ...nuevo,
+        etapa: config.stages?.[0] || "Nuevo",
+        creado: Math.floor(Date.now() / 1000),
+        followUpDate: sumarDias(config.cadenciaDias?.[config.stages?.[0]] || 2),
+      },
+    ];
+    commit(siguiente);
+    setNuevo({ nombre: "", email: "", fuente: "directo" });
+  };
+
+  const actualizar = (id, campo, valor) => {
+    if (campo === "etapa") return commit(moverEtapa(data, ws, id, valor));
+    const siguiente = structuredClone(data);
+    const lead = siguiente[ws].leads.find((l) => l.id === id);
+    if (lead) lead[campo] = valor;
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado titulo="Leads" sub={`${leads.length} en total`} />
+      <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo"
+          placeholder="Nombre"
+          value={nuevo.nombre}
+          onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
+        />
+        <input
+          className="campo"
+          type="email"
+          placeholder="Email"
+          value={nuevo.email}
+          onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.fuente}
+          onChange={(e) => setNuevo({ ...nuevo, fuente: e.target.value })}
+        >
+          {(config.fuentes || ["directo"]).map((f) => (
+            <option key={f}>{f}</option>
+          ))}
+        </select>
+        <button className="boton">Agregar lead</button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Nombre</th>
+              <th className="p-2">Email</th>
+              <th className="p-2">Fuente</th>
+              <th className="p-2">Etapa</th>
+              <th className="p-2">Valor</th>
+              <th className="p-2">Seguimiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leads.map((l) => (
+              <tr key={l.id} className="border-b border-gris/10">
+                <td className="p-2">{l.nombre || "(sin nombre)"}</td>
+                <td className="p-2 text-gris">{l.email}</td>
+                <td className="p-2 text-gris">{l.fuente}</td>
+                <td className="p-2">
+                  <select
+                    className="campo !py-1"
+                    value={l.etapa}
+                    onChange={(e) => actualizar(l.id, "etapa", e.target.value)}
+                  >
+                    {(config.stages || []).map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="p-2">
+                  <input
+                    className="campo !w-24 !py-1"
+                    type="number"
+                    value={l.valor || ""}
+                    placeholder="0"
+                    onChange={(e) => actualizar(l.id, "valor", e.target.value)}
+                  />
+                </td>
+                <td className="p-2 text-gris">{l.followUpDate || "-"}</td>
+              </tr>
+            ))}
+            {leads.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gris">
+                  Aún no hay leads. Agrega el primero arriba o conecta un formulario a
+                  /crm/lead.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Pipeline
+
+function Pipeline({ data, commit, ws }) {
+  const config = cfg(data, ws);
+  const leads = data[ws]?.leads || [];
+  const etapas = config.stages || [];
+
+  return (
+    <div>
+      <Encabezado titulo="Pipeline" sub="Forecast ponderado por probabilidad de etapa" />
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {etapas.map((etapa) => {
+          const columna = leads.filter((l) => l.etapa === etapa);
+          const prob = (config.probabilidadPorEtapa?.[etapa] ?? 0) / 100;
+          const forecast = columna.reduce(
+            (s, l) => s + (Number(l.valor) || 0) * prob,
+            0
+          );
+          return (
+            <div key={etapa} className="w-64 shrink-0">
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-crema">{etapa}</span>
+                <span className="text-xs text-gris">
+                  {columna.length} · {Math.round(forecast).toLocaleString()}{" "}
+                  {config.moneda || "USD"}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {columna.map((l) => (
+                  <div key={l.id} className="tarjeta !p-3">
+                    <div className="text-sm">{l.nombre || l.email}</div>
+                    {l.valor && (
+                      <div className="text-xs text-oro">
+                        {Number(l.valor).toLocaleString()} {config.moneda || "USD"}
+                      </div>
+                    )}
+                    <select
+                      aria-label={`Mover ${l.nombre || l.email} a otra etapa`}
+                      className="campo mt-2 !py-1 text-xs"
+                      value={l.etapa}
+                      onChange={(e) =>
+                        commit(moverEtapa(data, ws, l.id, e.target.value))
+                      }
+                    >
+                      {etapas.map((s) => (
+                        <option key={s} value={s}>
+                          Mover a: {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Seguimiento
+
+function Seguimiento({ data, commit, ws }) {
+  const leads = (data[ws]?.leads || []).filter(
+    (l) => l.followUpDate && !["Descartado", "Baja", "Cliente", "Comprador"].includes(l.etapa)
+  );
+  const hoy = hoyISO();
+  const finSemana = sumarDias(7);
+  const grupos = {
+    Vencidas: leads.filter((l) => l.followUpDate < hoy),
+    Hoy: leads.filter((l) => l.followUpDate === hoy),
+    "Esta semana": leads.filter((l) => l.followUpDate > hoy && l.followUpDate <= finSemana),
+    "Más adelante": leads.filter((l) => l.followUpDate > finSemana),
+  };
+
+  const posponer = (id, dias) => {
+    const siguiente = structuredClone(data);
+    const lead = siguiente[ws].leads.find((l) => l.id === id);
+    if (lead) lead.followUpDate = sumarDias(dias);
+    commit(siguiente);
+  };
+
+  // actividad comercial (portado del cockpit de Siemon #99): enviados por día,
+  // enviados vs respondidos y embudo por etapa, todo desde los datos reales
+  const graf = (() => {
+    const enviados = data[ws]?.enviados || [];
+    const outreach = data[ws]?.outreach || [];
+    const dias = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      dias.push({
+        dia: iso.slice(5),
+        n: enviados.filter((e) => new Date((e.fecha || 0) * 1000).toISOString().slice(0, 10) === iso).length,
+      });
+    }
+    const totalEnv = enviados.length;
+    const respondieron = outreach.filter((h) =>
+      (h.conversacion || []).some((m) => m.de && m.de !== "mi")
+    ).length;
+    const etapas = (cfg(data, ws).stages || []).map((et) => ({
+      etapa: et,
+      n: (data[ws]?.leads || []).filter((l) => l.etapa === et).length,
+    }));
+    const max = Math.max(1, ...dias.map((d) => d.n));
+    const maxEt = Math.max(1, ...etapas.map((e) => e.n));
+    return { dias, max, totalEnv, respondieron, etapas, maxEt };
+  })();
+
+  return (
+    <div>
+      <Encabezado titulo="Seguimiento" sub="Tareas por fecha de próximo toque" />
+
+      <div className="mb-6 grid gap-3 lg:grid-cols-3">
+        <div className="tarjeta !p-4">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">Correos por día · 2 semanas</div>
+          <div className="flex h-20 items-end gap-1">
+            {graf.dias.map((d, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${d.dia}: ${d.n}`}>
+                <div
+                  className={`w-full rounded-t ${d.n ? "bg-oro/70" : "bg-gris/15"}`}
+                  style={{ height: `${Math.max(4, (d.n / graf.max) * 64)}px` }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between text-[9px] text-gris">
+            <span>{graf.dias[0]?.dia}</span>
+            <span>hoy</span>
+          </div>
+        </div>
+        <div className="tarjeta !p-4">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">Enviados vs respondidos</div>
+          <div className="text-2xl font-semibold">{graf.totalEnv}<span className="ml-1 text-xs text-gris">enviados</span></div>
+          <div className="mt-1 text-sm text-oro">{graf.respondieron} contactos respondieron</div>
+          <div className="mt-2 h-2 overflow-hidden rounded bg-gris/15">
+            <div className="h-full bg-oro" style={{ width: `${graf.totalEnv ? Math.min(100, (graf.respondieron / graf.totalEnv) * 100) : 0}%` }} />
+          </div>
+          <div className="mt-1 text-xs text-gris">tasa {graf.totalEnv ? Math.round((graf.respondieron / graf.totalEnv) * 100) : 0}%</div>
+        </div>
+        <div className="tarjeta !p-4">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">Embudo por etapa</div>
+          <div className="flex flex-col gap-1.5">
+            {graf.etapas.map((e) => (
+              <div key={e.etapa} className="flex items-center gap-2 text-xs">
+                <span className="w-28 shrink-0 truncate text-gris">{e.etapa}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded bg-gris/15">
+                  <div className="h-full bg-oro/70" style={{ width: `${(e.n / graf.maxEt) * 100}%` }} />
+                </div>
+                <span className="w-5 text-right">{e.n}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {Object.entries(grupos).map(([grupo, lista]) => (
+        <div key={grupo} className="mb-6">
+          <h2
+            className={`mb-2 text-sm font-semibold uppercase tracking-wide ${
+              grupo === "Vencidas" && lista.length ? "text-red-400" : "text-gris"
+            }`}
+          >
+            {grupo} ({lista.length})
+          </h2>
+          {lista.map((l) => (
+            <div key={l.id} className="tarjeta mb-2 flex items-center justify-between !p-3">
+              <div>
+                <div className="text-sm">{l.nombre || l.email}</div>
+                <div className="text-xs text-gris">
+                  {l.etapa} · toca el {l.followUpDate}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => posponer(l.id, 1)}>
+                  +1 día
+                </button>
+                <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => posponer(l.id, 7)}>
+                  +7 días
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Consultas (diagnóstico Atlantis)
+
+function Consultas({ data, commit, ws }) {
+  const consultas = data[ws]?.consultas || [];
+  const leads = data[ws]?.leads || [];
+  const [nueva, setNueva] = useState({ leadId: "", fecha: "" });
+  const ESTADOS = ["agendada", "realizada", "no-show", "cancelada"];
+
+  if (ws !== "atlantis")
+    return (
+      <p className="text-gris">
+        Las consultas de diagnóstico viven en el workspace de Atlantis.
+      </p>
+    );
+
+  const agendar = (e) => {
+    e.preventDefault();
+    if (!nueva.leadId || !nueva.fecha) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].consultas = [
+      ...(siguiente[ws].consultas || []),
+      { id: uid("con"), ...nueva, estado: "agendada" },
+    ];
+    commit(siguiente);
+    setNueva({ leadId: "", fecha: "" });
+  };
+
+  const cambiarEstado = (id, estado) => {
+    const siguiente = structuredClone(data);
+    const con = siguiente[ws].consultas.find((c) => c.id === id);
+    if (con) con.estado = estado;
+    commit(siguiente);
+  };
+
+  const nombreLead = (id) =>
+    leads.find((l) => l.id === id)?.nombre ||
+    leads.find((l) => l.id === id)?.email ||
+    "(lead)";
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Consultas de diagnóstico"
+        sub="La consulta es un diagnóstico, no una venta"
+      />
+      <form onSubmit={agendar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-3">
+        <select
+          className="campo"
+          value={nueva.leadId}
+          onChange={(e) => setNueva({ ...nueva, leadId: e.target.value })}
+        >
+          <option value="">Selecciona el lead</option>
+          {leads.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.nombre || l.email}
+            </option>
+          ))}
+        </select>
+        <input
+          className="campo"
+          type="datetime-local"
+          value={nueva.fecha}
+          onChange={(e) => setNueva({ ...nueva, fecha: e.target.value })}
+        />
+        <button className="boton">Agendar</button>
+      </form>
+
+      {consultas.map((c) => (
+        <div key={c.id} className="tarjeta mb-2 flex items-center justify-between !p-3">
+          <div>
+            <div className="text-sm">{nombreLead(c.leadId)}</div>
+            <div className="text-xs text-gris">{(c.fecha || "").replace("T", " · ")}</div>
+          </div>
+          <select
+            className="campo !w-36 !py-1 text-xs"
+            value={c.estado}
+            onChange={(e) => cambiarEstado(c.id, e.target.value)}
+          >
+            {ESTADOS.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      ))}
+      {consultas.length === 0 && (
+        <p className="text-sm text-gris">Sin consultas agendadas todavía.</p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Fuentes / UTM
+
+function EnlacesCortos({ ws }) {
+  // recortador propio: atlantisglobalrealty.com/r/<código> con conteo de clics
+  const [lista, setLista] = useState([]);
+  const [url, setUrl] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const cargar = () => motorGet("/acortar/lista").then((r) => setLista(r.enlaces || [])).catch(() => {});
+  useEffect(() => { cargar(); }, []);
+  const crear = async () => {
+    if (!url.trim().startsWith("http")) return setMsg("Pega una URL completa (https://…).");
+    setBusy(true);
+    try {
+      const r = await motorPost("/acortar", { url: url.trim(), codigo: codigo.trim(), workspace: ws });
+      navigator.clipboard?.writeText(r.corto);
+      setMsg(`Listo y copiado: ${r.corto}`);
+      setUrl(""); setCodigo("");
+      cargar();
+    } catch (e) { setMsg(String(e.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="tarjeta mb-6 !p-4">
+      <div className="mb-2 text-sm font-semibold">Enlaces cortos · atlantisglobalrealty.com/r/…</div>
+      <div className="grid gap-2 sm:grid-cols-4">
+        <input className="campo sm:col-span-2" placeholder="URL larga (https://…)" value={url}
+          onChange={(e) => setUrl(e.target.value)} />
+        <input className="campo" placeholder="código propio (opcional)" value={codigo}
+          onChange={(e) => setCodigo(e.target.value)} />
+        <button className="boton" disabled={busy} onClick={crear}>{busy ? "Creando…" : "Acortar"}</button>
+      </div>
+      {msg && <p className="mt-2 text-xs text-oro">{msg}</p>}
+      {lista.length > 0 && (
+        <div className="mt-3 flex flex-col gap-1">
+          {lista.slice(0, 12).map((e) => (
+            <div key={e.codigo} className="flex items-center justify-between text-xs">
+              <button className="text-oro hover:underline"
+                onClick={() => { navigator.clipboard?.writeText(`https://atlantisglobalrealty.com/r/${e.codigo}`); setMsg("Copiado."); }}>
+                /r/{e.codigo}
+              </button>
+              <span className="max-w-[50%] truncate text-gris">{e.url}</span>
+              <span className="text-gris">{e.clics || 0} clics</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Kit de enlaces por red: un enlace medible por TIPO de publicación en cada red
+// (utm_source=red, utm_medium=tipo, utm_campaign=campaña) + el de PERFIL/BIO de
+// cada red con enlace corto bonito /r/<red> (clics contados aunque recorten la URL).
+// Tipos de CONTENIDO (no formatos): así se mide qué contenido y qué red traen
+// más respuesta. Cada tipo apunta a su destino natural en la web.
+const KIT_TIPOS = ["bio", "contenido", "tendencia", "proyecto", "guia", "agendar"];
+const KIT_DESTINO = {
+  proyecto: "https://atlantisglobalrealty.com/proyectos/",
+  guia: "https://atlantisglobalrealty.com/download-guide",
+  agendar: "https://atlantisglobalrealty.com/book-videocall.html",
+};
+const KIT_REDES = [
+  { red: "instagram", corto: "ig" },
+  { red: "facebook", corto: "fb" },
+  { red: "linkedin", corto: "li" },
+  { red: "x", corto: "x" },
+  { red: "tiktok", corto: "tt" },
+  { red: "youtube", corto: "yt" },
+  { red: "pinterest", corto: "pin" },
+  { red: "bluesky", corto: "bs" },
+];
+
+function KitRedes({ data, commit, ws }) {
+  const enlaces = data[ws]?.enlacesUTM || [];
+  const [destino, setDestino] = useState("https://atlantisglobalrealty.com");
+  const [campana, setCampana] = useState("organico");
+  // bilingüe: lo publicado en inglés lleva SUS piezas en inglés (la página
+  // abre en EN vía ?lang=en y la campaña queda separada con sufijo -en)
+  const [idioma, setIdioma] = useState("es");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const kit = enlaces.filter((e) => e.tipo);
+  const armado = (red, tipo) => {
+    let dest = KIT_DESTINO[tipo] || destino;
+    if (idioma === "en") dest += dest.includes("?") ? "&lang=en" : "?lang=en";
+    const camp = (tipo === "bio" ? "perfil" : tipo) + (idioma === "en" ? "-en" : "");
+    return `${dest}${dest.includes("?") ? "&" : "?"}utm_source=${red}&utm_medium=${tipo === "bio" ? "bio" : "social"}&utm_campaign=${camp}`;
+  };
+
+  const generarKit = async () => {
+    if (!destino.startsWith("http")) return setMsg("Pon un destino válido (https://…).");
+    setBusy(true);
+    setMsg("");
+    const nuevos = [];
+    const cortos = {};
+    for (const r of KIT_REDES) {
+      for (const tipo of KIT_TIPOS) {
+        const enlace = armado(r.red, tipo);
+        if (enlaces.some((e) => e.enlace === enlace) || nuevos.some((e) => e.enlace === enlace)) continue;
+        const sufijo = idioma === "en" ? "-en" : "";
+        const item = { id: uid("utm"), fuente: r.red, tipo, enlace, idioma,
+          campana: (tipo === "bio" ? "perfil" : tipo) + sufijo,
+          url: KIT_DESTINO[tipo] || destino };
+        // TODOS recortados: /r/ig (bio) o /r/ig-post, /r/li-carrusel… así el enlace
+        // se ve limpio en cualquier red (no todas recortan como LinkedIn) y cuenta clics
+        try {
+          const codigo = (tipo === "bio" ? r.corto : `${r.corto}-${tipo}`) + sufijo;
+          const rr = await motorPost("/acortar", { url: enlace, codigo, workspace: ws });
+          item.cortoUrl = rr.corto;
+          if (tipo === "bio") cortos[r.red] = rr.corto;
+        } catch { /* sin corto: queda el largo */ }
+        nuevos.push(item);
+      }
+    }
+    if (nuevos.length) {
+      const siguiente = structuredClone(data);
+      siguiente[ws].enlacesUTM = [...(siguiente[ws].enlacesUTM || []), ...nuevos];
+      commit(siguiente);
+    }
+    setBusy(false);
+    setMsg(nuevos.length
+      ? `Kit listo: ${nuevos.length} enlaces creados (${Object.keys(cortos).length} cortos de bio).`
+      : "Ese kit ya estaba creado para ese destino y campaña.");
+  };
+
+  const copiar = (texto, etq) => {
+    navigator.clipboard?.writeText(texto);
+    setMsg(`Copiado el de ${etq}.`);
+  };
+
+  return (
+    <div className="tarjeta mb-6 !p-4">
+      <div className="mb-2 text-sm font-semibold">Kit de enlaces por red · publicación y perfil/bio</div>
+      <p className="mb-3 text-xs leading-relaxed text-gris">
+        Un enlace medible por cada TIPO DE CONTENIDO en cada red (contenido, tendencia, proyecto,
+        guía, agendar) y el del perfil/bio, todos recortados. Guía apunta a la guía, proyecto a
+        /proyectos/, agendar al book-call. Así sabes qué contenido y qué red traen más respuesta.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-4">
+        <input className="campo sm:col-span-2" value={destino} onChange={(e) => setDestino(e.target.value)}
+          placeholder="Destino (https://…)" />
+        <select className="campo" value={idioma} onChange={(e) => setIdioma(e.target.value)}
+          title="Las piezas en inglés llevan sus enlaces en inglés (?lang=en y campaña -en)">
+          <option value="es">Piezas en español</option>
+          <option value="en">Piezas en inglés</option>
+        </select>
+        <button className="boton" disabled={busy} onClick={generarKit}>
+          {busy ? "Creando…" : "Generar kit"}
+        </button>
+      </div>
+      {msg && <p className="mt-2 text-xs text-oro">{msg}</p>}
+
+      {kit.length > 0 && (
+        <div className="mt-4 flex flex-col gap-3">
+          {KIT_REDES.map((r) => {
+            const filas = kit.filter((e) => e.fuente === r.red);
+            if (!filas.length) return null;
+            return (
+              <div key={r.red}>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-oro">{r.red}</div>
+                <div className="flex flex-col gap-1">
+                  {filas.map((e) => (
+                    <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="w-20 shrink-0 capitalize text-gris">{e.tipo === "bio" ? "perfil/bio" : e.tipo}</span>
+                      <span className="max-w-[45%] flex-1 truncate text-gris/70">{e.cortoUrl || e.enlace}</span>
+                      <div className="flex shrink-0 gap-2">
+                        {e.cortoUrl && (
+                          <button className="text-oro hover:underline" onClick={() => copiar(e.cortoUrl, `${e.fuente} bio (corto)`)}>
+                            copiar corto
+                          </button>
+                        )}
+                        <button className="text-oro hover:underline" onClick={() => copiar(e.enlace, `${e.fuente} ${e.tipo}`)}>
+                          copiar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Fuentes({ data, commit, ws }) {
+  const enlaces = data[ws]?.enlacesUTM || [];
+  const [nuevo, setNuevo] = useState({ url: "", fuente: "instagram", campana: "" });
+
+  const generar = (e) => {
+    e.preventDefault();
+    if (!nuevo.url) return;
+    const id = uid("utm");
+    const enlace = `${nuevo.url}${nuevo.url.includes("?") ? "&" : "?"}utm_source=${
+      nuevo.fuente
+    }&utm_campaign=${nuevo.campana || id}`;
+    const siguiente = structuredClone(data);
+    // si se re-agrega uno borrado, la señal 'revivir' levanta la lápida
+    siguiente[ws].revivir = { enlacesUTM: [id] };
+    siguiente[ws].enlacesUTM = [...enlaces, { id, ...nuevo, enlace }];
+    commit(siguiente);
+    setNuevo({ url: "", fuente: "instagram", campana: "" });
+  };
+
+  const borrar = (id) => {
+    // borrar por LÁPIDA, nunca por omisión (autocorreccion #2)
+    const siguiente = structuredClone(data);
+    const borrados = siguiente[ws].borrados || {};
+    borrados.enlacesUTM = [...(borrados.enlacesUTM || []), id];
+    siguiente[ws].borrados = borrados;
+    siguiente[ws].enlacesUTM = enlaces.filter((u) => u.id !== id);
+    commit(siguiente);
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Fuentes / UTM"
+        sub="fuente = utm_source (canal real) · type = formulario (valor fijo)"
+      />
+      <EnlacesCortos ws={ws} />
+      <form onSubmit={generar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo sm:col-span-2"
+          placeholder="URL destino (https://...)"
+          value={nuevo.url}
+          onChange={(e) => setNuevo({ ...nuevo, url: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.fuente}
+          onChange={(e) => setNuevo({ ...nuevo, fuente: e.target.value })}
+        >
+          {(cfg(data, ws).fuentes || []).map((f) => (
+            <option key={f}>{f}</option>
+          ))}
+        </select>
+        <button className="boton">Generar enlace</button>
+      </form>
+
+      {enlaces.map((u) => (
+        <div key={u.id} className="tarjeta mb-2 flex items-center justify-between gap-3 !p-3">
+          <code className="min-w-0 flex-1 truncate text-xs text-oro">{u.enlace}</code>
+          <div className="flex shrink-0 gap-2">
+            <button
+              className="boton-secundario !px-2 !py-1 text-xs"
+              onClick={() => navigator.clipboard?.writeText(u.enlace)}
+            >
+              Copiar
+            </button>
+            <button
+              className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400"
+              onClick={() => borrar(u.id)}
+            >
+              Borrar
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Compradores (cicloderiqueza)
+
+function Compradores({ data, commit, ws }) {
+  const compradores = data[ws]?.compradores || [];
+  const config = cfg(data, ws);
+  const [nuevo, setNuevo] = useState({ email: "", plataforma: "Hotmart", idioma: "es" });
+
+  const agregar = (e) => {
+    e.preventDefault();
+    if (!nuevo.email) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].compradores = [
+      ...compradores,
+      {
+        id: uid("compra"),
+        ...nuevo,
+        fecha: hoyISO(),
+        accesoApp: true,
+        bonos: true,
+        reembolsado: false,
+      },
+    ];
+    commit(siguiente);
+    setNuevo({ email: "", plataforma: "Hotmart", idioma: "es" });
+  };
+
+  const marcarReembolso = (id) => {
+    // garantía 7 días: el reembolso revoca app y bonos (regla del producto)
+    const siguiente = structuredClone(data);
+    const c = siguiente[ws].compradores.find((x) => x.id === id);
+    if (c) {
+      c.reembolsado = true;
+      c.accesoApp = false;
+      c.bonos = false;
+      const u = (siguiente[ws].app_usuarios || []).find((x) => x.email === c.email);
+      if (u) u.revocado = true;
+    }
+    commit(siguiente);
+  };
+
+  // finanzas REALES, calculadas de los registros (nunca de lo tecleado a mano):
+  // ingresos = ventas pagadas; comisiones = % de cada embajador sobre SUS ventas pagadas
+  const embajadores = data[ws]?.embajadores || [];
+  const pagadas = compradores.filter((c) => !c.reembolsado);
+  const reembolsadas = compradores.filter((c) => c.reembolsado);
+  const valorDe = (c) => parseFloat(c.valor) || 44;
+  const ingresos = pagadas.reduce((s, c) => s + valorDe(c), 0);
+  const comisiones = pagadas.reduce((s, c) => {
+    const e = embajadores.find((x) => x.id === c.embajador);
+    return s + (e ? valorDe(c) * ((parseFloat(e.comision_pct) || 0) / 100) : 0);
+  }, 0);
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Compradores"
+        sub={`Producto a ${config.precio || "44 USD"} · garantía de 7 días`}
+      />
+      <div className="mb-6 grid gap-3 sm:grid-cols-5">
+        {[["Ingresos", ingresos.toFixed(2) + " USD", pagadas.length + " ventas pagadas"],
+          ["Ventas", String(pagadas.length), "no reembolsadas"],
+          ["Reembolsos", String(reembolsadas.length), reembolsadas.reduce((s, c) => s + valorDe(c), 0).toFixed(2) + " USD"],
+          ["Comisiones", comisiones.toFixed(2) + " USD", "a embajadores"],
+          ["Ganancia", (ingresos - comisiones).toFixed(2) + " USD", "ingresos − comisiones"],
+        ].map(([t, v, s]) => (
+          <div key={t} className="tarjeta !p-3">
+            <div className="text-xs uppercase text-gris">{t}</div>
+            <div className="text-xl font-semibold text-oro">{v}</div>
+            <div className="text-xs text-gris">{s}</div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <input
+          className="campo"
+          type="email"
+          placeholder="Email"
+          value={nuevo.email}
+          onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.plataforma}
+          onChange={(e) => setNuevo({ ...nuevo, plataforma: e.target.value })}
+        >
+          {["Hotmart", "ClickBank", "ThriveCart"].map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+        <select
+          className="campo"
+          value={nuevo.idioma}
+          onChange={(e) => setNuevo({ ...nuevo, idioma: e.target.value })}
+        >
+          <option value="es">ES</option>
+          <option value="en">EN</option>
+        </select>
+        <button className="boton">Registrar compra</button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Email</th>
+              <th className="p-2">Plataforma</th>
+              <th className="p-2">Idioma</th>
+              <th className="p-2">Fecha</th>
+              <th className="p-2">Estado</th>
+              <th className="p-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {compradores.map((c) => (
+              <tr key={c.id} className="border-b border-gris/10">
+                <td className="p-2">{c.email}</td>
+                <td className="p-2 text-gris">{c.plataforma}</td>
+                <td className="p-2 text-gris">{(c.idioma || "es").toUpperCase()}</td>
+                <td className="p-2 text-gris">{c.fecha}</td>
+                <td className="p-2">
+                  {c.reembolsado ? (
+                    <span className="text-red-400">Reembolsado · acceso revocado</span>
+                  ) : (
+                    <span className="text-oro">Activo</span>
+                  )}
+                </td>
+                <td className="p-2">
+                  {!c.reembolsado && (
+                    <button
+                      className="boton-secundario !border-red-400/40 !px-2 !py-1 text-xs !text-red-400"
+                      onClick={() => marcarReembolso(c.id)}
+                    >
+                      Reembolso
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {compradores.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-gris">
+                  Sin compras registradas. Los webhooks de Hotmart/ClickBank/ThriveCart
+                  entrarán por n8n (fase 3).
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Afiliados (cicloderiqueza)
+
+function Afiliados({ data, commit, ws }) {
+  const afiliados = data[ws]?.afiliados || [];
+  const embajadores = data[ws]?.embajadores || [];
+  const compradores = data[ws]?.compradores || [];
+  const config = cfg(data, ws);
+  const [nuevo, setNuevo] = useState({ canal: "", vertical: "finanzas e inversión" });
+  const [alta, setAlta] = useState({ nombre: "", email: "", pct: config.comisionPct || "40" });
+  const [copiado, setCopiado] = useState("");
+  const VERTICALES = [
+    "productividad/hábitos",
+    "mentalidad",
+    "finanzas e inversión",
+    "crecimiento personal",
+    "crecimiento profesional",
+  ];
+
+  const agregar = (e) => {
+    e.preventDefault();
+    if (!nuevo.canal) return;
+    const siguiente = structuredClone(data);
+    siguiente[ws].afiliados = [
+      ...afiliados,
+      { id: uid("afi"), ...nuevo, estado: "prospecto", fitScore: null },
+    ];
+    commit(siguiente);
+    setNuevo({ canal: "", vertical: VERTICALES[2] });
+  };
+
+  // token de atribución: viaja como src/sck del checkout y el motor imputa la venta
+  const genToken = () =>
+    "EMB-" + Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+  const linkCon = (base, token) => (base ? base + (base.includes("?") ? "&" : "?") + "src=" + token : "");
+  const statsDe = (id, pct) => {
+    const ventas = compradores.filter((c) => c.embajador === id && !c.reembolsado);
+    const monto = ventas.reduce((s, c) => s + (parseFloat(c.valor) || 44), 0);
+    return { n: ventas.length, comision: monto * ((parseFloat(pct) || 0) / 100) };
+  };
+
+  const activarEmbajador = (e) => {
+    e.preventDefault();
+    if (!alta.nombre.trim()) return;
+    const siguiente = structuredClone(data);
+    const lista = siguiente[ws].embajadores || [];
+    siguiente[ws].embajadores = [
+      ...lista,
+      { id: uid("emb"), nombre: alta.nombre.trim(), email: alta.email.trim(),
+        comision_pct: parseFloat(alta.pct) || 0, token: genToken(),
+        estado: "activo", creado: hoyISO() },
+    ];
+    commit(siguiente);
+    setAlta({ nombre: "", email: "", pct: config.comisionPct || "40" });
+  };
+  const promover = (a) => setAlta({ nombre: a.canal, email: a.email || "", pct: config.comisionPct || "40" });
+  const setCfg = (k, v) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].config = { ...(siguiente[ws].config || {}), [k]: v };
+    commit(siguiente);
+  };
+  const copiar = (txt, tag) => {
+    navigator.clipboard?.writeText(txt);
+    setCopiado(tag); setTimeout(() => setCopiado(""), 1500);
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Afiliados / Embajadores"
+        sub="El producto se promociona a través de embajadores: cada uno con su enlace de atribución, sus ventas y su comisión (calculadas de las compras reales)"
+      />
+
+      {/* Config del programa: los enlaces de compra a los que se les añade el token */}
+      <div className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <div className="sm:col-span-4 text-xs uppercase text-gris">Config del programa (enlaces de compra y comisión por defecto)</div>
+        <input className="campo sm:col-span-2" placeholder="Link de compra ES (Hotmart)" defaultValue={config.linkCompraES || ""} onBlur={(e) => setCfg("linkCompraES", e.target.value.trim())} />
+        <input className="campo" placeholder="Link de compra EN" defaultValue={config.linkCompraEN || ""} onBlur={(e) => setCfg("linkCompraEN", e.target.value.trim())} />
+        <input className="campo" placeholder="% comisión por defecto" defaultValue={config.comisionPct || "40"} onBlur={(e) => setCfg("comisionPct", e.target.value.trim())} />
+      </div>
+
+      {/* Alta de embajador ACTIVO (con token) */}
+      <form onSubmit={activarEmbajador} className="tarjeta mb-6 grid gap-3 sm:grid-cols-4">
+        <div className="sm:col-span-4 text-xs uppercase text-gris">Activar embajador (genera su token y su enlace)</div>
+        <input className="campo" placeholder="Nombre o canal" value={alta.nombre} onChange={(e) => setAlta({ ...alta, nombre: e.target.value })} />
+        <input className="campo" type="email" placeholder="Email" value={alta.email} onChange={(e) => setAlta({ ...alta, email: e.target.value })} />
+        <input className="campo" placeholder="% comisión" value={alta.pct} onChange={(e) => setAlta({ ...alta, pct: e.target.value })} />
+        <button className="boton">Activar</button>
+      </form>
+
+      {/* Embajadores activos: token, enlaces, ventas y comisión REALES */}
+      {embajadores.length > 0 && (
+        <div className="mb-6 overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-gris/20 text-left text-gris">
+                <th className="p-2">Embajador</th>
+                <th className="p-2">Token</th>
+                <th className="p-2">Enlace</th>
+                <th className="p-2 text-right">%</th>
+                <th className="p-2 text-right">Ventas</th>
+                <th className="p-2 text-right">Comisión</th>
+              </tr>
+            </thead>
+            <tbody>
+              {embajadores.map((m) => {
+                const st = statsDe(m.id, m.comision_pct);
+                const lES = linkCon(config.linkCompraES, m.token);
+                const lEN = linkCon(config.linkCompraEN, m.token);
+                return (
+                  <tr key={m.id} className="border-b border-gris/10">
+                    <td className="p-2">{m.nombre}<div className="text-xs text-gris">{m.email}</div></td>
+                    <td className="p-2 font-mono text-xs text-oro">{m.token}</td>
+                    <td className="p-2 text-xs">
+                      {lES ? (
+                        <>
+                          <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => copiar(lES, m.id + "es")}>{copiado === m.id + "es" ? "✓ copiado" : "Copiar ES"}</button>
+                          {lEN && <button className="boton-secundario !ml-1 !px-2 !py-1 text-xs" onClick={() => copiar(lEN, m.id + "en")}>{copiado === m.id + "en" ? "✓" : "EN"}</button>}
+                        </>
+                      ) : (
+                        <span className="text-gris">Pon el link de compra en la config ↑</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right text-gris">{m.comision_pct}%</td>
+                    <td className="p-2 text-right">{st.n}</td>
+                    <td className="p-2 text-right text-oro">{st.comision.toFixed(2)} USD</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Candidatos (prospección) */}
+      <form onSubmit={agregar} className="tarjeta mb-6 grid gap-3 sm:grid-cols-3">
+        <input
+          className="campo"
+          placeholder="Canal de YouTube (URL o @handle)"
+          value={nuevo.canal}
+          onChange={(e) => setNuevo({ ...nuevo, canal: e.target.value })}
+        />
+        <select
+          className="campo"
+          value={nuevo.vertical}
+          onChange={(e) => setNuevo({ ...nuevo, vertical: e.target.value })}
+        >
+          {VERTICALES.map((v) => (
+            <option key={v}>{v}</option>
+          ))}
+        </select>
+        <button className="boton">Agregar candidato</button>
+      </form>
+
+      {afiliados.map((a) => (
+        <div key={a.id} className="tarjeta mb-2 flex items-center justify-between !p-3">
+          <div>
+            <div className="text-sm">{a.canal}</div>
+            <div className="text-xs text-gris">
+              {a.vertical} · Fit Score: {a.fitScore ?? "por calcular"}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-oro">{a.estado}</span>
+            <button className="boton-secundario !px-2 !py-1 text-xs" onClick={() => promover(a)}>Activar ↑</button>
+          </div>
+        </div>
+      ))}
+      {afiliados.length === 0 && embajadores.length === 0 && (
+        <p className="text-sm text-gris">
+          Agrega candidatos (o usa la Prospección de embajadores) y actívalos con su % de comisión.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- App usuarios (Calculadora Pro)
+
+function AppUsuarios({ data, ws }) {
+  const usuarios = data[ws]?.app_usuarios || [];
+  const limite = cfg(data, ws).appGratisPrimerosN || 0;
+  const vitalicios = usuarios.filter((u) => u.vitalicio && !u.revocado).length;
+
+  return (
+    <div>
+      <Encabezado
+        titulo="App · Calculadora Pro"
+        sub={`Gratis de por vida para los primeros ${limite} compradores · ${vitalicios} otorgados`}
+      />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead>
+            <tr className="border-b border-gris/20 text-left text-gris">
+              <th className="p-2">Email</th>
+              <th className="p-2">Vitalicio</th>
+              <th className="p-2">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u) => (
+              <tr key={u.email} className="border-b border-gris/10">
+                <td className="p-2">{u.email}</td>
+                <td className="p-2 text-gris">{u.vitalicio ? "Sí" : "No"}</td>
+                <td className="p-2">
+                  {u.revocado ? (
+                    <span className="text-red-400">Revocado</span>
+                  ) : (
+                    <span className="text-oro">Activo</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {usuarios.length === 0 && (
+              <tr>
+                <td colSpan={3} className="p-6 text-center text-gris">
+                  Las credenciales las genera n8n al confirmarse cada compra (fase 3).
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Contenido: reemplazado por el Estudio unificado (EstudioUnificado.jsx)
+
+// ---------------------------------------------------------------- Nurturing
+
+function Nurturing({ data, commit, ws, recargar }) {
+  const nur = data[ws]?.nurturing || {};
+  const cfgNur = nur.config || {};
+  const [config, setConfig] = useState({
+    persona: cfgNur.persona || "",
+    oferta: cfgNur.oferta || "",
+    remitente: cfgNur.remitente || "",
+    nCorreos: cfgNur.nCorreos || 5,
+    cadenciaDias: cfgNur.cadenciaDias || 3,
+    topeDiario: cfgNur.topeDiario || 30,
+    autoInscribir: cfgNur.autoInscribir ?? true,
+  });
+  const [estado, setEstado] = useState("");
+  const [cargando, setCargando] = useState(false);
+
+  const llamar = async (ruta, body, mensajeOk) => {
+    setCargando(true);
+    setEstado("");
+    try {
+      const r = await motorPost(ruta, { ...body, workspace: ws });
+      setEstado(mensajeOk(r));
+      await recargar();
+    } catch (e) {
+      setEstado(String(e.message || e));
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const editarCorreo = (i, campo, valor) => {
+    const siguiente = structuredClone(data);
+    siguiente[ws].nurturing.secuencia[i][campo] = valor;
+    commit(siguiente);
+  };
+
+  const activos = (nur.inscritos || []).filter((x) => x.estado === "activo").length;
+  const metricas = nur.metricas || {};
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Nurturing"
+        sub="La IA genera la secuencia desde la config; nada se envía hasta revisar y activar"
+      />
+      {estado && <p className="mb-4 text-sm text-oro">{estado}</p>}
+
+      <div className="tarjeta mb-6 grid gap-3 sm:grid-cols-2">
+        <input className="campo" placeholder="Persona (a quién le escribes)"
+          value={config.persona} onChange={(e) => setConfig({ ...config, persona: e.target.value })} />
+        <input className="campo" placeholder="Oferta"
+          value={config.oferta} onChange={(e) => setConfig({ ...config, oferta: e.target.value })} />
+        <input className="campo" placeholder="Remitente (hello@...)"
+          value={config.remitente} onChange={(e) => setConfig({ ...config, remitente: e.target.value })} />
+        <div className="grid grid-cols-3 gap-2">
+          <label className="text-xs text-gris">
+            Correos
+            <input className="campo mt-1" type="number" min="2" max="9" value={config.nCorreos}
+              onChange={(e) => setConfig({ ...config, nCorreos: Number(e.target.value) })} />
+          </label>
+          <label className="text-xs text-gris">
+            Cadencia (días)
+            <input className="campo mt-1" type="number" min="1" value={config.cadenciaDias}
+              onChange={(e) => setConfig({ ...config, cadenciaDias: Number(e.target.value) })} />
+          </label>
+          <label className="text-xs text-gris">
+            Tope diario
+            <input className="campo mt-1" type="number" min="1" value={config.topeDiario}
+              onChange={(e) => setConfig({ ...config, topeDiario: Number(e.target.value) })} />
+          </label>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-crema/80">
+          <input type="checkbox" checked={config.autoInscribir}
+            onChange={(e) => setConfig({ ...config, autoInscribir: e.target.checked })} />
+          Auto-inscribir leads elegibles
+        </label>
+        <div className="flex gap-2">
+          <button className="boton" disabled={cargando}
+            onClick={() => llamar("/nurturing/generar", { config }, (r) => `Secuencia generada: ${r.correos} correos. Revísala abajo.`)}>
+            {cargando ? "Generando..." : "Generar secuencia (IA)"}
+          </button>
+          <button
+            className={nur.activo ? "boton-secundario !border-red-400/40 !text-red-400" : "boton-secundario"}
+            disabled={cargando}
+            onClick={() => llamar("/nurturing/activar", { activo: !nur.activo },
+              (r) => (r.activo ? "Nurturing ACTIVO." : "Nurturing pausado."))}
+          >
+            {nur.activo ? "Pausar" : "Activar"}
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <Kpi etiqueta="Inscritos activos" valor={activos} />
+        <Kpi etiqueta="Correos enviados" valor={metricas.enviados || 0} />
+        <Kpi etiqueta="Aperturas" valor={metricas.aperturas || 0} />
+      </div>
+
+      {(nur.secuencia || []).map((correo, i) => (
+        <div key={i} className="tarjeta mb-3">
+          <div className="mb-2 text-xs uppercase tracking-wide text-gris">
+            Correo {i + 1} · {correo.fase}
+          </div>
+          <input className="campo mb-2" value={correo.asunto || ""}
+            onChange={(e) => editarCorreo(i, "asunto", e.target.value)} />
+          <textarea className="campo min-h-24" value={correo.cuerpo || ""}
+            onChange={(e) => editarCorreo(i, "cuerpo", e.target.value)} />
+        </div>
+      ))}
+      {(!nur.secuencia || nur.secuencia.length === 0) && (
+        <p className="text-sm text-gris">
+          Sin secuencia todavía. Completa la config y pulsa "Generar secuencia".
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Accesos
+
+function Accesos({ data, commit, ws }) {
+  const [nuevaClave, setNuevaClave] = useState("");
+  const [mensaje, setMensaje] = useState("");
+  const [secretos, setSecretos] = useState({});
+  const [valores, setValores] = useState({});
+  const [buzones, setBuzones] = useState([]);
+  const [buzonNuevo, setBuzonNuevo] = useState({ email: "", password: "" });
+  const [estadoBuzon, setEstadoBuzon] = useState("");
+
+  const cargarBuzones = () =>
+    motorGet("/buzones").then((r) => setBuzones(r.buzones || [])).catch(() => {});
+
+  useEffect(() => {
+    estadoSecretos().then(setSecretos);
+    cargarBuzones();
+  }, []);
+
+  const guardarBuzon = async () => {
+    setEstadoBuzon("");
+    try {
+      await motorPost("/buzones", buzonNuevo);
+      const prueba = await motorPost("/buzones/probar", { email: buzonNuevo.email });
+      setEstadoBuzon(prueba.ok ? "Buzón conectado." : `Guardado, pero falló la conexión: ${prueba.error}`);
+      setBuzonNuevo({ email: "", password: "" });
+      cargarBuzones();
+    } catch (e) {
+      setEstadoBuzon(String(e.message || e));
+    }
+  };
+
+  const rotarClave = async (e) => {
+    e.preventDefault();
+    const ok = await cambiarClave(nuevaClave);
+    setMensaje(ok ? "Clave actualizada." : "No se pudo cambiar la clave (mínimo 8 caracteres).");
+    if (ok) setNuevaClave("");
+  };
+
+  const guardar = async (clave) => {
+    const valor = valores[clave];
+    if (!valor) return;
+    const ok = await guardarSecreto(clave, valor);
+    if (ok) {
+      setValores({ ...valores, [clave]: "" });
+      setSecretos(await estadoSecretos());
+    }
+  };
+
+  return (
+    <div>
+      <Encabezado
+        titulo="Accesos"
+        sub="Los secretos viven en el vault del servidor; aquí solo se escriben, nunca se leen"
+      />
+
+      <form onSubmit={rotarClave} className="tarjeta mb-6 max-w-md space-y-3">
+        <div className="text-sm font-semibold">Clave del Centro de Mando</div>
+        <input
+          className="campo"
+          type="password"
+          placeholder="Nueva clave (mínimo 8 caracteres)"
+          value={nuevaClave}
+          onChange={(e) => setNuevaClave(e.target.value)}
+        />
+        <button className="boton" disabled={nuevaClave.length < 8}>
+          Rotar clave
+        </button>
+        {mensaje && <p className="text-xs text-gris">{mensaje}</p>}
+        <p className="text-xs text-gris/70">
+          Los flujos de n8n usan la CRON_KEY estable: rotar esta clave no los rompe.
+        </p>
+      </form>
+
+      <div className="tarjeta mb-6 max-w-md space-y-3">
+        <div className="text-sm font-semibold">Buzones de correo (SMTP)</div>
+        {buzones.map((b) => (
+          <div key={b.email} className="text-sm text-gris">
+            {b.email} · {b.host}:{b.puerto} {b.tienePassword ? "· conectado" : "· sin contraseña"}
+          </div>
+        ))}
+        <input className="campo" type="email" placeholder="hello@atlantisglobalrealty.com"
+          value={buzonNuevo.email}
+          onChange={(e) => setBuzonNuevo({ ...buzonNuevo, email: e.target.value })} />
+        <input className="campo" type="password" placeholder="Contraseña del webmail"
+          autoComplete="off" value={buzonNuevo.password}
+          onChange={(e) => setBuzonNuevo({ ...buzonNuevo, password: e.target.value })} />
+        <button className="boton" disabled={!buzonNuevo.email || !buzonNuevo.password}
+          onClick={guardarBuzon}>
+          Guardar y probar conexión
+        </button>
+        {estadoBuzon && <p className="text-xs text-gris">{estadoBuzon}</p>}
+        <p className="text-xs text-gris/70">
+          Default Hostinger (smtp.hostinger.com:465). La contraseña va al servidor y
+          nunca se vuelve a mostrar.
+        </p>
+      </div>
+
+      <TarjetaPush />
+
+      <TarjetaPortales data={data} commit={commit} ws={ws} />
+
+      <div className="mb-2 text-sm font-semibold">Claves de API (vault del servidor)</div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {Object.entries(secretos).map(([clave, info]) => (
+          <div key={clave} className="tarjeta !p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-semibold">{clave}</span>
+              <span className={`text-xs ${info.valido ? "text-oro" : "text-gris/50"}`}>
+                {info.valido ? info.mascara : "sin configurar"}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="campo !py-1 text-xs"
+                type="password"
+                placeholder="Pegar valor nuevo"
+                value={valores[clave] || ""}
+                onChange={(e) => setValores({ ...valores, [clave]: e.target.value })}
+                autoComplete="off"
+              />
+              <button
+                className="boton-secundario !px-3 !py-1 text-xs"
+                onClick={() => guardar(clave)}
+                disabled={!valores[clave]}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

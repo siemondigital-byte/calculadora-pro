@@ -1,0 +1,61 @@
+{
+  "name": "Formulario web a lead - Atlantis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "formulario-atlantis",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook formulario Atlantis",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 200],
+      "webhookId": "formulario-atlantis"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "formulario-cicloderiqueza",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook formulario Ciclo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 420],
+      "webhookId": "formulario-cicloderiqueza"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza el formulario web al formato de /crm/lead.\n// Convencion (autocorreccion #12): type = formulario fijo; fuente = utm_source.\n// ip/ua van al motor para mejorar el match rate de Meta CAPI (skill jul-19).\nconst e = $input.first().json;\nconst b = e.body || e;\nconst h = e.headers || {};\nconst ws = (e.webhookUrl || '').includes('cicloderiqueza') ? 'cicloderiqueza' : 'atlantis';\nreturn [{ json: {\n  workspace: ws,\n  email: (b.email || b.correo || '').trim(),\n  nombre: b.nombre || b.name || '',\n  telefono: b.telefono || b.phone || b.whatsapp || '',\n  idioma: b.idioma || b.lang || 'es',\n  type: b.type || 'formulario-web',\n  fuente: b.utm_source || b.fuente || 'directo',\n  nota: b.mensaje || b.message || '',\n  ip: (h['x-forwarded-for'] || '').split(',')[0].trim(),\n  ua: h['user-agent'] || ''\n} }];"
+      },
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/crm/lead",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Motor: crear lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 300]
+    }
+  ],
+  "connections": {
+    "Webhook formulario Atlantis": { "main": [[{ "node": "Normalizar", "type": "main", "index": 0 }]] },
+    "Webhook formulario Ciclo": { "main": [[{ "node": "Normalizar", "type": "main", "index": 0 }]] },
+    "Normalizar": { "main": [[{ "node": "Motor: crear lead", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

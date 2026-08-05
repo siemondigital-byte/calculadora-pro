@@ -1,0 +1,67 @@
+[
+ {
+  "doc_id": "decision:diseno-correos",
+  "tipo": "decision",
+  "texto": "Diseño aprobado de los correos del ecosistema (credenciales y embudo): tarjeta navy #0F1B2D con acentos oro sobre fondo exterior BLANCO #FFFFFF (Andrea rechazó primero el marco negro y después cualquier fondo de color), texto del pie y barra superior en gris oscuro #4A4F57. Los iconos van como PNG publicados en atlantisglobalrealty.com/emails/assets/ (orbita, candado, relojito, check, calendario, campana, monitor, wordmark). Cada correo tiene versión web en atlantisglobalrealty.com/emails/nombre-sin-numero.html. No reintroducir fondos oscuros exteriores, SVG inline ni webfonts en correos: el diseño debe verse igual en Gmail claro y oscuro."
+ },
+ {
+  "doc_id": "decision:fotos-web-atlantis",
+  "tipo": "decision",
+  "texto": "Fotografía de la web nueva de Atlantis: Andrea decidió NO reutilizar las fotos del WordPress viejo y curar desde el banco integrado del CRM (Pexels vía motor /blog/fotos). De la galería de 16 candidatas eligió la 03 (torre residencial al atardecer, autor Jan van der Wolf), la 04 (torres al atardecer, autor 鲨柿笔亚) y la 06 (fachada, autor Germán Latasa). Quedaron en /assets/fotos/atlantis-01/02/03.jpg: la 03 es el hero de la home, la 04 y la 06 forman la banda editorial; las landings de proyecto sin renders del constructor usan la 04 como foto referencial con nota de crédito. El crédito bilingüe a autores y a Pexels va en el pie de la home y es obligatorio mantenerlo."
+ },
+ {
+  "doc_id": "decision:operacion-terminal-minima",
+  "tipo": "decision",
+  "texto": "Modo de operación acordado con Andrea: ella ejecuta lo MÍNIMO indispensable en su terminal, siempre bloques de UN solo pegado ya listos, y el agente hace todo lo demás (código, generación, git, push, verificaciones, Drive vía conectores). Nunca se hace commit ni push desde el VPS: sus credenciales git son de solo lectura y el intento deja la terminal colgada pidiendo usuario. El agente no puede ejecutar nada dentro del VPS (su red bloquea el dominio y no hay SSH): lo que corre en el VPS se entrega como bloque de pegado y se verifica leyendo la salida que Andrea comparte. Reporte siempre honesto: si algo no corrió o falló, se dice tal cual."
+ },
+ {
+  "doc_id": "negocio:oferta-ciclo-de-riqueza",
+  "tipo": "negocio",
+  "texto": "Oferta vigente del producto Ciclo de Riqueza Inmobiliaria (ES) / The Real Estate Wealth Cycle (EN): libro-método de 8 partes y 56 capítulos, precio de lanzamiento 44 USD (regular 99 USD), siempre escrito como cifra + USD. Incluye la Calculadora de Viabilidad Inmobiliaria Pro (gratis de por vida para los primeros compradores; después se venderá aparte), dos bonos (Sin Hipoteca a 30 años; Patrimonio sin Fronteras) y una consulta de diagnóstico gratuita de ~60 minutos con Atlantis. Garantía de 7 días; pedir devolución revoca el acceso vitalicio a la app y los bonos. Sin escasez artificial jamás: el propio libro descalifica la presión de comprar en 24-48 horas."
+ },
+ {
+  "doc_id": "negocio:tmc-no-se-menciona",
+  "tipo": "negocio",
+  "texto": "Regla de arquitectura de marca dictada por Andrea: The Money Command (TMC) NO se menciona nunca en ninguna pieza de Atlantis ni de Ciclo de Riqueza (web, correos, contenido, anuncios, landings). Aunque Ciclo de Riqueza funciona como upsell de TMC, la única conexión permitida es un posible enlace de downsell dentro de la plataforma de Hotmart. Los dos ecosistemas se mantienen separados de cara al público."
+ },
+ {
+  "doc_id": "negocio:remitentes-correo",
+  "tipo": "negocio",
+  "texto": "Remitentes de correo del ecosistema: producto en español cicloderiqueza@atlantisglobalrealty.com, producto en inglés wealthcycle@atlantisglobalrealty.com, agencia (diagnósticos, inversionistas) contact@atlantisglobalrealty.com. No existen hola@ ni hello@. Todo el envío sale por SMTP de Brevo (smtp-relay.brevo.com; el usuario del relay es distinto del remitente From). La entregabilidad quedó verificada con mail-tester 9.5/10 tras unificar el SPF en un solo registro TXT con include de Brevo: no tocar el DNS sin motivo fuerte. Campaña de nurturing Inversionista activa desde contact@, solo para leads type=guia, cadencia 3 días, tope diario 30."
+ },
+ {
+  "doc_id": "voz:metodo-implicito",
+  "tipo": "voz",
+  "texto": "La comunicación de Atlantis orbita el modelo de inversión del libro SIN nombrarlo ni ser explícita: se habla de entrar por etapa (preventa), pagos por etapas con la constructora, valorización en obra, salida diseñada antes de firmar y rotación del capital. Sintaxis firma de la marca: \"No es X. Es Y.\" (ej. \"No somos una agencia. Somos arquitectos de patrimonio\"). Tuteo neutro latinoamericano, frases cortas, sin em dashes, anti-gurú (nada de manifestar, transforma tu vida, premium). Sin nombres propios de persona: firma institucional. Los riesgos (cambiario, due diligence de constructora, restricciones legales) se nombran de frente. Los rendimientos proyectados son siempre del constructor y toda pieza con cifras lleva el disclaimer educativo."
+ },
+ {
+  "doc_id": "trampa:brevo-smtp-535",
+  "tipo": "trampa",
+  "texto": "Trampa resuelta: n8n devolvía 535 Authentication failed contra Brevo durante días. Causas apiladas: (1) se pegó la API key en lugar de la SMTP key; (2) la allowlist de IPs de Brevo estaba activa y bloqueaba el VPS; (3) una key que ya funcionaba fue borrada en Brevo y las copias guardadas murieron; (4) el autocompletado del navegador corrompía el campo de contraseña en la UI de n8n al guardar la credencial. Arreglo definitivo: probar la key con un script python directo en el VPS (login y envío) y luego importar la credencial por CLI (n8n import:credentials con el JSON en formato decrypted), nunca por el formulario del navegador. Prevención: las credenciales SMTP de n8n se crean/reparan siempre por CLI."
+ },
+ {
+  "doc_id": "trampa:contenedor-motor-y-ftp",
+  "tipo": "trampa",
+  "texto": "Trampas de operación en el VPS del Centro de Mando: (1) hay DOS contenedores motor en el host (el de Atlantis y el siemon-motor de otro negocio); los scripts deben seleccionar con grep -m1 '^centro-de-mando-motor', nunca un grep laxo de 'motor'. (2) docker exec sin -i ignora el heredoc en silencio: el script \"termina bien\" sin haber hecho nada; siempre docker exec -i. (3) Al recrearse el contenedor del motor puede perder las variables FTP_* de su entorno (KeyError FTP_HOST); los scripts de publicación llevan fallback que lee centro-de-mando/.env del host y pasa las variables con -e. (4) La verificación HTTP se hace con curl desde el host del VPS: dentro del contenedor el dominio no resuelve bien. (5) La cuenta FTP del sitio aterriza directo en el docroot del WordPress."
+ },
+ {
+  "doc_id": "trampa:gmail-rompe-diseno",
+  "tipo": "trampa",
+  "texto": "Trampa resuelta en plantillas de correo: Gmail elimina SVG inline, position:absolute, webfonts y data-URIs, y en modo oscuro invierte colores por luminancia en ambos sentidos (las apps de Gmail ignoran prefers-color-scheme). Además la entidad HTML del reloj se renderiza como emoji de color en iOS. Arreglo: todos los iconos rasterizados a PNG y servidos desde el dominio propio (/emails/assets/), colores horneados inline (tarjeta navy fija que no depende del modo del cliente) y fondo exterior blanco. Prevención: cualquier plantilla nueva se prueba renderizada antes de darse por buena y no usa SVG ni posicionamiento absoluto."
+ },
+ {
+  "doc_id": "trampa:n8n-reimportar-borra-smtp",
+  "tipo": "trampa",
+  "texto": "Trampa recurrente de n8n por CLI: re-importar un flujo existente (import:workflow con el mismo id) BORRA la credencial SMTP asignada a los nodos de correo y des-registra el webhook hasta re-publicar. Prevención obligatoria: después de correr actualizar-flujos-acceso.sh siempre se corre asignar-smtp-flujos.sh (re-asigna la credencial \"SMTP Brevo\" a todos los nodos) y se verifica que el webhook responda 401 sin clave (fail-closed correcto)."
+ },
+ {
+  "doc_id": "decision:home-v1-rechazada",
+  "tipo": "decision",
+  "texto": "Andrea rechazó la primera versión de la home nueva de Atlantis (la publicada en /nueva/ el 2026-08-01): la calificó de horrible. Era una página sobria de texto con hero de dos columnas, tres citas del manifiesto, tres pilares y una banda de dos fotos. Regla que se deduce: para la web pública de Atlantis no basta cumplir la paleta y la voz; el estándar visual es de lujo editorial de verdad (nivel banca privada premium: composición, jerarquía, movimiento y detalle de dirección de arte), no un esqueleto limpio con buenos textos. La página se va a rehacer con herramientas de diseño web premium. Las tres fotos curadas del banco (atlantis-01/02/03 en /assets/fotos/) y sus créditos siguen siendo insumo válido, igual que los textos del manifiesto. OJO adicional (ver alcance:infoproducto-vs-inmobiliaria): la identidad visual de la INMOBILIARIA no está registrada todavía; antes de rehacer la home hay que pedirle a Andrea esa identidad, sin asumir el dorado sobre navy, que pertenece al infoproducto."
+ },
+ {
+  "doc_id": "estado:sesion-2026-08-01",
+  "tipo": "estado",
+  "texto": "Estado al cierre de la sesión del 2026-08-01. VIVO: correos por Brevo con diseño aprobado (8 flujos n8n), 30 versiones web de correos, páginas del embudo (guía, agendar, unsubscribe), redirects /calculadora y /endeudamiento, nurturing Inversionista activa, galería de curaduría /banco-candidatas/, home nueva con las 3 fotos elegidas publicada en borrador en /nueva/ (falta confirmar la salida del último publicar-web-atlantis.sh y la revisión de Andrea). LISTO SIN ESTRENAR: sistema de landings por proyecto (falta el primer brochure real de constructora), flujo n8n que vigila el Drive de proyectos (falta credencial OAuth de atlantisglobalrealty@gmail.com y folder ID), módulo RAG /rag/aprender del motor (recién creado). PENDIENTE: links de Cal.com para book-call y book-videocall, switch de la home nueva a la raíz con respaldo del WordPress, campañas Comprador/Vendedor, URLs legales corporativas ES. Regla nueva: cada sesión cierra destilando su contexto al RAG."
+ }
+]

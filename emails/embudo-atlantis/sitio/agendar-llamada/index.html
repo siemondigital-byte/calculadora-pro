@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agenda tu llamada de 15 min — Atlantis Global Realty</title>
+<link rel="icon" type="image/png" href="../assets/favicon-atlantis.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+.cal-slot{min-height:560px;border-radius:4px;overflow:hidden;background:var(--surface2);border:1px dashed var(--line);display:flex;align-items:center;justify-content:center}
+.cal-slot.live{border:0;background:transparent;display:block}
+.cal-ph{text-align:center;padding:40px;max-width:34ch}
+.cal-ph .ic{font-size:28px;color:var(--accent);margin-bottom:12px}
+.cal-ph p{color:var(--muted);font-size:14px;margin:0}
+.cal-ph code{font:600 12px 'Figtree','Inter',sans-serif;color:var(--accent)}
+.tz{font:500 11px/1 'Figtree','Inter',sans-serif;letter-spacing:.1em;color:var(--muted);margin:0 0 14px}
+.tz b{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a class="lockup" href="../index.html">
+      <img class="wm-img" src="../assets/wordmark.png" alt="Atlantis Global Realty">
+    </a>
+    <div class="controls">
+      <div class="lang-seg"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
+    </div>
+  </header>
+  <main class="hero">
+    <section>
+      <p class="ml" data-i18n="eyebrow">Agendamiento</p>
+      <h1 data-i18n-html="h1">Agenda una <b>llamada</b> de 15 minutos</h1>
+      <p class="lead" data-i18n="lead">Un primer contacto breve para conocer tu caso y definir el siguiente paso. Es un diagnóstico, no una venta.</p>
+      <div class="facts">
+        <span class="fact" data-i18n="f1">15 minutos</span>
+        <span class="fact" data-i18n="f2">Por teléfono</span>
+        <span class="fact" data-i18n="f3">Sin costo</span>
+      </div>
+      <p class="ml" data-i18n="agenda">Qué veremos</p>
+      <ol class="steps">
+        <li><span class="n">01</span><span><span class="t" data-i18n="s1t">Perfil inversionista</span><br><span class="d" data-i18n="s1d">Identificamos tu estrategia: renta, valorización o mixta.</span></span></li>
+        <li><span class="n">02</span><span><span class="t" data-i18n="s2t">Viabilidad y valorización</span><br><span class="d" data-i18n="s2d">Evaluamos la viabilidad de tu inversión con proyecciones reales.</span></span></li>
+        <li><span class="n">03</span><span><span class="t" data-i18n="s3t">Diagnóstico de mercados</span><br><span class="d" data-i18n="s3d">Comparamos los mercados con mayor oportunidad para tu capital.</span></span></li>
+      </ol>
+    </section>
+    <section class="card">
+      <p class="tz" data-i18n-html="tz">Zona horaria detectada: <b id="tz-name">—</b></p>
+      <div class="cal-slot" id="cal-embed">
+        <div class="cal-ph">
+          <div class="ic">◷</div>
+          <p data-i18n="calph">Espacio reservado para el calendario de Cal.com. Configura tu enlace en <code>CAL_LINK</code> dentro de esta página.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<footer class="footer"><div class="wrap">
+  <span>© <span id="yy"></span> Atlantis Global Realty</span>
+  <span data-i18n="disc">Contenido educativo. No es asesoría financiera, legal ni tributaria.</span>
+  <span><a data-href-es="../legales/privacidad.html" data-href-en="../legales/privacy.html" href="../legales/privacidad.html" data-i18n="priv">Privacidad</a> · <a data-href-es="../legales/terminos.html" data-href-en="../legales/terms.html" href="../legales/terminos.html" data-i18n="terms">Términos</a> · <a href="https://atlantisglobalrealty.com">atlantisglobalrealty.com</a></span>
+</div></footer>
+<script>
+window.I18N={
+ es:{eyebrow:"Agendamiento",h1:"Agenda una <b>llamada</b> de 15 minutos",
+  lead:"Un primer contacto breve para conocer tu caso y definir el siguiente paso. Es un diagnóstico, no una venta.",
+  f1:"15 minutos",f2:"Por teléfono",f3:"Sin costo",agenda:"Qué veremos",
+  s1t:"Perfil inversionista",s1d:"Entendemos tu objetivo y tu perfil inversionista.",
+  s2t:"Viabilidad y valorización",s2d:"Revisamos rápidamente la viabilidad de tu idea de inversión.",
+  s3t:"Diagnóstico de mercados",s3d:"Te decimos qué mercados mirar y el siguiente paso.",
+  tz:"Zona horaria detectada: <b id='tz-name'>—</b>",
+  calph:"Espacio reservado para el calendario de Cal.com. Configura tu enlace en CAL_LINK dentro de esta página.",
+  priv:"Privacidad",disc:"Contenido educativo. No es asesoría financiera, legal ni tributaria.",terms:"Términos"},
+ en:{eyebrow:"Booking",h1:"Book a 15-minute <b>call</b>",
+  lead:"A short first contact to hear your case and define the next step. It is a diagnostic, not a sales call.",
+  f1:"15 minutes",f2:"By phone",f3:"Free",agenda:"What we'll cover",
+  s1t:"Investor profile",s1d:"We understand your goal and your investor profile.",
+  s2t:"Feasibility & appreciation",s2d:"We quickly review the feasibility of your investment idea.",
+  s3t:"Market diagnosis",s3d:"We tell you which markets to watch and the next step.",
+  tz:"Detected time zone: <b id='tz-name'>—</b>",
+  calph:"Placeholder for the Cal.com calendar. Set your link in CAL_LINK inside this page.",
+  priv:"Privacy",disc:"Educational content. Not financial, legal or tax advice.",terms:"Terms"}
+};
+</script>
+<script src="../assets/app.js"></script>
+<script>
+var CAL_LINK="";// ej. "atlantis-global-realty/llamada-15min"
+function setTz(){var tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"—";var el=document.getElementById('tz-name');if(el)el.textContent=tz;}
+document.addEventListener('DOMContentLoaded',setTz);
+document.addEventListener('langchange',setTz);
+document.getElementById('yy').textContent=new Date().getFullYear();
+if(CAL_LINK){
+  (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if (typeof namespace === "string") { cal.ns[namespace] = cal.ns[namespace] || api; p(cal.ns[namespace], ar); p(cal, ["initNamespace", namespace]); } else p(cal, ar); return; } p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+  Cal("init",{origin:"https://cal.com"});
+  document.getElementById('cal-embed').classList.add('live');
+  document.getElementById('cal-embed').innerHTML="";
+  Cal("inline",{elementSelector:"#cal-embed",calLink:CAL_LINK,config:{theme:"dark"}});
+}
+</script>
+</body>
+</html>

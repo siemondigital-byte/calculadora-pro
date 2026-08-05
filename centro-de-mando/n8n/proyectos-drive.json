@@ -1,0 +1,83 @@
+{
+  "name": "Proyectos · vigilar Drive de Atlantis",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": { "item": [{ "mode": "everyX", "value": 15, "unit": "minutes" }] },
+        "triggerOn": "specificFolder",
+        "folderToWatch": "REEMPLAZAR_FOLDER_ID",
+        "event": "fileCreated",
+        "options": {}
+      },
+      "name": "Drive: archivo nuevo en proyectos",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "notesInFlow": true,
+      "notes": "Asignar la credencial Google Drive OAuth2 de atlantisglobalrealty@gmail.com y el ID de la carpeta de proyectos."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "typeValidation": "loose", "version": 2 },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mimeType || '' }}",
+              "rightValue": "pdf",
+              "operator": { "type": "string", "operation": "contains" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "¿Es PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": { "__rl": true, "mode": "id", "value": "={{ $json.id }}" },
+        "options": {}
+      },
+      "name": "Drive: descargar",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [680, 280]
+    },
+    {
+      "parameters": { "operation": "pdf", "options": {} },
+      "name": "Extraer texto del PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [900, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/proyectos/extraer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "Bearer REEMPLAZAR_CRON_KEY" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({texto: $json.text, archivo: $('Drive: archivo nuevo en proyectos').first().json.name}) }}",
+        "options": { "timeout": 120000 }
+      },
+      "name": "Motor: extraer ficha (IA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 280]
+    }
+  ],
+  "connections": {
+    "Drive: archivo nuevo en proyectos": { "main": [[{ "node": "¿Es PDF?", "type": "main", "index": 0 }]] },
+    "¿Es PDF?": { "main": [[{ "node": "Drive: descargar", "type": "main", "index": 0 }], []] },
+    "Drive: descargar": { "main": [[{ "node": "Extraer texto del PDF", "type": "main", "index": 0 }]] },
+    "Extraer texto del PDF": { "main": [[{ "node": "Motor: extraer ficha (IA)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

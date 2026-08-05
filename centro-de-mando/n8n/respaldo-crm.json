@@ -1,0 +1,70 @@
+{
+  "name": "Respaldo diario del CRM - Atlantis",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "17 3 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Cada dia 3:17am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://motor.atlantisglobalrealty.com/crm/data",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REEMPLAZAR_CRON_KEY"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Motor: leer CRM completo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Copia integra de crm.json en el VOLUMEN DE N8N (distinto al del motor):\n// si el volumen del motor se pierde, hay 7 respaldos rotativos (uno por dia\n// de la semana) para restaurar. El nombre por dia rota solo, sin limpieza.\nconst datos = JSON.stringify($input.first().json, null, 1);\nconst dias = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];\nconst nombre = 'crm-' + dias[new Date().getDay()] + '.json';\nreturn [{\n  json: { nombre, bytes: datos.length },\n  binary: { data: await this.helpers.prepareBinaryData(Buffer.from(datos, 'utf-8'), nombre, 'application/json') }\n}];"
+      },
+      "name": "Preparar archivo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n/respaldos/{{ $json.nombre }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "name": "Guardar respaldo",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Cada dia 3:17am": { "main": [[{ "node": "Motor: leer CRM completo", "type": "main", "index": 0 }]] },
+    "Motor: leer CRM completo": { "main": [[{ "node": "Preparar archivo", "type": "main", "index": 0 }]] },
+    "Preparar archivo": { "main": [[{ "node": "Guardar respaldo", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

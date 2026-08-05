@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
+<title>Password reset requested</title>
+<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root { color-scheme: light dark; supported-color-schemes: light dark; }
+html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+* { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+table { border-collapse: collapse !important; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+a { text-decoration: none; }
+@media (prefers-color-scheme: dark) {
+  .email-bg    { background: #0A0A0C !important; }
+  .card        { background: #0F1B2D !important; border-color: rgba(230,199,136,0.28) !important; }
+  .ink         { color: #F4EFE6 !important; }
+  .body-text   { color: #D7D7D9 !important; }
+  .muted       { color: #9DA1A8 !important; }
+  .gold        { color: #E6C788 !important; }
+  .hairline    { border-color: rgba(215,215,217,0.14) !important; background: rgba(215,215,217,0.14) !important; }
+  .cred-box    { background: #060608 !important; border-color: rgba(230,199,136,0.30) !important; }
+  .cred-value  { color: #F4EFE6 !important; }
+  .icon-circle { border-color: rgba(230,199,136,0.45) !important; background: rgba(230,199,136,0.10) !important; }
+  .ring        { border-color: #E6C788 !important; }
+  .ring-dot    { background: #E6C788 !important; }
+  .ring-gap    { background: #0F1B2D !important; }
+  .btn-primary { background: #E6C788 !important; color: #0A0A0C !important; border-color: #E6C788 !important; }
+  .btn-primary a { color: #0A0A0C !important; }
+  .soft        { background: rgba(230,199,136,0.10) !important; border-color: rgba(230,199,136,0.35) !important; }
+  .footer-line { border-color: rgba(230,199,136,0.18) !important; }
+}
+@media only screen and (max-width: 620px) {
+  .container { width: 100% !important; }
+  .px        { padding-left: 24px !important; padding-right: 24px !important; }
+  .h1        { font-size: 32px !important; line-height: 1.1 !important; }
+  .btn-cell, .btn-cell a { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
+}
+</style>
+</head>
+<!--
+  CORREO DE CAMBIO DE CONTRASEÑA · Ciclo de Riqueza Inmobiliaria
+  Pegar en el nodo "Send Email" de n8n (campo HTML).
+  Variables (modo expresión):
+    {{ $json.nombre }}   -> nombre del usuario
+    {{ $json.resetUrl }} -> enlace de restablecimiento (con ?token=..., vence 60 min, un solo uso)
+    {{ $json.webUrl }}   -> (opcional) ver como página
+  El script final solo rellena datos demo en el navegador; los clientes de correo lo ignoran.
+-->
+<body class="email-bg" style="margin:0; padding:0; background:#ECE6DA; font-family:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all; font-size:1px; line-height:1px; color:#ECE6DA;">Create your new password. The link expires in 60 minutes and can be used once. &#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-bg" style="background:#ECE6DA;"><tr><td align="center" style="padding:0 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container card" style="width:600px; max-width:600px; background:#FBF8F1; border:1px solid rgba(15,27,45,0.10);">
+<tr><td class="px" style="padding:32px 48px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td align="left" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle" style="padding-right:12px;"><div style="width:34px;height:34px;position:relative;font-size:0;line-height:0;"><div class="ring" style="width:27px;height:27px;border:1.6px solid #A67C34;border-radius:50%;position:absolute;top:3px;left:2px;"></div><div class="ring-gap" style="width:13px;height:18px;background:#FBF8F1;position:absolute;top:0;left:20px;"></div><div class="ring-dot" style="width:6px;height:6px;background:#A67C34;border-radius:50%;position:absolute;top:1px;left:12px;"></div></div></td>
+<td valign="middle"><span class="gold" style="font-size:11px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:#A67C34;">Real Estate Wealth Cycle</span></td>
+</tr></table></td>
+<td align="right" valign="middle"><span class="muted" style="font-size:11px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#8A7F6A;">Security</span></td>
+</tr></table>
+</td></tr>
+<tr><td class="px" style="padding:44px 48px 8px;">
+<div class="icon-circle" style="width:52px;height:52px;border:1px solid rgba(166,124,52,0.45);background:rgba(166,124,52,0.10);border-radius:50%;text-align:center;line-height:52px;margin-bottom:24px;"><span class="gold" style="color:#A67C34;display:inline-block;vertical-align:middle;line-height:0;"><svg width="22" height="22" viewBox="0 0 24 24" style="vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></span></div>
+<div class="gold" style="font-size:12px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:#A67C34; margin-bottom:18px;">Password reset</div>
+<h1 class="h1 ink" style="margin:0 0 20px; font-family:'Bodoni Moda',Didot,Georgia,'Times New Roman',serif; font-weight:800; font-size:40px; line-height:1.08; letter-spacing:-0.01em; color:#0F1B2D;">Create your new <span class="gold" style="font-style:italic;color:#A67C34;">password.</span></h1>
+<p class="body-text" style="margin:0; font-size:16.5px; line-height:1.65; color:#3C4452;">Hi <span class="ink" style="color:#0F1B2D;font-weight:600;">{{ $json.nombre }}</span>, we received a request to change your app account password. Use the button below to create a new one.</p>
+</td></tr>
+<tr><td class="px" style="padding:34px 48px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="btn-cell btn-primary" align="center" bgcolor="#0F1B2D" style="background:#0F1B2D; border:1px solid #0F1B2D; border-radius:3px;"><a href="{{ $json.resetUrl }}" target="_blank" style="display:block; padding:17px 32px; font-family:'Instrument Sans',Helvetica,Arial,sans-serif; font-size:16px; font-weight:600; color:#F4EFE6; text-decoration:none; letter-spacing:0.01em;">Create new password &nbsp;&rarr;</a></td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;"><tr>
+<td style="padding-right:14px;"><span class="muted" style="font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:#8A7F6A;">&#9202; Expires in 60 minutes</span></td>
+<td><span class="muted" style="font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:#8A7F6A;">&#10003; Single use</span></td>
+</tr></table>
+<p class="muted" style="margin:16px 0 0; font-size:12px; line-height:1.6; color:#8A7F6A;">If the button doesn’t work, copy and paste this link into your browser:<br><span style="font-family:'SF Mono','Courier New',monospace; font-size:11.5px; word-break:break-all; color:#8A7F6A;">{{ $json.resetUrl }}</span></p>
+</td></tr>
+<tr><td class="px" style="padding:30px 48px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="soft" style="background:rgba(166,124,52,0.10); border:1px solid rgba(166,124,52,0.35); border-radius:10px;"><tr><td style="padding:18px 22px;">
+<span class="body-text" style="font-size:13.5px; line-height:1.6; color:#3C4452;"><strong class="ink" style="color:#0F1B2D;">Wasn’t you?</strong> Ignore this email — your current password will keep working. Never share this link, and remember we will never ask for your password by email.</span>
+</td></tr></table>
+</td></tr>
+<tr><td class="px" style="padding:32px 48px 40px;">
+<div class="hairline" style="height:1px; background:rgba(15,27,45,0.10); font-size:0; line-height:0; margin-bottom:24px;">&nbsp;</div>
+<p class="body-text" style="margin:0; font-size:14.5px; line-height:1.6; color:#3C4452;">Any questions, just reply to this email.<br><span class="gold" style="color:#A67C34; font-weight:600;">The Real Estate Wealth Cycle Team</span></p>
+</td></tr>
+</table>
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container"><tr><td class="px footer-line" style="padding:28px 48px 40px; border-top:1px solid rgba(15,27,45,0.10);">
+<p class="muted" style="margin:0 0 6px; font-size:12px; line-height:1.6; color:#8A7F6A;">The Real Estate Wealth Cycle · in partnership with Atlantis Global Realty</p>
+<p class="muted" style="margin:0; font-size:11px; line-height:1.6; color:#A39884;">You’re receiving this email because someone requested a password change for this account.</p>
+</td></tr></table>
+</td></tr></table>
+<script>
+(function(){var demo={nombre:'James',resetUrl:'#',webUrl:'#',privacyUrl:'#',unsubscribeUrl:'#'};
+function fill(node){if(node.nodeType===3){if(node.nodeValue.indexOf('{{')!==-1){node.nodeValue=node.nodeValue.replace(/\{\{\s*\$json\.(\w+)\s*\}\}/g,function(m,k){return demo[k]!=null?demo[k]:m;});}}else if(node.nodeType===1&&node.tagName!=='SCRIPT'){if(node.hasAttribute&&node.hasAttribute('href')){node.setAttribute('href',node.getAttribute('href').replace(/\{\{\s*\$json\.(\w+)\s*\}\}/g,function(m,k){return demo[k]!=null?demo[k]:m;}));}for(var i=0;i<node.childNodes.length;i++)fill(node.childNodes[i]);}}
+fill(document.body);var hh=document.querySelectorAll('[data-web-hide]');for(var j=0;j<hh.length;j++){hh[j].style.display='none';}})();
+</script>
+</body></html>

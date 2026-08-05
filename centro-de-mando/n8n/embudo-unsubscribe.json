@@ -1,0 +1,86 @@
+{
+  "name": "Embudo · baja de correos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "unsubscribe",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook baja",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "unsubscribe"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Payload de la pagina /unsubscribe: {email, token, action, lang}\nconst b = $input.first().json.body || $input.first().json;\nconst email = (b.email || '').trim().toLowerCase();\nif (!email || email.indexOf('@') < 1) return [];\nconst action = b.action === 'resubscribe' ? 'resubscribe' : 'unsubscribe';\nreturn [{ json: { email, action } }];"
+      },
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://motor.atlantisglobalrealty.com/nurturing/baja",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REEMPLAZAR_CRON_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Motor: baja",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        680,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook baja": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Motor: baja",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

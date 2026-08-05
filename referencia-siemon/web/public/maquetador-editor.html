@@ -1,0 +1,2802 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maquetador Siemon · Editor visual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== Marca del MARCO = Siemon (capa 1, fija) =====
+   Los tokens del marco se inyectan aquí desde branding_siemondigital/tokens.css
+   por build.js. Cambiar la marca de la herramienta = editar ese tokens.css.
+   La marca del CLIENTE (capa 2) vive en la página dentro del iframe; el
+   maquetador NO la toca. */
+/* ============================================================================
+   branding_siemondigital/tokens.css
+   ----------------------------------------------------------------------------
+   Marca SIEMON — tokens del MARCO del maquetador (la herramienta).
+   Esta es la marca FIJA del producto: barra, botones, configuración, historial.
+   NO es la marca del cliente (esa vive en la página que se edita, dentro del
+   iframe, y el maquetador no la toca).
+
+   Fuente única de la identidad de la herramienta: cambiar la marca del marco =
+   editar este archivo. (Proporción 60/30/10: obsidiana 60, neutros 30, lavanda 10.)
+   ============================================================================ */
+:root {
+  /* Superficies (obsidiana → grafito) */
+  --obsidian: #0A0B0D;   /* fondo base dominante */
+  --carbon:   #15161A;   /* tarjetas / paneles */
+  --graphite: #23252B;   /* superficie elevada */
+  --charcoal: #38383A;
+
+  /* Texto sobre oscuro */
+  --cream: #E9E5DD;      /* logotipo / texto fuerte */
+  --mist:  #C9CAD2;      /* cuerpo de texto */
+  --ash:   #8B8D98;      /* secundario / captions */
+  --white: #FFFFFF;      /* titulares */
+
+  /* Lavanda Aether — color de marca principal (acento, ~10%) */
+  --aether:     #B1A3E1;
+  --aether-100: #E2DCF5;
+  --aether-200: #CBC0EC;  /* hover botón primario */
+  --aether-500: #8474BE;  /* prefijo //, acentos medios */
+  --aether-700: #534673;  /* bordes/acentos oscuros, glow */
+
+  /* Estados (solo en la UI del editor) */
+  --ok:    #6FD08C;
+  --warn:  #E1C45C;
+  --error: #E18A8A;
+
+  /* Líneas */
+  --line: rgba(201,202,210,.12);
+
+  /* Tipografía: Mont (licenciada) → Montserrat como fallback libre */
+  --sans: "Montserrat", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radios */
+  --r-8: 8px; --r-10: 10px; --r-12: 12px; --r-14: 14px; --r-18: 18px; --r-22: 22px;
+  --r-pill: 999px;
+
+  /* Identidad del producto (consumida por theme.js) */
+  --brand-name: "Maquetador";
+  --brand-suffix: "Siemon";
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--sans); background:var(--obsidian); color:var(--mist);
+  -webkit-font-smoothing:antialiased; font-size:14px; line-height:1.5;
+}
+.dots{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(rgba(177,163,225,.10) 1.1px,transparent 1.1px);
+  background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(120% 90% at 90% 0%,#000 30%,transparent 75%);
+          mask-image:radial-gradient(120% 90% at 90% 0%,#000 30%,transparent 75%);}
+a{color:var(--aether)}
+button{font-family:var(--sans);cursor:pointer}
+input{font-family:var(--sans)}
+.mono{font-family:var(--mono)}
+.ml{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.24em;color:var(--aether)}
+.ml::before{content:"// ";color:var(--aether-500)}
+
+/* Aviso file:// */
+.file-warning{position:fixed;top:0;left:0;right:0;z-index:80;display:flex;align-items:flex-start;gap:12px;
+  padding:12px 18px;background:rgba(83,70,115,.30);border-bottom:1px solid var(--aether-500);
+  backdrop-filter:blur(8px);color:var(--cream);font-size:13px;line-height:1.5}
+.file-warning .fw-ico{font-size:16px;line-height:1.3}
+.file-warning .fw-text{flex:1}
+.file-warning b{color:var(--white)}
+.file-warning code{font-family:var(--mono);font-size:12px;background:rgba(10,11,13,.55);
+  border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--aether-100)}
+.file-warning .fw-url{color:var(--aether-100)}
+.file-warning .fw-hint{display:block;margin-top:4px;color:var(--mist);font-size:12px}
+.file-warning .fw-close{background:transparent;border:0;color:var(--ash);font-size:20px;line-height:1;padding:0 4px}
+.file-warning .fw-close:hover{color:var(--cream)}
+body.has-file-warning .config-screen{padding-top:96px}
+
+/* Botones */
+.btn{border:1px solid var(--line);background:rgba(21,22,26,.6);color:var(--cream);
+  border-radius:999px;padding:9px 18px;font-weight:600;font-size:13.5px;
+  display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.btn:hover{border-color:var(--aether-500);transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--aether);color:var(--obsidian);border-color:var(--aether)}
+.btn-primary:hover:not(:disabled){background:var(--aether-200);box-shadow:0 6px 20px -8px var(--aether-700)}
+.btn-ghost{background:transparent}
+.btn-icon{padding:9px 12px}
+
+/* Layout app */
+.app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column}
+
+/* Topbar */
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);
+  background:rgba(10,11,13,.7);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand svg{width:22px;height:24px;color:var(--aether)}
+.brand .wm{font-weight:700;letter-spacing:-.01em;color:var(--white);font-size:15px}
+.brand .wm small{color:var(--ash);font-weight:500}
+.file-label{font-family:var(--mono);font-size:11.5px;color:var(--ash);
+  max-width:48ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spacer{flex:1}
+.dirty{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ash)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--charcoal)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(111,208,140,.18)}
+
+/* Cuerpo editor */
+.editor-body{flex:1;display:flex;min-height:0}
+.preview-wrap{flex:1;min-width:0;background:#0d0e11;position:relative}
+#preview{width:100%;height:100%;border:0;background:#fff}
+.sidebar{width:340px;border-left:1px solid var(--line);background:var(--carbon);
+  display:flex;flex-direction:column;min-height:0}
+.sidebar h3{margin:0;padding:16px 18px 10px;font-size:12px;text-transform:uppercase;
+  letter-spacing:.18em;color:var(--ash);font-weight:600}
+.help{padding:0 18px 14px;font-size:12px;color:var(--ash);line-height:1.55}
+.inspector{flex:1;overflow:auto;padding:0 18px 14px}
+.insp-empty{color:var(--ash);font-size:13px;line-height:1.6;padding:14px 2px}
+.insp-kind{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--aether-500);margin-bottom:12px}
+.insp-lbl{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ash);margin:12px 0 5px}
+.insp-input{width:100%;background:#101116;border:1px solid var(--line);border-radius:10px;padding:9px 11px;color:var(--cream);font-size:13px;font-family:inherit;outline:none;resize:vertical}
+.insp-input:focus{border-color:var(--aether-500)}
+.insp-thumb{max-width:100%;max-height:110px;border-radius:8px;border:1px solid var(--line);margin-bottom:10px;display:block}
+.hist-block{border-top:1px solid var(--line)}
+.hist-head{width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;color:var(--cream);font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;padding:14px 18px;cursor:pointer}
+.hist-caret{color:var(--aether-500);transition:transform .2s}
+.hist-body{padding:4px 14px 16px;max-height:44vh;overflow:auto}
+.history{overflow:auto;padding:0 0 8px}
+.history ul{list-style:none;margin:0;padding:0}
+.commit{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:8px 0;background:rgba(21,22,26,.5)}
+.commit-msg{color:var(--cream);font-weight:600;font-size:13px;margin-bottom:4px}
+.commit-meta{font-family:var(--mono);font-size:11px;color:var(--ash)}
+.commit-meta .sha{color:var(--aether-500)}
+.btn-restore{margin-top:10px;width:100%;border:1px solid var(--line);background:transparent;color:var(--aether);
+  border-radius:10px;padding:7px;font-size:12.5px;font-weight:600;transition:.15s}
+.btn-restore:hover{border-color:var(--aether);background:rgba(177,163,225,.08)}
+.muted{color:var(--ash);font-size:12.5px;padding:8px 6px}
+
+/* Statusbar */
+.statusbar{display:flex;align-items:center;gap:12px;padding:8px 20px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:11.5px;color:var(--ash);background:rgba(10,11,13,.7)}
+
+/* Config screen */
+.config-screen{position:relative;z-index:1;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:48px 20px}
+.config-card{width:100%;max-width:620px;background:rgba(21,22,26,.6);border:1px solid var(--line);
+  border-radius:22px;padding:34px}
+.config-card .brand{margin-bottom:6px}
+.config-card h1{font-weight:300;font-size:30px;letter-spacing:-.02em;color:var(--white);margin:14px 0 6px}
+.config-card h1 b{font-weight:700;color:var(--aether)}
+.config-card .lead{color:var(--mist);margin:0 0 22px;font-size:14px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--ash);margin-bottom:6px;font-weight:600;letter-spacing:.02em}
+.field input{width:100%;background:#0d0e11;border:1px solid var(--line);border-radius:10px;
+  padding:11px 13px;color:var(--cream);font-size:13.5px}
+.field input:focus{outline:2px solid var(--aether);outline-offset:1px;border-color:transparent}
+.field .hint{font-size:11.5px;color:var(--ash);margin-top:5px}
+.row{display:flex;gap:12px}.row .field{flex:1}
+.actions{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
+.notice{border:1px solid var(--aether-700);background:rgba(83,70,115,.14);border-radius:14px;
+  padding:14px 16px;font-size:12.5px;color:var(--mist);margin:18px 0;line-height:1.6}
+.notice b{color:var(--aether-100)}
+.notice .ml{display:block;margin-bottom:6px}
+.local-box{border:1px dashed var(--line);border-radius:14px;padding:14px 16px;margin-top:8px}
+.local-box .local-status{color:var(--ok);font-size:12.5px;margin-top:8px}
+.local-box .local-warn{color:var(--warn);font-size:12.5px;margin-top:8px}
+
+/* Modal */
+.modal,.busy{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+  background:rgba(5,6,8,.6);backdrop-filter:blur(4px)}
+.modal-card{background:var(--carbon);border:1px solid var(--line);border-radius:18px;padding:24px;width:min(460px,92vw)}
+.modal-card h2{margin:0 0 14px;font-weight:600;font-size:17px;color:var(--white)}
+.modal-card label{font-size:12px;color:var(--ash);display:block;margin-bottom:6px}
+.modal-card input{width:100%;background:#0d0e11;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:var(--cream)}
+.modal-card .actions{justify-content:flex-end;margin-top:18px}
+.busy-card{display:flex;align-items:center;gap:14px;background:var(--carbon);border:1px solid var(--line);
+  border-radius:16px;padding:18px 22px;color:var(--cream)}
+.spin{width:18px;height:18px;border:2px solid var(--aether-700);border-top-color:var(--aether);border-radius:50%;
+  animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+  background:var(--graphite);border:1px solid var(--line);color:var(--cream);
+  padding:12px 18px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;
+  transition:.25s;z-index:60;max-width:88vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--ok)} .toast.error{border-color:var(--error)}
+.toast.warn{border-color:var(--warn)} .toast.info{border-color:var(--aether-500)}
+</style>
+</head>
+<body>
+<div class="dots" aria-hidden="true"></div>
+
+<!-- Aviso si se abrió como archivo (file://) en vez de un servidor local -->
+<div id="file-warning" class="file-warning" style="display:none">
+  <span class="fw-ico">⚠️</span>
+  <div class="fw-text">
+    <b>Estás abriendo esto como archivo (<code>file://</code>).</b>
+    Ábrelo desde un <b>servidor local</b> para que todo funcione bien
+    (p. ej. <code class="fw-url">http://localhost:8080/maquetador/index.html</code>).
+    <span class="fw-hint">En la carpeta del proyecto: <code>node serve-local.js</code> y abre esa URL en Chrome/Edge.</span>
+  </div>
+  <button type="button" id="file-warning-close" class="fw-close" aria-label="Cerrar">×</button>
+</div>
+
+<!-- Isotipo de marca Siemon (inline, sin assets externos) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="siemon-mark" viewBox="0 0 201.75 223.5">
+    <path d="M 76.542969 0 C 75.125 6.105469 74.410156 10.832031 74.410156 14.207031 C 74.410156 19 75.828125 23.960938 78.660156 29.078125 C 81.488281 34.195312 86.503906 40.792969 93.699219 48.84375 C 108.191406 65.402344 118.242188 77.246094 123.867188 84.378906 C 129.476562 91.507812 134.035156 98.234375 137.515625 104.558594 C 141.660156 112.078125 144.632812 119.078125 146.425781 125.558594 C 148.21875 132.039062 149.125 138.988281 149.125 146.390625 C 149.125 155.652344 147.542969 164.664062 144.386719 173.429688 C 141.21875 182.195312 136.816406 189.910156 131.140625 196.546875 C 116.101562 214.195312 93.046875 223.015625 61.984375 223.015625 L 0.191406 223.015625 L 0.191406 170.210938 L 54.957031 170.210938 C 66.621094 170.210938 74.957031 167.328125 79.96875 161.546875 C 83.996094 156.753906 86.023438 151.574219 86.023438 146.015625 C 86.023438 139.585938 83.738281 132.960938 79.152344 126.144531 C 74.566406 119.339844 63.292969 105.675781 45.308594 85.183594 C 37.023438 75.597656 30.671875 67.714844 26.253906 61.558594 C 21.839844 55.402344 18.59375 49.765625 16.527344 44.636719 C 13.046875 36.027344 11.308594 28.183594 11.308594 21.089844 C 11.308594 15.855469 12.074219 8.832031 13.59375 0 Z M 189.984375 62.496094 C 182.621094 46.871094 172.414062 33.820312 159.320312 23.363281 C 149.515625 15.519531 138.28125 9.675781 125.644531 5.804688 C 113.996094 2.246094 100.957031 0.324219 86.527344 0.0390625 L 86.023438 2.207031 C 84.476562 8.871094 84.152344 12.414062 84.152344 14.222656 C 84.152344 17.324219 85.179688 20.742188 87.179688 24.375 C 89.644531 28.832031 94.28125 34.894531 100.96875 42.378906 L 101.035156 42.441406 C 115.566406 59.039062 125.828125 71.128906 131.527344 78.363281 C 137.4375 85.871094 142.320312 93.105469 146.046875 99.859375 C 150.542969 108.015625 153.828125 115.78125 155.816406 122.960938 C 157.839844 130.261719 158.867188 138.144531 158.867188 146.390625 C 158.867188 156.730469 157.074219 166.9375 153.554688 176.730469 C 150.011719 186.558594 144.957031 195.351562 138.554688 202.859375 C 133.203125 209.132812 126.957031 214.429688 119.855469 218.742188 C 123.335938 217.898438 126.683594 216.925781 129.894531 215.820312 C 138.945312 212.769531 147.738281 208.003906 156.296875 201.523438 C 164.855469 195.042969 172.398438 187.445312 178.945312 178.730469 C 193.660156 159.015625 201.023438 136.792969 201.023438 112.066406 C 201.023438 94.648438 197.347656 78.117188 189.984375 62.496094 Z M 9.632812 52.972656 C 9.605469 52.9375 9.59375 52.882812 9.566406 52.84375 L 9.566406 52.972656 Z M 9.632812 52.972656 "></path>
+  </symbol>
+</svg>
+
+<!-- ============ PANTALLA DE CONFIGURACIÓN ============ -->
+<section id="config-screen" class="config-screen">
+  <div class="config-card">
+    <div class="brand">
+      <svg><use href="#siemon-mark"/></svg>
+      <span class="wm"><span data-brand-name>Maquetador</span> <small data-brand-suffix>· Siemon</small></span>
+    </div>
+    <h1>Edita tu página, <b>sin tocar código</b>.</h1>
+    <p class="lead">Conecta tu repositorio una sola vez. El editor cambia solo el contenido editable y publica con un commit; el resto de tu página queda intacto. La herramienta lleva la marca <b>Siemon</b>; <b>tu página conserva su propia marca</b> —el editor no la cambia.</p>
+
+    <form id="config-form">
+      <div class="field"><label>Canal de publicación</label>
+        <select id="cfg-canal">
+          <option value="motor">Motor Siemon (Centro de Mando → FTP Hostinger)</option>
+          <option value="github">GitHub (commit + auto-deploy)</option>
+        </select>
+        <div class="hint">Con el Motor Siemon no necesitas GitHub: el Centro de Mando guarda, respalda y publica directo a tu hosting.</div></div>
+      <div id="gh-fields">
+      <div class="row">
+        <div class="field"><label>Usuario/organización de GitHub</label>
+          <input id="cfg-owner" placeholder="mi-usuario" autocomplete="off"></div>
+        <div class="field"><label>Repositorio</label>
+          <input id="cfg-repo" placeholder="mi-repo" autocomplete="off"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Rama</label>
+          <input id="cfg-branch" placeholder="main" autocomplete="off"></div>
+        <div class="field"><label>Ruta del archivo a editar</label>
+          <input id="cfg-htmlPath" placeholder="siemon-web/index.html" autocomplete="off">
+          <div class="hint">Ruta dentro del repo del HTML que quieres editar.</div></div>
+      </div>
+      <div class="field"><label>Archivo de textos (i18n) — opcional</label>
+        <input id="cfg-i18nPath" placeholder="siemon-web/main.js" autocomplete="off">
+        <div class="hint">Si tus textos viven en un diccionario JS (páginas bilingües), indícalo aquí. Se edita por clave, de forma quirúrgica.</div></div>
+      </div>
+      <div class="field"><label id="cfg-token-label">Token de GitHub (fine-grained)</label>
+        <input id="cfg-token" type="password" placeholder="github_pat_…" autocomplete="off">
+        <div class="hint" id="cfg-token-hint">Permiso “Contents: Read and write”, limitado solo a este repositorio.</div></div>
+
+      <div class="notice" id="gh-notice">
+        <span class="ml">Seguridad — léelo</span>
+        El <b>token da permiso de escritura</b> sobre tu repo. Usa uno <b>fine-grained limitado a este único repositorio</b> y con permiso solo de <b>Contents</b>. Se guarda <b>solo en este navegador</b> (nunca en el código). El <b>guardado del archivo local</b> requiere <b>Chrome o Edge</b>; el commit a GitHub funciona en cualquiera.
+      </div>
+
+      <div class="local-box" id="local-box">
+        <span class="ml">Archivo local (opcional)</span>
+        <p style="margin:8px 0 0;font-size:12.5px;color:var(--mist)">Conecta la carpeta del proyecto en tu computador para que cada publicación también actualice el archivo local.</p>
+        <div class="actions" style="margin-top:12px">
+          <button type="button" id="connect-local-btn" class="btn btn-ghost">Conectar carpeta local</button>
+        </div>
+        <div id="local-status" class="local-status"></div>
+        <div id="local-warn" class="local-warn"></div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Conectar y editar <span>→</span></button>
+        <button type="button" id="back-to-editor-btn" class="btn btn-ghost">Volver al editor</button>
+        <span class="spacer"></span>
+        <button type="button" id="clear-cfg-btn" class="btn btn-ghost" style="font-size:12px">Borrar configuración</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ PANTALLA DEL EDITOR ============ -->
+<section id="editor-screen" class="app" style="display:none">
+  <header class="topbar">
+    <div class="brand">
+      <svg><use href="#siemon-mark"/></svg>
+      <span class="wm"><span data-brand-name>Maquetador</span> <small data-brand-suffix>· Siemon</small></span>
+    </div>
+    <span id="file-label" class="file-label"></span>
+    <span class="spacer"></span>
+    <div class="dirty"><span id="dirty-dot" class="dot"></span><span id="dirty-count">Sin cambios pendientes</span></div>
+    <button id="undo-btn" class="btn btn-icon btn-ghost" title="Deshacer (Ctrl/Cmd+Z)" disabled>↶</button>
+    <button id="redo-btn" class="btn btn-icon btn-ghost" title="Rehacer (Ctrl/Cmd+Y)" disabled>↷</button>
+    <button id="publish-btn" class="btn btn-primary" disabled>Publicar</button>
+    <button id="open-config-btn" class="btn btn-icon btn-ghost" title="Configuración">⚙</button>
+  </header>
+
+  <div class="editor-body">
+    <div class="preview-wrap">
+      <iframe id="preview" title="Vista previa de la página"></iframe>
+    </div>
+    <aside class="sidebar">
+      <h3>Editar</h3>
+      <div class="inspector" id="inspector">
+        <div class="insp-empty" id="insp-empty">Haz clic en un <b>texto</b>, <b>imagen</b> o <b>enlace</b> resaltado de la página para editarlo aquí.</div>
+        <div class="insp-panel" id="insp-panel" style="display:none">
+          <div class="insp-kind" id="insp-kind"></div>
+          <div id="insp-text-wrap" style="display:none">
+            <label class="insp-lbl">Texto</label>
+            <textarea id="insp-text" class="insp-input" rows="4"></textarea>
+            <button id="insp-text-ia" class="btn btn-ghost" style="width:100%;margin-top:8px">✨ Mejorar con IA (voz Siemon)</button>
+            <div id="insp-text-ops" style="display:none;margin-top:8px"></div>
+            <button id="insp-text-apply" class="btn btn-primary" style="width:100%;margin-top:8px">Aplicar cambio</button>
+          </div>
+          <div id="insp-img-wrap" style="display:none">
+            <label class="insp-lbl">Imagen</label>
+            <img id="insp-img-preview" class="insp-thumb" alt="">
+            <button id="insp-img-change" class="btn btn-ghost" style="width:100%;margin-bottom:10px">Cambiar imagen (subir · banco · URL)</button>
+            <label class="insp-lbl">Texto alternativo (alt) · accesibilidad y SEO</label>
+            <input id="insp-alt" class="insp-input" placeholder="ej. Logotipo de Siemon Digital">
+            <button id="insp-alt-apply" class="btn btn-primary" style="width:100%;margin-top:8px">Guardar alt</button>
+          </div>
+          <div id="insp-link-wrap" style="display:none">
+            <label class="insp-lbl">Enlace (URL de destino)</label>
+            <input id="insp-link" class="insp-input" placeholder="https://…">
+            <button id="insp-link-apply" class="btn btn-primary" style="width:100%;margin-top:8px">Guardar enlace</button>
+          </div>
+        </div>
+      </div>
+      <div class="hist-block">
+        <button id="hist-toggle" class="hist-head" type="button">
+          <span>Historial de versiones</span>
+          <span id="hist-caret" class="hist-caret">▸</span>
+        </button>
+        <div id="hist-body" class="hist-body" style="display:none">
+          <p class="help" style="padding:0 4px 8px">Cada publicación queda guardada. Vuelve a cualquier versión con un clic.</p>
+          <div class="history"><ul id="history-list"></ul></div>
+          <button id="history-refresh" class="btn btn-ghost" style="width:100%;margin-top:8px">Actualizar historial</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <span id="status-line">Listo.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>Clic en un texto, imagen o enlace resaltado para editarlo.</span>
+  </footer>
+</section>
+
+<!-- Modal genérico (editar enlace) -->
+<div id="modal" class="modal">
+  <div class="modal-card">
+    <h2 id="modal-title">Editar</h2>
+    <label id="modal-label">Valor</label>
+    <input id="modal-input" type="text">
+    <div class="actions">
+      <button id="modal-cancel" class="btn btn-ghost">Cancelar</button>
+      <button id="modal-ok" class="btn btn-primary">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal selector de imagen: subir · banco de fotos · pegar URL -->
+<div id="imgpick" class="modal">
+  <div class="modal-card" style="width:min(640px,94vw)">
+    <h2>Cambiar imagen</h2>
+    <div style="display:flex;gap:8px;margin:4px 0 14px;flex-wrap:wrap">
+      <button class="btn ip-tab" data-tab="subir">Subir archivo</button>
+      <button class="btn ip-tab" data-tab="banco">Banco de fotos</button>
+      <button class="btn ip-tab" data-tab="url">Pegar URL</button>
+    </div>
+    <!-- subir -->
+    <div class="ip-pane" data-pane="subir">
+      <p class="help" style="margin:0 0 10px">Sube una imagen desde tu equipo (se guarda con tu web).</p>
+      <button id="ip-file-btn" class="btn btn-primary" style="width:100%">Elegir archivo…</button>
+    </div>
+    <!-- banco -->
+    <div class="ip-pane" data-pane="banco" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="ip-q" class="insp-input" placeholder="ej. oficina moderna, equipo, tecnología" style="flex:1">
+        <button id="ip-search" class="btn btn-primary">Buscar</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+        <span class="help" style="text-transform:uppercase;letter-spacing:.08em">Orient.</span>
+        <button class="btn ip-orient" data-o="landscape" style="padding:4px 9px;font-size:11px">Horizontal</button>
+        <button class="btn ip-orient" data-o="portrait" style="padding:4px 9px;font-size:11px">Vertical</button>
+        <button class="btn ip-orient" data-o="square" style="padding:4px 9px;font-size:11px">Cuadrado</button>
+      </div>
+      <div id="ip-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;max-height:320px;overflow:auto"></div>
+      <p class="help" style="margin:10px 0 0">¿Quieres filtros, logo o texto? Créala en <b>Contenido y estudio → Crear contenido</b>, copia su URL y pégala en "Pegar URL".</p>
+    </div>
+    <!-- url -->
+    <div class="ip-pane" data-pane="url" style="display:none">
+      <p class="help" style="margin:0 0 10px">Pega la URL de una imagen (por ejemplo una que editaste con filtros/logo/texto en Contenido).</p>
+      <input id="ip-url" class="insp-input" placeholder="https://…/imagen.png">
+      <button id="ip-url-ok" class="btn btn-primary" style="width:100%;margin-top:10px">Usar esta imagen</button>
+    </div>
+    <div class="actions" style="margin-top:16px">
+      <button id="ip-cancel" class="btn btn-ghost">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay ocupado -->
+<div id="busy" class="busy">
+  <div class="busy-card"><span class="spin"></span><span id="busy-msg">Trabajando…</span></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- ====== SCRIPTS (inyectados por build.js) ====== -->
+<script>
+/* ===== engine/storage.js ===== */
+/* ============================================================================
+   engine/storage.js — Adaptador de almacenamiento (capa del MOTOR)
+   ----------------------------------------------------------------------------
+   Aísla DÓNDE se guarda la configuración para que el mismo motor funcione en
+   distintos empaques:
+     - HTML autocontenido / web  → localStorage  (este default)
+     - Extensión de Chrome/Edge  → se sustituye por un adaptador chrome.storage
+   El resto del motor depende SOLO de esta interfaz: get(key) / set(key,val) /
+   remove(key). Cambiar de empaque = cambiar este adaptador, nada más.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function localStorageAdapter() {
+    return {
+      get: function (key) {
+        try { return global.localStorage.getItem(key); } catch (e) { return null; }
+      },
+      set: function (key, val) {
+        try { global.localStorage.setItem(key, val); } catch (e) {}
+      },
+      remove: function (key) {
+        try { global.localStorage.removeItem(key); } catch (e) {}
+      },
+      // Etiqueta del backend (útil para diagnósticos / UI honesta)
+      backend: 'localStorage'
+    };
+  }
+
+  // El motor usa global.MaqStorage. Si un empaque (p. ej. una extensión) lo
+  // define antes de cargar el motor, se respeta; si no, usa localStorage.
+  var Storage = global.MaqStorage || localStorageAdapter();
+
+  var API = { Storage: Storage, localStorageAdapter: localStorageAdapter };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.MaqStorage = Storage;
+  global.StorageAdapter = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/surgical.js ===== */
+/* ============================================================================
+   surgical.js — Motor de guardado QUIRÚRGICO del Maquetador Siemon
+   ----------------------------------------------------------------------------
+   PRINCIPIO NO NEGOCIABLE:
+   Nunca se reserializa el DOM. La cadena de texto original del archivo es la
+   única fuente de verdad. Cada edición es un EMPALME puntual sobre esa cadena,
+   anclado en un marcador único. Todo lo no marcado queda byte por byte intacto:
+   estilos, <script>, animaciones, i18n.
+
+   Cada operación:
+     1) localiza la región exacta a cambiar (con validación de unicidad),
+     2) reemplaza SOLO esa región,
+     3) deja todo lo demás idéntico.
+
+   Si algo no se puede localizar con certeza (0 o >1 coincidencias), la operación
+   ARROJA un error y NO modifica nada. Preferimos no guardar a guardar mal.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  /* --------------------------------------------------------------------------
+     Utilidades de bajo nivel: escaneo de HTML respetando comillas y comentarios
+     -------------------------------------------------------------------------- */
+
+  // Escapa un texto para usarlo dentro de un RegExp literal.
+  function reEsc(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Cuenta coincidencias de un atributo-marcador exacto, p.ej. data-edit="hero".
+  // Devuelve un array de índices (posición del inicio de cada coincidencia).
+  function findAttrOccurrences(source, attr, id) {
+    // Acepta comillas dobles o simples: attr="id" | attr='id'
+    var re = new RegExp(reEsc(attr) + '\\s*=\\s*(["\'])' + reEsc(id) + '\\1', 'g');
+    var out = [], m;
+    while ((m = re.exec(source)) !== null) {
+      out.push(m.index);
+      if (m.index === re.lastIndex) re.lastIndex++; // evita bucle en match vacío
+    }
+    return out;
+  }
+
+  // Dado el índice de un atributo dentro de una etiqueta de apertura, retrocede
+  // hasta el '<' que abre la etiqueta y devuelve { tagStart, tagName }.
+  function findTagStart(source, attrIndex) {
+    var i = attrIndex;
+    while (i >= 0 && source[i] !== '<') i--;
+    if (i < 0) throw new Error('No se encontró el inicio de la etiqueta (<).');
+    // Leer nombre de etiqueta tras '<'
+    var m = /^<\s*([a-zA-Z][\w:-]*)/.exec(source.slice(i, i + 64));
+    if (!m) throw new Error('Etiqueta inválida en posición ' + i + '.');
+    return { tagStart: i, tagName: m[1] };
+  }
+
+  // Desde el inicio de una etiqueta de apertura, encuentra el '>' que la cierra,
+  // saltando comillas. Devuelve el índice del '>' y si es self-closing (.../>).
+  function findOpenTagEnd(source, tagStart) {
+    var i = tagStart + 1;
+    var quote = null;
+    var len = source.length;
+    while (i < len) {
+      var c = source[i];
+      if (quote) {
+        if (c === quote) quote = null;
+      } else if (c === '"' || c === "'") {
+        quote = c;
+      } else if (c === '>') {
+        var selfClose = source[i - 1] === '/';
+        return { gtIndex: i, selfClose: selfClose };
+      }
+      i++;
+    }
+    throw new Error('No se cerró la etiqueta de apertura (falta >).');
+  }
+
+  // Desde innerStart, encuentra la etiqueta de cierre </tagName> que corresponde,
+  // contando anidamiento del MISMO nombre de etiqueta y saltando comentarios y
+  // contenido entre comillas de atributos. Devuelve índice donde empieza '</tag'.
+  function findMatchingClose(source, innerStart, tagName) {
+    var depth = 0;
+    var i = innerStart;
+    var len = source.length;
+    var lname = tagName.toLowerCase();
+    while (i < len) {
+      // Saltar comentarios HTML
+      if (source.startsWith('<!--', i)) {
+        var end = source.indexOf('-->', i + 4);
+        i = end === -1 ? len : end + 3;
+        continue;
+      }
+      if (source[i] === '<') {
+        // ¿cierre </tag ...>?
+        var close = /^<\s*\/\s*([a-zA-Z][\w:-]*)\s*>/.exec(source.slice(i, i + 64));
+        if (close && close[1].toLowerCase() === lname) {
+          if (depth === 0) return i;
+          depth--;
+          i += close[0].length;
+          continue;
+        }
+        // ¿apertura <tag ...> del mismo nombre?
+        var open = /^<\s*([a-zA-Z][\w:-]*)/.exec(source.slice(i, i + 64));
+        if (open && open[1].toLowerCase() === lname) {
+          // Determinar si es self-closing
+          var e = findOpenTagEnd(source, i);
+          if (!e.selfClose) depth++;
+          i = e.gtIndex + 1;
+          continue;
+        }
+      }
+      i++;
+    }
+    throw new Error('No se encontró la etiqueta de cierre </' + tagName + '>.');
+  }
+
+  // Localiza la región interna (innerHTML) de un elemento marcado.
+  // Devuelve { innerStart, innerEnd, tagName }.
+  function locateInner(source, attr, id) {
+    var occ = findAttrOccurrences(source, attr, id);
+    if (occ.length === 0) throw new Error('Marcador no encontrado: ' + attr + '="' + id + '".');
+    if (occ.length > 1) throw new Error('Marcador duplicado (' + occ.length + '): ' + attr + '="' + id + '". Debe ser único.');
+    var ts = findTagStart(source, occ[0]);
+    var ote = findOpenTagEnd(source, ts.tagStart);
+    if (ote.selfClose) throw new Error('El elemento ' + attr + '="' + id + '" es self-closing; no tiene contenido editable.');
+    var innerStart = ote.gtIndex + 1;
+    var innerEnd = findMatchingClose(source, innerStart, ts.tagName);
+    return { innerStart: innerStart, innerEnd: innerEnd, tagName: ts.tagName };
+  }
+
+  // Localiza el valor de un atributo (p.ej. src/href) DENTRO de la etiqueta de
+  // apertura que contiene el marcador. Devuelve { valStart, valEnd, quote }.
+  function locateAttrValue(source, markerAttr, id, targetAttr) {
+    var occ = findAttrOccurrences(source, markerAttr, id);
+    if (occ.length === 0) throw new Error('Marcador no encontrado: ' + markerAttr + '="' + id + '".');
+    if (occ.length > 1) throw new Error('Marcador duplicado: ' + markerAttr + '="' + id + '".');
+    var ts = findTagStart(source, occ[0]);
+    var ote = findOpenTagEnd(source, ts.tagStart);
+    var tag = source.slice(ts.tagStart, ote.gtIndex + 1);
+    // Buscar targetAttr="..." dentro de la etiqueta
+    var re = new RegExp('(\\b' + reEsc(targetAttr) + '\\s*=\\s*)(["\'])([\\s\\S]*?)\\2');
+    var m = re.exec(tag);
+    if (!m) throw new Error('La etiqueta ' + markerAttr + '="' + id + '" no tiene atributo ' + targetAttr + '.');
+    var quote = m[2];
+    var valStart = ts.tagStart + m.index + m[1].length + 1; // tras la comilla de apertura
+    var valEnd = valStart + m[3].length;
+    return { valStart: valStart, valEnd: valEnd, quote: quote };
+  }
+
+  /* --------------------------------------------------------------------------
+     Operaciones públicas sobre HTML
+     -------------------------------------------------------------------------- */
+
+  // Reemplaza el contenido interno de un elemento con marcador `attr="id"`.
+  // attr puede ser 'data-edit' (o cualquier marcador de texto definido).
+  function replaceInner(source, attr, id, newInnerHTML) {
+    var loc = locateInner(source, attr, id);
+    return source.slice(0, loc.innerStart) + newInnerHTML + source.slice(loc.innerEnd);
+  }
+
+  function replaceImageSrc(source, id, newSrc) {
+    var loc = locateAttrValue(source, 'data-edit-img', id, 'src');
+    return source.slice(0, loc.valStart) + escAttr(newSrc, loc.quote) + source.slice(loc.valEnd);
+  }
+
+  function replaceLinkHref(source, id, newHref) {
+    var loc = locateAttrValue(source, 'data-edit-link', id, 'href');
+    return source.slice(0, loc.valStart) + escAttr(newHref, loc.quote) + source.slice(loc.valEnd);
+  }
+
+  // Escapa un valor de atributo para la comilla usada.
+  function escAttr(value, quote) {
+    var v = String(value);
+    if (quote === '"') return v.replace(/"/g, '&quot;');
+    return v.replace(/'/g, '&#39;');
+  }
+
+  /* --------------------------------------------------------------------------
+     Operación sobre el diccionario i18n dentro de un archivo JS
+     ----------------------------------------------------------------------------
+     El diccionario tiene forma:
+        var I18N = { es: { "clave": "valor", ... }, en: { ... } };
+     Reemplazamos SOLO el literal de string de una clave dentro del bloque del
+     idioma indicado, preservando el estilo de comillas original.
+     -------------------------------------------------------------------------- */
+
+  // Encuentra el rango [start,end) del cuerpo del bloque de idioma (lang: { ... }).
+  // Ancla en `lang:` seguido (con espacios) de `{`, precedido de inicio/coma/llave.
+  function locateLangBlock(jsSource, lang) {
+    var re = new RegExp('(^|[\\s{,])' + reEsc(lang) + '\\s*:\\s*{', 'g');
+    var m = re.exec(jsSource);
+    if (!m) throw new Error('No se encontró el bloque de idioma "' + lang + '" en el diccionario.');
+    // Verificar que no haya un segundo bloque del mismo idioma (ambigüedad)
+    var second = re.exec(jsSource);
+    if (second) throw new Error('Bloque de idioma "' + lang + '" duplicado; no se puede editar con certeza.');
+    var braceOpen = jsSource.indexOf('{', m.index + m[0].length - 1);
+    // m[0] ya termina en '{'; localizar su posición exacta:
+    braceOpen = m.index + m[0].length - 1;
+    var bodyStart = braceOpen + 1;
+    var bodyEnd = matchBrace(jsSource, braceOpen);
+    return { bodyStart: bodyStart, bodyEnd: bodyEnd };
+  }
+
+  // Dado el índice de un '{', devuelve el índice del '}' que lo cierra,
+  // saltando contenido de strings ('...', "...", `...`) y escapes.
+  function matchBrace(src, openIndex) {
+    var depth = 0, i = openIndex, len = src.length, quote = null;
+    while (i < len) {
+      var c = src[i];
+      if (quote) {
+        if (c === '\\') { i += 2; continue; }
+        if (c === quote) quote = null;
+      } else if (c === '"' || c === "'" || c === '`') {
+        quote = c;
+      } else if (c === '{') {
+        depth++;
+      } else if (c === '}') {
+        depth--;
+        if (depth === 0) return i;
+      }
+      i++;
+    }
+    throw new Error('No se cerró la llave del bloque de idioma.');
+  }
+
+  // Localiza el rango [valInnerStart, valInnerEnd) del CONTENIDO del string de una
+  // clave i18n dentro del bloque de idioma, en coordenadas absolutas del archivo.
+  // Devuelve { valStart, valEnd, quote }.
+  function locateI18nValue(jsSource, lang, key) {
+    var block = locateLangBlock(jsSource, lang);
+    var body = jsSource.slice(block.bodyStart, block.bodyEnd);
+    var keyRe = new RegExp('(["\'])' + reEsc(key) + '\\1\\s*:\\s*', 'g');
+    var km = keyRe.exec(body);
+    if (!km) throw new Error('Clave i18n no encontrada en "' + lang + '": ' + key + '.');
+    var km2 = keyRe.exec(body);
+    if (km2) throw new Error('Clave i18n duplicada en "' + lang + '": ' + key + '.');
+    var valOpenIdx = km.index + km[0].length; // comilla de apertura del valor (rel. a body)
+    var quote = body[valOpenIdx];
+    if (quote !== '"' && quote !== "'" && quote !== '`') {
+      throw new Error('El valor de "' + key + '" no es un string literal directo (no editable de forma segura).');
+    }
+    var j = valOpenIdx + 1;
+    while (j < body.length) {
+      var ch = body[j];
+      if (ch === '\\') { j += 2; continue; }
+      if (ch === quote) break;
+      j++;
+    }
+    if (j >= body.length) throw new Error('String del valor de "' + key + '" sin cerrar.');
+    return {
+      valStart: block.bodyStart + valOpenIdx + 1,
+      valEnd: block.bodyStart + j,
+      quote: quote
+    };
+  }
+
+  // Reemplaza el valor de `key` dentro del bloque `lang`. Devuelve nuevo JS.
+  function replaceI18nValue(jsSource, lang, key, newValue) {
+    var loc = locateI18nValue(jsSource, lang, key);
+    var newLiteral = escJsString(newValue, loc.quote);
+    return jsSource.slice(0, loc.valStart) + newLiteral + jsSource.slice(loc.valEnd);
+  }
+
+  /* Aplica varias regiones [{start,end,newText}] sobre `source` SIN desfase de
+     offsets: ordena por inicio descendente y empalma. Valida que no se solapen.
+     Devuelve { result, regions } donde regions trae newLength para verificación. */
+  function spliceRegions(source, regions) {
+    var rs = regions.slice().sort(function (a, b) { return a.start - b.start; });
+    for (var k = 1; k < rs.length; k++) {
+      if (rs[k].start < rs[k - 1].end) throw new Error('Regiones de edición solapadas; no se puede guardar con certeza.');
+    }
+    var result = source;
+    // Aplicar de derecha a izquierda para no mover offsets de las anteriores.
+    for (var i = rs.length - 1; i >= 0; i--) {
+      result = result.slice(0, rs[i].start) + rs[i].newText + result.slice(rs[i].end);
+    }
+    var verifyRegions = rs.map(function (r) {
+      return { start: r.start, end: r.end, newLength: r.newText.length };
+    });
+    return { result: result, regions: verifyRegions };
+  }
+
+  // Escapa un valor para incrustarlo entre comillas `quote` en JS.
+  // Preserva el HTML interno (<b>, <span>) tal cual; solo escapa la comilla
+  // contenedora y la barra invertida, y normaliza saltos de línea.
+  function escJsString(value, quote) {
+    var v = String(value)
+      .replace(/\\/g, '\\\\')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\n/g, '\\n');
+    if (quote === '"') v = v.replace(/"/g, '\\"');
+    else if (quote === "'") v = v.replace(/'/g, "\\'");
+    else v = v.replace(/`/g, '\\`');
+    return v;
+  }
+
+  /* --------------------------------------------------------------------------
+     Validación post-edición: confirma que SOLO cambiaron las regiones previstas
+     ----------------------------------------------------------------------------
+     Dada la cadena original, la modificada y la lista de regiones [start,end)
+     (en coordenadas del ORIGINAL) que se permitía cambiar, verifica que todo lo
+     que está FUERA de esas regiones quedó byte por byte idéntico.
+     -------------------------------------------------------------------------- */
+  function verifyOnlyRegionsChanged(original, modified, regions) {
+    // Ordenar regiones por inicio y validar que no se solapan.
+    var rs = regions.slice().sort(function (a, b) { return a.start - b.start; });
+    for (var k = 1; k < rs.length; k++) {
+      if (rs[k].start < rs[k - 1].end) throw new Error('Regiones de edición solapadas.');
+    }
+    var oi = 0, mi = 0;
+    for (var r = 0; r < rs.length; r++) {
+      var reg = rs[r];
+      // El segmento original [oi, reg.start) debe ser idéntico al de modified.
+      var origSeg = original.slice(oi, reg.start);
+      var modSeg = modified.slice(mi, mi + origSeg.length);
+      if (origSeg !== modSeg) {
+        return { ok: false, at: oi, detail: 'Cambió contenido fuera de una región editable.' };
+      }
+      mi += origSeg.length;
+      // Saltar la región editada en ambos lados.
+      oi = reg.end;
+      mi += reg.newLength; // longitud del texto nuevo insertado
+    }
+    // Cola final tras la última región.
+    var tailOrig = original.slice(oi);
+    var tailMod = modified.slice(mi);
+    if (tailOrig !== tailMod) {
+      return { ok: false, at: oi, detail: 'Cambió contenido tras la última región editable.' };
+    }
+    return { ok: true };
+  }
+
+  // Verificación de integridad estructural: el número de bloques <script> y
+  // <style> y su contenido textual deben ser idénticos entre original y modificado
+  // (a menos que el archivo editado SEA el JS de textos, en cuyo caso se omite).
+  function verifyScriptsAndStylesIntact(original, modified) {
+    function blocks(src, tag) {
+      var re = new RegExp('<' + tag + '\\b[\\s\\S]*?<\\/' + tag + '>', 'gi');
+      return src.match(re) || [];
+    }
+    var checks = ['script', 'style'];
+    for (var i = 0; i < checks.length; i++) {
+      var a = blocks(original, checks[i]);
+      var b = blocks(modified, checks[i]);
+      if (a.length !== b.length) {
+        return { ok: false, detail: 'Cambió el número de bloques <' + checks[i] + '>.' };
+      }
+      for (var j = 0; j < a.length; j++) {
+        if (a[j] !== b[j]) {
+          return { ok: false, detail: 'Se modificó un bloque <' + checks[i] + '> (debe quedar intacto).' };
+        }
+      }
+    }
+    return { ok: true };
+  }
+
+  var API = {
+    // localización (para construir regiones de validación)
+    locateInner: locateInner,
+    locateAttrValue: locateAttrValue,
+    locateLangBlock: locateLangBlock,
+    locateI18nValue: locateI18nValue,
+    // operaciones HTML
+    replaceInner: replaceInner,
+    replaceImageSrc: replaceImageSrc,
+    replaceLinkHref: replaceLinkHref,
+    // operación i18n
+    replaceI18nValue: replaceI18nValue,
+    // empalme multi-región con verificación
+    spliceRegions: spliceRegions,
+    escAttr: escAttr,
+    escJsString: escJsString,
+    // validación
+    verifyOnlyRegionsChanged: verifyOnlyRegionsChanged,
+    verifyScriptsAndStylesIntact: verifyScriptsAndStylesIntact,
+    // helpers expuestos por si se necesitan
+    findAttrOccurrences: findAttrOccurrences
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.Surgical = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/saver.js ===== */
+/* ============================================================================
+   saver.js — Compila los cambios pendientes en ediciones quirúrgicas por archivo
+   ----------------------------------------------------------------------------
+   Toma el texto ORIGINAL de cada archivo (HTML y, si aplica, el JS de i18n) y la
+   lista de cambios del editor, y produce el texto nuevo de cada archivo aplicando
+   SOLO las regiones marcadas, con verificación byte-a-byte de que nada más cambió.
+
+   Lógica pura (sin DOM ni red) → testeable en Node.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  var S = (typeof require === 'function') ? require('./surgical.js') : global.Surgical;
+
+  // changes: array de objetos del editor:
+  //   { kind:'i18n', file:'i18n', lang, key, newValue }
+  //   { kind:'text', file:'html', key, newValue }
+  //   { kind:'img',  file:'html', id, newValue }
+  //   { kind:'link', file:'html', id, newValue }
+  // sources: { html: string, i18n: string|null }
+  // Devuelve { html:{changed,text}, i18n:{changed,text}, summary:[...] }
+  function compile(sources, changes) {
+    var htmlRegions = [];
+    var i18nRegions = [];
+    var summary = [];
+
+    changes.forEach(function (c) {
+      if (c.file === 'html') {
+        if (sources.html == null) throw new Error('No hay HTML cargado para aplicar el cambio.');
+        if (c.kind === 'text') {
+          var li = S.locateInner(sources.html, 'data-edit', c.key);
+          htmlRegions.push({ start: li.innerStart, end: li.innerEnd, newText: c.newValue });
+          summary.push('Texto «' + c.key + '»');
+        } else if (c.kind === 'img') {
+          var la = S.locateAttrValue(sources.html, 'data-edit-img', c.id, 'src');
+          htmlRegions.push({ start: la.valStart, end: la.valEnd, newText: S.escAttr(c.newValue, la.quote) });
+          summary.push('Imagen «' + c.id + '»');
+        } else if (c.kind === 'alt') {
+          try {
+            var laa = S.locateAttrValue(sources.html, 'data-edit-img', c.id, 'alt');
+            htmlRegions.push({ start: laa.valStart, end: laa.valEnd, newText: S.escAttr(c.newValue, laa.quote) });
+          } catch (e) {
+            // la imagen no tenia alt: insertarlo junto al marcador (region no vacia = verificable)
+            var marca = 'data-edit-img="' + c.id + '"';
+            var idx = sources.html.indexOf(marca);
+            if (idx < 0) { marca = "data-edit-img='" + c.id + "'"; idx = sources.html.indexOf(marca); }
+            if (idx < 0) throw new Error('Marcador no encontrado: data-edit-img="' + c.id + '".');
+            if (sources.html.indexOf(marca, idx + 1) >= 0) throw new Error('Marcador duplicado: ' + c.id);
+            htmlRegions.push({ start: idx, end: idx + marca.length, newText: marca + ' alt="' + S.escAttr(c.newValue, '"') + '"' });
+          }
+          summary.push('Alt «' + c.id + '»');
+        } else if (c.kind === 'link') {
+          var ll = S.locateAttrValue(sources.html, 'data-edit-link', c.id, 'href');
+          htmlRegions.push({ start: ll.valStart, end: ll.valEnd, newText: S.escAttr(c.newValue, ll.quote) });
+          summary.push('Enlace «' + c.id + '»');
+        } else {
+          throw new Error('Tipo de cambio HTML no soportado: ' + c.kind);
+        }
+      } else if (c.file === 'i18n') {
+        if (sources.i18n == null) throw new Error('No hay archivo de textos (i18n) cargado.');
+        var lv = S.locateI18nValue(sources.i18n, c.lang, c.key);
+        i18nRegions.push({ start: lv.valStart, end: lv.valEnd, newText: S.escJsString(c.newValue, lv.quote) });
+        summary.push('Texto i18n «' + c.key + '» (' + c.lang + ')');
+      } else {
+        throw new Error('Archivo destino desconocido: ' + c.file);
+      }
+    });
+
+    var out = { html: { changed: false, text: sources.html }, i18n: { changed: false, text: sources.i18n }, summary: summary };
+
+    if (htmlRegions.length) {
+      var hres = S.spliceRegions(sources.html, htmlRegions);
+      var hver = S.verifyOnlyRegionsChanged(sources.html, hres.result, hres.regions);
+      if (!hver.ok) throw new Error('Verificación del HTML falló: ' + hver.detail);
+      var hssi = S.verifyScriptsAndStylesIntact(sources.html, hres.result);
+      if (!hssi.ok) throw new Error('Verificación del HTML falló: ' + hssi.detail);
+      out.html = { changed: true, text: hres.result };
+    }
+
+    if (i18nRegions.length) {
+      var jres = S.spliceRegions(sources.i18n, i18nRegions);
+      var jver = S.verifyOnlyRegionsChanged(sources.i18n, jres.result, jres.regions);
+      if (!jver.ok) throw new Error('Verificación del archivo de textos falló: ' + jver.detail);
+      out.i18n = { changed: true, text: jres.result };
+    }
+
+    return out;
+  }
+
+  var API = { compile: compile };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.Saver = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/github.js ===== */
+/* ============================================================================
+   github.js — Cliente de la API de GitHub para el Maquetador Siemon
+   ----------------------------------------------------------------------------
+   - Lee el archivo a editar (contenido + sha).
+   - Hace commit ATÓMICO de uno o varios archivos (HTML + main.js + imágenes)
+     usando la Git Data API (blobs → tree → commit → update ref).
+   - Lista el historial de commits del archivo.
+   - Restaura una versión: recupera los archivos en un commit dado y los vuelve
+     a publicar como un commit nuevo (no reescribe la historia).
+   El token se pasa en cada llamada; nunca se guarda aquí.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function GitHub(cfg) {
+    // cfg: { owner, repo, branch, token }
+    this.owner = cfg.owner;
+    this.repo = cfg.repo;
+    this.branch = cfg.branch || 'main';
+    this.token = cfg.token;
+    this.base = 'https://api.github.com';
+  }
+
+  GitHub.prototype._headers = function () {
+    return {
+      'Authorization': 'Bearer ' + this.token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+  };
+
+  GitHub.prototype._req = async function (method, url, body) {
+    var res = await fetch(this.base + url, {
+      method: method,
+      headers: Object.assign(this._headers(), body ? { 'Content-Type': 'application/json' } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) {
+      var txt = await res.text();
+      var msg = txt;
+      try { msg = JSON.parse(txt).message || txt; } catch (e) {}
+      var err = new Error('GitHub ' + res.status + ': ' + msg);
+      err.status = res.status;
+      throw err;
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  };
+
+  function b64ToUtf8(b64) {
+    var bin = atob(b64.replace(/\n/g, ''));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+  function utf8ToB64(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  // Verifica credenciales y existencia del repo. Devuelve info útil.
+  GitHub.prototype.checkAccess = async function () {
+    var repo = await this._req('GET', '/repos/' + this.owner + '/' + this.repo);
+    return { fullName: repo.full_name, defaultBranch: repo.default_branch, private: repo.private };
+  };
+
+  // Lee un archivo de texto: { text, sha }.
+  GitHub.prototype.getFile = async function (path, ref) {
+    var r = ref || this.branch;
+    var data = await this._req('GET', '/repos/' + this.owner + '/' + this.repo +
+      '/contents/' + encodePath(path) + '?ref=' + encodeURIComponent(r));
+    return { text: b64ToUtf8(data.content), sha: data.sha };
+  };
+
+  // Lee un archivo CRUDO (binario o texto) por el canal autenticado, como
+  // ArrayBuffer. Sirve para cargar CSS/imágenes/fuentes en la vista previa de
+  // repos privados sin depender de raw.githubusercontent. Usa el media type
+  // "raw" (soporta archivos grandes; evita el límite base64 de la API contents).
+  GitHub.prototype.getFileRaw = async function (path, ref) {
+    var r = ref || this.branch;
+    var url = this.base + '/repos/' + this.owner + '/' + this.repo +
+      '/contents/' + encodePath(path) + '?ref=' + encodeURIComponent(r);
+    var res = await fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + this.token,
+        'Accept': 'application/vnd.github.raw',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    if (!res.ok) {
+      var err = new Error('GitHub ' + res.status + ' al leer ' + path);
+      err.status = res.status;
+      throw err;
+    }
+    return await res.arrayBuffer();
+  };
+
+  // Lista commits que tocaron `path`. Devuelve [{sha, message, date, author}].
+  GitHub.prototype.listCommits = async function (path, perPage) {
+    var data = await this._req('GET', '/repos/' + this.owner + '/' + this.repo +
+      '/commits?path=' + encodeURIComponent(path) + '&sha=' + encodeURIComponent(this.branch) +
+      '&per_page=' + (perPage || 20));
+    return data.map(function (c) {
+      return {
+        sha: c.sha,
+        message: c.commit.message,
+        date: c.commit.author ? c.commit.author.date : c.commit.committer.date,
+        author: c.commit.author ? c.commit.author.name : ''
+      };
+    });
+  };
+
+  /* Commit atómico de varios archivos.
+     files: [{ path, content, encoding }] donde encoding es 'utf-8' (texto) o
+     'base64' (binario, p.ej. imágenes). Devuelve el sha del commit nuevo. */
+  GitHub.prototype.commitFiles = async function (files, message) {
+    var R = '/repos/' + this.owner + '/' + this.repo;
+    // 1) ref actual de la rama
+    var ref = await this._req('GET', R + '/git/ref/heads/' + encodeURIComponent(this.branch));
+    var latestSha = ref.object.sha;
+    // 2) árbol base
+    var latestCommit = await this._req('GET', R + '/git/commits/' + latestSha);
+    var baseTree = latestCommit.tree.sha;
+    // 3) crear blobs
+    var treeItems = [];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      var blob = await this._req('POST', R + '/git/blobs', {
+        content: f.encoding === 'base64' ? f.content : f.content,
+        encoding: f.encoding === 'base64' ? 'base64' : 'utf-8'
+      });
+      treeItems.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
+    }
+    // 4) crear árbol
+    var tree = await this._req('POST', R + '/git/trees', { base_tree: baseTree, tree: treeItems });
+    // 5) crear commit
+    var commit = await this._req('POST', R + '/git/commits', {
+      message: message, tree: tree.sha, parents: [latestSha]
+    });
+    // 6) actualizar ref
+    await this._req('PATCH', R + '/git/refs/heads/' + encodeURIComponent(this.branch), {
+      sha: commit.sha, force: false
+    });
+    return commit.sha;
+  };
+
+  /* Restaura `paths` al estado que tenían en el commit `sha`, creando un commit
+     nuevo. Los archivos que no existían en ese commit se omiten. */
+  GitHub.prototype.restoreVersion = async function (paths, sha, message) {
+    var files = [];
+    for (var i = 0; i < paths.length; i++) {
+      try {
+        var data = await this._req('GET', '/repos/' + this.owner + '/' + this.repo +
+          '/contents/' + encodePath(paths[i]) + '?ref=' + encodeURIComponent(sha));
+        // Reusar el contenido base64 tal cual (sirve para texto y binario).
+        files.push({ path: paths[i], content: data.content.replace(/\n/g, ''), encoding: 'base64', _text: null });
+      } catch (e) {
+        if (e.status === 404) continue; // no existía en ese commit
+        throw e;
+      }
+    }
+    if (files.length === 0) throw new Error('Ningún archivo gestionado existía en ese commit.');
+    var newSha = await this.commitFiles(files, message);
+    // Devolver también el texto restaurado del primer archivo (para refrescar local/preview)
+    var restored = {};
+    for (var j = 0; j < files.length; j++) restored[files[j].path] = b64ToUtf8(files[j].content);
+    return { sha: newSha, restored: restored };
+  };
+
+  function encodePath(p) {
+    return p.split('/').map(encodeURIComponent).join('/');
+  }
+
+  var API = { GitHub: GitHub, utf8ToB64: utf8ToB64, b64ToUtf8: b64ToUtf8 };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.GitHubClient = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/motor.js ===== */
+/* ============================================================================
+   engine/motor.js — Canal MOTOR SIEMON (capa del MOTOR)
+   ----------------------------------------------------------------------------
+   Mismo contrato público que engine/github.js (getFile, getFileRaw, commitFiles,
+   listCommits, restoreVersion, checkAccess) pero contra el motor del Centro de
+   Mando (prospeccion.siemondigital.com): el motor guarda la copia canónica en
+   /data/webfiles, respalda cada versión y publica a Hostinger por FTP.
+   Los assets de la preview se resuelven desde la web PUBLICADA (sitio público).
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function Motor(cfg) {
+    this.base = (cfg.motorUrl || 'https://prospeccion.siemondigital.com').replace(/\/$/, '');
+    this.sitio = (cfg.sitioUrl || 'https://siemondigital.com').replace(/\/$/, '');
+    this.token = cfg.token || '';
+  }
+
+  Motor.prototype._h = function () {
+    return { 'content-type': 'application/json', Authorization: 'Bearer ' + this.token };
+  };
+
+  Motor.prototype._err = async function (r) {
+    var msg = 'HTTP ' + r.status;
+    try { var j = await r.json(); if (j && j.error) msg = j.error; } catch (e) {}
+    var err = new Error(msg);
+    err.status = r.status;
+    return err;
+  };
+
+  Motor.prototype.checkAccess = async function () {
+    var r = await fetch(this.base + '/web/estado', { headers: this._h() });
+    if (!r.ok) throw await this._err(r);
+    var j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'motor no disponible');
+    return { repoName: 'Motor Siemon (publica por FTP a Hostinger)', ftp: j.ftp_ok };
+  };
+
+  // Texto de un archivo canónico. "sha" = hash del contenido (candado optimista).
+  Motor.prototype.getFile = async function (path) {
+    var r = await fetch(this.base + '/web/leer?ruta=' + encodeURIComponent(path), { headers: this._h() });
+    if (!r.ok) throw await this._err(r);
+    var j = await r.json();
+    if (!j.ok) { var e = new Error(j.error || 'no pude leer ' + path); e.status = j.error === 'no existe' ? 404 : 500; throw e; }
+    return { text: j.texto, sha: j.hash };
+  };
+
+  // Asset binario para la PREVIEW: sale de la web publicada, pero via el proxy del
+  // motor (el hosting no envia CORS; el proxy si, y solo permite destinos publicos).
+  Motor.prototype.getFileRaw = async function (path) {
+    var clean = path.replace(/^\//, '');
+    // cache-buster: el editor debe ver SIEMPRE el asset recien publicado (styles.css, imagenes),
+    // nunca una copia vieja del navegador. Sin esto, tras publicar se veian estilos desactualizados.
+    var destino = this.sitio + '/' + clean + (clean.indexOf('?') >= 0 ? '&' : '?') + '_cb=' + Date.now();
+    var r = await fetch(this.base + '/gc/proxy?k=' + encodeURIComponent(this.token) +
+                        '&url=' + encodeURIComponent(destino), { cache: 'no-store' });
+    if (!r.ok) { var e = new Error('asset ' + r.status); e.status = r.status; throw e; }
+    return await r.arrayBuffer();
+  };
+
+  // "Commit" = escribir canónicos + publicar por FTP (con respaldo automático).
+  Motor.prototype.commitFiles = async function (files, message) {
+    var archivos = files.map(function (f) {
+      return f.encoding === 'base64'
+        ? { ruta: f.path, base64: f.content }
+        : { ruta: f.path, contenido: f.content };
+    });
+    var r = await fetch(this.base + '/web/escribir', {
+      method: 'POST', headers: this._h(),
+      body: JSON.stringify({ archivos: archivos, mensaje: message || '', publicar: true })
+    });
+    if (!r.ok) throw await this._err(r);
+    var j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'no se pudo publicar');
+    return j.version || 'publicado';
+  };
+
+  // Historial: los respaldos que crea cada publicación.
+  Motor.prototype.listCommits = async function (_path, _n) {
+    var r = await fetch(this.base + '/web/versiones', { headers: this._h() });
+    if (!r.ok) throw await this._err(r);
+    var j = await r.json();
+    return (j.versiones || []).map(function (v) {
+      // "2026-07-16_0113(-edit)" -> fecha ISO aproximada
+      var m = String(v.version).match(/(\d{4}-\d{2}-\d{2})_(\d{2})(\d{2})/);
+      var iso = m ? (m[1] + 'T' + m[2] + ':' + m[3] + ':00') : new Date().toISOString();
+      return {
+        sha: v.version,
+        message: (v.rutas || []).length + ' archivo(s): ' + (v.rutas || []).join(', ').slice(0, 80),
+        date: iso,
+        rutas: v.rutas || []
+      };
+    });
+  };
+
+  // Restaurar: re-publica el respaldo de cada archivo presente en esa versión.
+  Motor.prototype.restoreVersion = async function (paths, version, _msg) {
+    var restored = {};
+    for (var i = 0; i < paths.length; i++) {
+      var p = paths[i];
+      var r = await fetch(this.base + '/web/restaurar', {
+        method: 'POST', headers: this._h(),
+        body: JSON.stringify({ version: version, ruta: p })
+      });
+      var j = await r.json();
+      if (j.ok) {
+        var f = await this.getFile(p);
+        restored[p] = f.text;
+      }
+    }
+    if (!Object.keys(restored).length) throw new Error('esa versión no tiene respaldo de los archivos actuales');
+    return { restored: restored };
+  };
+
+  var API = { Motor: Motor };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.MotorClient = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/localfile.js ===== */
+/* ============================================================================
+   localfile.js — Guardado local con File System Access API (Chrome/Edge)
+   ----------------------------------------------------------------------------
+   Permite elegir una carpeta del proyecto y leer/escribir los archivos por
+   ruta relativa, conservando los permisos durante la sesión. Si el navegador
+   no soporta la API (Safari/Firefox), `supported()` devuelve false.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function supported() {
+    return typeof global.showDirectoryPicker === 'function';
+  }
+
+  // Pide al usuario elegir la carpeta raíz del proyecto (la que contiene el HTML).
+  async function pickProjectDir() {
+    return await global.showDirectoryPicker({ mode: 'readwrite' });
+  }
+
+  // Asegura permiso de lectura/escritura sobre el handle.
+  async function ensurePermission(handle) {
+    var opts = { mode: 'readwrite' };
+    if ((await handle.queryPermission(opts)) === 'granted') return true;
+    return (await handle.requestPermission(opts)) === 'granted';
+  }
+
+  // Navega por una ruta relativa "a/b/c.txt" desde un dir handle y devuelve el file handle.
+  async function getFileHandle(dirHandle, relPath, create) {
+    var parts = relPath.split('/').filter(Boolean);
+    var dir = dirHandle;
+    for (var i = 0; i < parts.length - 1; i++) {
+      dir = await dir.getDirectoryHandle(parts[i], { create: !!create });
+    }
+    return await dir.getFileHandle(parts[parts.length - 1], { create: !!create });
+  }
+
+  async function readText(dirHandle, relPath) {
+    var fh = await getFileHandle(dirHandle, relPath, false);
+    var file = await fh.getFile();
+    return await file.text();
+  }
+
+  async function writeText(dirHandle, relPath, text) {
+    var fh = await getFileHandle(dirHandle, relPath, true);
+    var w = await fh.createWritable();
+    await w.write(text);
+    await w.close();
+  }
+
+  async function writeBinary(dirHandle, relPath, arrayBuffer) {
+    var fh = await getFileHandle(dirHandle, relPath, true);
+    var w = await fh.createWritable();
+    await w.write(arrayBuffer);
+    await w.close();
+  }
+
+  // Lee un archivo como ArrayBuffer; devuelve null si no existe (para preview).
+  async function readArrayBuffer(dirHandle, relPath) {
+    try {
+      var fh = await getFileHandle(dirHandle, relPath, false);
+      var file = await fh.getFile();
+      return await file.arrayBuffer();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ¿Existe el archivo en la carpeta? (sin lanzar)
+  async function exists(dirHandle, relPath) {
+    try { await getFileHandle(dirHandle, relPath, false); return true; }
+    catch (e) { return false; }
+  }
+
+  // Determina cuántos segmentos iniciales hay que quitar de `repoPath` para
+  // encontrarlo dentro de `dirHandle`. Permite conectar la raíz del repo o una
+  // subcarpeta (p. ej. siemon-web). Devuelve el nº de segmentos a quitar o -1.
+  async function resolveStrip(dirHandle, repoPath) {
+    var parts = repoPath.split('/').filter(Boolean);
+    for (var strip = 0; strip < parts.length; strip++) {
+      var rel = parts.slice(strip).join('/');
+      if (await exists(dirHandle, rel)) return strip;
+    }
+    return -1;
+  }
+
+  function mimeFor(path) {
+    var ext = (path.split('.').pop() || '').toLowerCase();
+    var map = {
+      css: 'text/css', js: 'text/javascript', mjs: 'text/javascript',
+      json: 'application/json', svg: 'image/svg+xml', webp: 'image/webp',
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+      ico: 'image/x-icon', avif: 'image/avif',
+      woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+      mp4: 'video/mp4', webm: 'video/webm', html: 'text/html'
+    };
+    return map[ext] || 'application/octet-stream';
+  }
+
+  var API = {
+    supported: supported,
+    pickProjectDir: pickProjectDir,
+    ensurePermission: ensurePermission,
+    readText: readText,
+    writeText: writeText,
+    writeBinary: writeBinary,
+    readArrayBuffer: readArrayBuffer,
+    exists: exists,
+    resolveStrip: resolveStrip,
+    mimeFor: mimeFor
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.LocalFile = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/config.js ===== */
+/* ============================================================================
+   engine/config.js — Configuración del cliente (capa del MOTOR)
+   ----------------------------------------------------------------------------
+   Guarda repo/rama/token/ruta del archivo a través del adaptador de storage.
+   NUNCA en el código. El token es sensible: vive solo en este navegador.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  // Backend de almacenamiento desde el adaptador del motor (localStorage por
+  // defecto; en una extensión se sustituye por chrome.storage). Es el único
+  // punto donde el motor toca el almacenamiento.
+  var store = (typeof require === 'function')
+    ? require('./storage.js').Storage
+    : (global.MaqStorage || { get: function () { return null; }, set: function () {}, remove: function () {} });
+
+  var KEY = 'maquetador_siemon_config_v1';
+
+  var DEFAULTS = {
+    canal: 'motor',             // 'motor' (Centro de Mando -> FTP) o 'github'
+    motorUrl: 'https://prospeccion.siemondigital.com',
+    sitioUrl: 'https://siemondigital.com',
+    owner: '',
+    repo: '',
+    branch: 'main',
+    token: '',
+    htmlPath: 'index.html',     // ruta del archivo a editar dentro del repo
+    i18nPath: 'main.js',        // archivo con el diccionario i18n (opcional)
+    commitName: 'Maquetador Siemon',
+    commitEmail: ''
+  };
+
+  function load() {
+    try {
+      var raw = store.get(KEY);
+      if (!raw) return Object.assign({}, DEFAULTS);
+      return Object.assign({}, DEFAULTS, JSON.parse(raw));
+    } catch (e) {
+      return Object.assign({}, DEFAULTS);
+    }
+  }
+
+  function save(cfg) {
+    store.set(KEY, JSON.stringify(cfg));
+  }
+
+  function clear() {
+    store.remove(KEY);
+  }
+
+  function isComplete(cfg) {
+    if (cfg.canal === 'motor') return !!(cfg.token && cfg.htmlPath);
+    return !!(cfg.owner && cfg.repo && cfg.branch && cfg.token && cfg.htmlPath);
+  }
+
+  var API = { load: load, save: save, clear: clear, isComplete: isComplete, DEFAULTS: DEFAULTS };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.Config = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== engine/index.js ===== */
+/* ============================================================================
+   engine/index.js — Superficie pública del MOTOR del Maquetador
+   ----------------------------------------------------------------------------
+   El motor es independiente de la interfaz y del empaque. Reúne en un solo
+   namespace (window.MaqEngine) las piezas reutilizables:
+     - Surgical : guardado quirúrgico (string-splice + validación)
+     - Saver    : compila cambios → ediciones por archivo
+     - GitHub   : API de GitHub (leer, commit atómico, historial, restaurar)
+     - LocalFile: File System Access API
+     - Config   : configuración sobre el adaptador de storage
+     - Storage  : adaptador de almacenamiento (swap point)
+
+   Cualquier empaque (HTML autocontenido, extensión de Chrome, etc.) reutiliza
+   ESTE motor sin cambios; solo cambia la capa que lo envuelve.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  var Engine = {
+    Surgical:  global.Surgical,
+    Saver:     global.Saver,
+    GitHub:    global.GitHubClient ? global.GitHubClient.GitHub : undefined,
+    githubUtil: global.GitHubClient,
+    LocalFile: global.LocalFile,
+    Config:    global.Config,
+    Storage:   global.MaqStorage,
+    version: '1.0.0-fase1'
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
+  global.MaqEngine = Engine;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== content/editor.js ===== */
+/* ============================================================================
+   editor.js — Capa de edición sobre la vista previa (iframe)
+   ----------------------------------------------------------------------------
+   - Carga el HTML real en un iframe (srcdoc + <base>) para verlo IGUAL que
+     publicado: corren su CSS, su main.js (i18n) y sus animaciones.
+   - Descubre elementos editables por marcador:
+       [data-i18n]       → texto, fuente = diccionario en main.js (por idioma)
+       [data-edit]       → texto, fuente = innerHTML en el HTML
+       [data-edit-img]   → imagen (src en el HTML) + sube el archivo
+       [data-edit-link]  → enlace (href en el HTML)
+   - Edición en línea (contenteditable), cambio de imagen y de enlace.
+   - Mantiene un mapa de cambios pendientes + pila de deshacer/rehacer.
+   NO guarda nada: solo captura intención. El guardado lo hace el motor quirúrgico.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function Editor(opts) {
+    this.iframe = opts.iframe;
+    this.onChange = opts.onChange || function () {};
+    this.onPickImage = opts.onPickImage; // async (el) -> { src, asset } | null
+    this.onEditAlt = opts.onEditAlt;     // async (el, actual) -> string | null
+    this.onEditLink = opts.onEditLink;   // async (el, current) -> newHref | null
+    this.onSelect = opts.onSelect || function () {};   // (info) -> pinta el panel de edición
+    this.selected = null;
+    this.pending = {};       // targetId -> change
+    this.undoStack = [];
+    this.redoStack = [];
+    this.doc = null;
+    this.win = null;
+    this._reapplyTimer = null;
+  }
+
+  // Idioma activo en la vista previa (lee el botón .lang[aria-pressed=true]).
+  Editor.prototype.currentLang = function () {
+    try {
+      var b = this.doc.querySelector('.lang button[aria-pressed="true"]');
+      if (b) return b.getAttribute('data-lang') || 'es';
+      var on = this.doc.querySelector('.lang button.on');
+      if (on) return on.getAttribute('data-lang') || 'es';
+    } catch (e) {}
+    return 'es';
+  };
+
+  // Monta el iframe con el HTML dado. baseHref permite resolver assets relativos.
+  Editor.prototype.mount = function (pageHTML, baseHref) {
+    var self = this;
+    return new Promise(function (resolve) {
+      var html = self._injectBase(pageHTML, baseHref);
+      self.iframe.addEventListener('load', function onload() {
+        self.iframe.removeEventListener('load', onload);
+        self.doc = self.iframe.contentDocument;
+        self.win = self.iframe.contentWindow;
+        // Esperar a que main.js aplique i18n/animaciones antes de marcar.
+        setTimeout(function () {
+          self._injectEditStyles();
+          self._scan();
+          self._watchLanguage();
+          resolve();
+        }, 350);
+      });
+      self.iframe.srcdoc = html;
+    });
+  };
+
+  Editor.prototype._injectBase = function (htmlText, baseHref) {
+    if (!baseHref) return htmlText;
+    var baseTag = '<base href="' + baseHref + '">';
+    if (/<head[^>]*>/i.test(htmlText)) {
+      return htmlText.replace(/<head([^>]*)>/i, '<head$1>' + baseTag);
+    }
+    return baseTag + htmlText;
+  };
+
+  Editor.prototype._injectEditStyles = function () {
+    var css =
+      '[data-mq-editable]{outline:1.5px dashed rgba(177,163,225,.55);outline-offset:2px;cursor:pointer;transition:outline-color .15s;}' +
+      '[data-mq-editable]:hover{outline-color:#B1A3E1;outline-style:solid;}' +
+      '[data-mq-editing]{outline:2px solid #B1A3E1 !important;background:rgba(177,163,225,.08);}' +
+      '[data-mq-dirty]{outline-color:#6FD08C !important;}' +
+      '[data-mq-selected]{outline:2.5px solid #B1A3E1 !important;outline-offset:2px;}' +
+      '[data-mq-badge]{position:relative;}' ;
+    var style = this.doc.createElement('style');
+    style.setAttribute('data-mq-style', '1');
+    style.textContent = css;
+    this.doc.head.appendChild(style);
+  };
+
+  // Recorre el documento y arma los handlers según el tipo de marcador.
+  Editor.prototype._scan = function () {
+    var self = this;
+    // Texto i18n
+    each(this.doc.querySelectorAll('[data-i18n]'), function (el) {
+      self._wireText(el, 'i18n');
+    });
+    // Texto directo en HTML
+    each(this.doc.querySelectorAll('[data-edit]'), function (el) {
+      self._wireText(el, 'text');
+    });
+    // Imágenes
+    each(this.doc.querySelectorAll('[data-edit-img]'), function (el) {
+      self._wireImage(el);
+    });
+    // Enlaces
+    each(this.doc.querySelectorAll('[data-edit-link]'), function (el) {
+      self._wireLink(el);
+    });
+  };
+
+  Editor.prototype._targetId = function (kind, el) {
+    if (kind === 'i18n') return 'i18n::' + this.currentLang() + '::' + el.getAttribute('data-i18n');
+    if (kind === 'text') return 'text::' + el.getAttribute('data-edit');
+    if (kind === 'img') return 'img::' + el.getAttribute('data-edit-img');
+    if (kind === 'alt') return 'alt::' + el.getAttribute('data-edit-img');
+    if (kind === 'link') return 'link::' + el.getAttribute('data-edit-link');
+  };
+
+  Editor.prototype._wireText = function (el, kind) {
+    var self = this;
+    el.setAttribute('data-mq-editable', '1');
+    el.setAttribute('data-mq-kind', kind);
+    el.addEventListener('click', function (e) {
+      // No editar si el clic era para navegar (enlaces): prevenir navegación.
+      e.preventDefault();
+      e.stopPropagation();
+      self._select(el);
+      self.onSelect({ tipo: 'texto', kind: kind, el: el, valor: el.textContent });
+      self._beginTextEdit(el, kind);
+    });
+  };
+
+  Editor.prototype._beginTextEdit = function (el, kind) {
+    var self = this;
+    if (el.getAttribute('data-mq-editing')) return;
+    var before = el.innerHTML;
+    el.setAttribute('data-mq-editing', '1');
+    el.setAttribute('contenteditable', 'true');
+    el.focus();
+    // Seleccionar todo para edición cómoda
+    try {
+      var range = this.doc.createRange();
+      range.selectNodeContents(el);
+      var sel = this.win.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+    } catch (e) {}
+
+    function finish() {
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('data-mq-editing');
+      el.removeEventListener('blur', finish);
+      el.removeEventListener('keydown', onkey);
+      var after = el.innerHTML;
+      if (after !== before) {
+        self._recordTextChange(el, kind, before, after);
+      }
+    }
+    function onkey(ev) {
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); el.blur(); }
+      if (ev.key === 'Escape') { el.innerHTML = before; el.blur(); }
+    }
+    el.addEventListener('blur', finish);
+    el.addEventListener('keydown', onkey);
+  };
+
+  // Resalta el elemento seleccionado en la preview (borde lavanda).
+  Editor.prototype._select = function (el) {
+    try {
+      if (this.selected) this.selected.removeAttribute('data-mq-selected');
+      el.setAttribute('data-mq-selected', '1');
+      this.selected = el;
+    } catch (e) {}
+  };
+
+  // --- API para el panel de edición (Inspector) ---
+  // Aplica un texto nuevo directamente (sin edición inline), para el textarea del panel.
+  Editor.prototype.applyText = function (el, kind, newHTML) {
+    var before = el.innerHTML;
+    if (newHTML === before) return;
+    this._recordTextChange(el, kind, before, newHTML);
+    el.innerHTML = newHTML;
+  };
+  Editor.prototype.applyAltValue = function (el, alt) {
+    var prev = el.getAttribute('alt') || '';
+    if (alt === prev) return;
+    var targetId = this._targetId('alt', el);
+    this._pushUndo({ targetId: targetId, el: el, prop: 'alt', prev: prev, next: alt });
+    this._apply({ targetId: targetId, kind: 'alt', file: 'html', id: el.getAttribute('data-edit-img'), newValue: alt }, el);
+  };
+  Editor.prototype.applyLinkValue = function (el, href) {
+    var prev = el.getAttribute('href') || '';
+    if (href === prev) return;
+    var targetId = this._targetId('link', el);
+    this._pushUndo({ targetId: targetId, el: el, prop: 'href', prev: prev, next: href });
+    this._apply({ targetId: targetId, kind: 'link', file: 'html', id: el.getAttribute('data-edit-link'), newValue: href }, el);
+  };
+  Editor.prototype.changeImage = function (el) { return this._doImage(el); };
+
+  Editor.prototype._recordTextChange = function (el, kind, before, after) {
+    var lang = kind === 'i18n' ? this.currentLang() : null;
+    var key = kind === 'i18n' ? el.getAttribute('data-i18n') : el.getAttribute('data-edit');
+    var targetId = this._targetId(kind, el);
+    var change = {
+      targetId: targetId,
+      kind: kind,                 // 'i18n' | 'text'
+      file: kind === 'i18n' ? 'i18n' : 'html',
+      lang: lang,
+      key: key,
+      newValue: after
+    };
+    this._pushUndo({ targetId: targetId, el: el, prop: 'innerHTML', prev: before, next: after });
+    this._apply(change, el);
+  };
+
+  Editor.prototype._wireImage = function (el) {
+    var self = this;
+    el.setAttribute('data-mq-editable', '1');
+    el.setAttribute('data-mq-kind', 'img');
+    el.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      // Caso imagen-enlace: si la imagen está dentro de un <a data-edit-link>,
+      // ofrecer elegir entre cambiar la imagen o editar el enlace.
+      var linkEl = el.closest ? el.closest('[data-edit-link]') : null;
+      self._select(el);
+      self.onSelect({ tipo: 'imagen', el: el, src: el.getAttribute('src'), alt: el.getAttribute('alt') || '',
+        linkEl: linkEl || null, href: linkEl ? linkEl.getAttribute('href') : null });
+      var ops = [
+        { label: '🖼  Cambiar imagen', run: function () { self._doImage(el); } },
+        { label: '✍️  Texto alternativo (alt)', run: function () { self._doAlt(el); } }
+      ];
+      if (linkEl) ops.push({ label: '🔗  Editar enlace', run: function () { self._doLink(linkEl); } });
+      self._showMiniMenu(el, ops);
+    });
+  };
+
+  Editor.prototype._doImage = async function (el) {
+    if (!this.onPickImage) return;
+    var prevSrc = el.getAttribute('src');
+    var picked = await this.onPickImage(el);
+    if (!picked) return;
+    var targetId = this._targetId('img', el);
+    this._pushUndo({ targetId: targetId, el: el, prop: 'src', prev: prevSrc, next: picked.src, asset: picked.asset });
+    this._apply({
+      targetId: targetId, kind: 'img', file: 'html',
+      id: el.getAttribute('data-edit-img'), newValue: picked.src, asset: picked.asset
+    }, el);
+  };
+
+  Editor.prototype._doAlt = async function (el) {
+    if (!this.onEditAlt) return;
+    var prev = el.getAttribute('alt') || '';
+    var next = await this.onEditAlt(el, prev);
+    if (next == null || next === prev) return;
+    var targetId = this._targetId('alt', el);
+    this._pushUndo({ targetId: targetId, el: el, prop: 'alt', prev: prev, next: next });
+    this._apply({
+      targetId: targetId, kind: 'alt', file: 'html',
+      id: el.getAttribute('data-edit-img'), newValue: next
+    }, el);
+  };
+
+  Editor.prototype._doLink = async function (el) {
+    if (!this.onEditLink) return;
+    var current = el.getAttribute('href');
+    var next = await this.onEditLink(el, current);
+    if (next == null || next === current) return;
+    var targetId = this._targetId('link', el);
+    this._pushUndo({ targetId: targetId, el: el, prop: 'href', prev: current, next: next });
+    this._apply({
+      targetId: targetId, kind: 'link', file: 'html',
+      id: el.getAttribute('data-edit-link'), newValue: next
+    }, el);
+  };
+
+  // Mini-menú flotante dentro del iframe, anclado al elemento.
+  Editor.prototype._showMiniMenu = function (anchor, items) {
+    var self = this;
+    this._closeMiniMenu();
+    var doc = this.doc;
+    var menu = doc.createElement('div');
+    menu.setAttribute('data-mq-menu', '1');
+    menu.style.cssText = 'position:absolute;z-index:2147483646;background:#15161A;border:1px solid rgba(201,202,210,.18);' +
+      'border-radius:12px;padding:6px;box-shadow:0 12px 30px -10px rgba(0,0,0,.6);font-family:Montserrat,system-ui,sans-serif;min-width:180px';
+    items.forEach(function (it) {
+      var b = doc.createElement('button');
+      b.type = 'button';
+      b.textContent = it.label;
+      b.style.cssText = 'display:block;width:100%;text-align:left;background:transparent;border:0;color:#E9E5DD;' +
+        'padding:9px 12px;border-radius:8px;font-size:13px;cursor:pointer';
+      b.addEventListener('mouseenter', function () { b.style.background = 'rgba(177,163,225,.12)'; });
+      b.addEventListener('mouseleave', function () { b.style.background = 'transparent'; });
+      b.addEventListener('click', function (e) { e.stopPropagation(); self._closeMiniMenu(); it.run(); });
+      menu.appendChild(b);
+    });
+    var r = anchor.getBoundingClientRect();
+    var sx = this.win.scrollX || this.doc.documentElement.scrollLeft || 0;
+    var sy = this.win.scrollY || this.doc.documentElement.scrollTop || 0;
+    menu.style.left = (r.left + sx + 8) + 'px';
+    menu.style.top = (r.top + sy + 8) + 'px';
+    doc.body.appendChild(menu);
+    this._menu = menu;
+    // Cerrar al hacer clic fuera
+    this._menuCloser = function (ev) { if (self._menu && !self._menu.contains(ev.target)) self._closeMiniMenu(); };
+    setTimeout(function () { doc.addEventListener('click', self._menuCloser, true); }, 0);
+  };
+
+  Editor.prototype._closeMiniMenu = function () {
+    if (this._menu && this._menu.parentNode) this._menu.parentNode.removeChild(this._menu);
+    if (this._menuCloser) this.doc.removeEventListener('click', this._menuCloser, true);
+    this._menu = null; this._menuCloser = null;
+  };
+
+  Editor.prototype._wireLink = function (el) {
+    var self = this;
+    el.setAttribute('data-mq-editable', '1');
+    el.setAttribute('data-mq-kind', 'link');
+    el.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      self._select(el);
+      self.onSelect({ tipo: 'enlace', el: el, href: el.getAttribute('href') });
+      self._doLink(el);
+    });
+  };
+
+  // Aplica el cambio a la vista previa (DOM vivo) y al mapa de pendientes.
+  Editor.prototype._apply = function (change, el) {
+    if (change.kind === 'img') el.setAttribute('src', change.newValue);
+    else if (change.kind === 'alt') el.setAttribute('alt', change.newValue);
+    else if (change.kind === 'link') el.setAttribute('href', change.newValue);
+    else el.innerHTML = change.newValue;
+    if (el && el.setAttribute) el.setAttribute('data-mq-dirty', '1');
+    this.pending[change.targetId] = change;
+    this.redoStack = [];
+    this.onChange(this.changeCount());
+  };
+
+  Editor.prototype._pushUndo = function (entry) {
+    this.undoStack.push(entry);
+  };
+
+  Editor.prototype.undo = function () {
+    var e = this.undoStack.pop();
+    if (!e) return;
+    if (e.prop === 'innerHTML') e.el.innerHTML = e.prev;
+    else e.el.setAttribute(e.prop, e.prev);
+    // Quitar de pendientes si vuelve al estado previo conocido.
+    delete this.pending[e.targetId];
+    // Re-derivar pendientes desde la pila restante para ese target.
+    this._rederivePending(e.targetId);
+    this.redoStack.push(e);
+    this.onChange(this.changeCount());
+  };
+
+  Editor.prototype.redo = function () {
+    var e = this.redoStack.pop();
+    if (!e) return;
+    if (e.prop === 'innerHTML') e.el.innerHTML = e.next;
+    else e.el.setAttribute(e.prop, e.next);
+    this.undoStack.push(e);
+    this._rederivePending(e.targetId);
+    this.onChange(this.changeCount());
+  };
+
+  // Reconstruye el cambio pendiente de un target a partir de la última entrada
+  // de la pila de deshacer que lo afecta (si la hay).
+  Editor.prototype._rederivePending = function (targetId) {
+    var last = null;
+    for (var i = this.undoStack.length - 1; i >= 0; i--) {
+      if (this.undoStack[i].targetId === targetId) { last = this.undoStack[i]; break; }
+    }
+    if (!last) { delete this.pending[targetId]; return; }
+    var parts = targetId.split('::');
+    var kind = parts[0];
+    var change = { targetId: targetId, newValue: last.next };
+    if (kind === 'i18n') { change.kind = 'i18n'; change.file = 'i18n'; change.lang = parts[1]; change.key = parts[2]; }
+    else if (kind === 'text') { change.kind = 'text'; change.file = 'html'; change.key = parts[1]; }
+    else if (kind === 'img') { change.kind = 'img'; change.file = 'html'; change.id = parts[1]; change.asset = last.asset; }
+    else if (kind === 'alt') { change.kind = 'alt'; change.file = 'html'; change.id = parts[1]; }
+    else if (kind === 'link') { change.kind = 'link'; change.file = 'html'; change.id = parts[1]; }
+    this.pending[targetId] = change;
+  };
+
+  Editor.prototype.changeCount = function () {
+    return Object.keys(this.pending).length;
+  };
+  Editor.prototype.canUndo = function () { return this.undoStack.length > 0; };
+  Editor.prototype.canRedo = function () { return this.redoStack.length > 0; };
+
+  Editor.prototype.getPendingChanges = function () {
+    var self = this;
+    return Object.keys(this.pending).map(function (k) { return self.pending[k]; });
+  };
+
+  Editor.prototype.getPendingAssets = function () {
+    var assets = [];
+    var self = this;
+    Object.keys(this.pending).forEach(function (k) {
+      var c = self.pending[k];
+      if (c.kind === 'img' && c.asset) assets.push(c.asset);
+    });
+    return assets;
+  };
+
+  Editor.prototype.clearPending = function () {
+    this.pending = {};
+    this.undoStack = [];
+    this.redoStack = [];
+    this.onChange(0);
+  };
+
+  // Al cambiar de idioma en la preview, main.js re-renderiza desde el diccionario
+  // (texto original). Volvemos a aplicar los cambios pendientes del idioma activo.
+  Editor.prototype._watchLanguage = function () {
+    var self = this;
+    each(this.doc.querySelectorAll('.lang button'), function (b) {
+      b.addEventListener('click', function () {
+        clearTimeout(self._reapplyTimer);
+        self._reapplyTimer = setTimeout(function () { self._reapplyPending(); }, 120);
+      });
+    });
+  };
+
+  Editor.prototype._reapplyPending = function () {
+    var self = this;
+    var lang = this.currentLang();
+    Object.keys(this.pending).forEach(function (k) {
+      var c = self.pending[k];
+      if (c.kind === 'i18n') {
+        if (c.lang !== lang) return; // solo el idioma visible
+        var el = self.doc.querySelector('[data-i18n="' + cssEsc(c.key) + '"]');
+        if (el) { el.innerHTML = c.newValue; el.setAttribute('data-mq-dirty', '1'); }
+      } else if (c.kind === 'text') {
+        var el2 = self.doc.querySelector('[data-edit="' + cssEsc(c.key) + '"]');
+        if (el2) { el2.innerHTML = c.newValue; el2.setAttribute('data-mq-dirty', '1'); }
+      } else if (c.kind === 'img') {
+        var el3 = self.doc.querySelector('[data-edit-img="' + cssEsc(c.id) + '"]');
+        if (el3) el3.setAttribute('src', c.newValue);
+      } else if (c.kind === 'link') {
+        var el4 = self.doc.querySelector('[data-edit-link="' + cssEsc(c.id) + '"]');
+        if (el4) el4.setAttribute('href', c.newValue);
+      }
+    });
+  };
+
+  function each(list, fn) { Array.prototype.forEach.call(list, fn); }
+  function cssEsc(s) { return String(s).replace(/"/g, '\\"'); }
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = { Editor: Editor };
+  global.MqEditor = { Editor: Editor };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== content/preview.js ===== */
+/* ============================================================================
+   content/preview.js — Vista previa fiel desde archivos locales
+   ----------------------------------------------------------------------------
+   Cuando el cliente conecta su carpeta local (repo privado: raw.githubusercontent
+   no sirve sin auth), construimos el srcdoc del iframe reescribiendo las
+   referencias relativas de <link>/<script>/<img> a blobs leídos de la carpeta
+   local (o, para el archivo de textos que editamos, desde su texto en memoria).
+
+   IMPORTANTE: esto es SOLO para que la preview se vea con estilos. NO afecta al
+   guardado quirúrgico: el guardado siempre opera sobre el texto fuente original,
+   nunca sobre este HTML de preview.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function isRelative(url) {
+    return !/^(https?:)?\/\//i.test(url) &&
+           !/^(data:|blob:|#|mailto:|tel:|javascript:)/i.test(url);
+  }
+
+  // Extrae las URLs relativas de href/src dentro de <link>/<script>/<img>.
+  function collectAssetUrls(htmlText) {
+    var set = {};
+    var tagRe = /<(?:link|script|img)\b[^>]*>/gi;
+    var m;
+    while ((m = tagRe.exec(htmlText)) !== null) {
+      var tag = m[0];
+      var a = /\b(?:href|src)\s*=\s*("([^"]+)"|'([^']+)')/i.exec(tag);
+      if (a) {
+        var val = a[2] != null ? a[2] : a[3];
+        if (val && isRelative(val)) set[val] = true;
+      }
+    }
+    return Object.keys(set);
+  }
+
+  /* Construye el HTML de preview. `resolve(rel)` es async y devuelve:
+       { buffer: ArrayBuffer, mime } | { text: string, mime } | null
+     Devuelve { html, urls } (urls = blobs a revocar al desmontar). */
+  async function build(htmlText, resolve) {
+    var urls = htmlText ? collectAssetUrls(htmlText) : [];
+    var result = htmlText;
+    var created = [];
+    for (var i = 0; i < urls.length; i++) {
+      var rel = urls[i];
+      var clean = rel.split('?')[0].split('#')[0];
+      var r;
+      try { r = await resolve(clean); } catch (e) { r = null; }
+      if (!r) continue;
+      var blob = r.text != null
+        ? new Blob([r.text], { type: r.mime || 'text/plain' })
+        : new Blob([r.buffer], { type: r.mime || 'application/octet-stream' });
+      var url = global.URL.createObjectURL(blob);
+      created.push(url);
+      // Reemplazar la referencia exacta (con comillas) — preview desechable.
+      result = result.split('="' + rel + '"').join('="' + url + '"');
+      result = result.split("='" + rel + "'").join("='" + url + "'");
+    }
+    return { html: result, urls: created };
+  }
+
+  function revoke(urls) {
+    (urls || []).forEach(function (u) { try { global.URL.revokeObjectURL(u); } catch (e) {} });
+  }
+
+  var API = { build: build, revoke: revoke, collectAssetUrls: collectAssetUrls, isRelative: isRelative };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.MaqPreview = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== ui/theme.js ===== */
+/* ============================================================================
+   ui/theme.js — Marca del MARCO del maquetador (capa de INTERFAZ)
+   ----------------------------------------------------------------------------
+   Aplica la identidad de la HERRAMIENTA (Siemon) a partir de los tokens del
+   marco (branding_siemondigital/tokens.css, embebidos en <style> por el build).
+
+   IMPORTANTE — dos capas de marca, no se mezclan:
+   • Marco del maquetador  → SIEMPRE Siemon. Lo controla este módulo + tokens.css.
+   • Contenido editado     → marca del CLIENTE. Vive en la página dentro del
+     iframe; el maquetador NO la toca ni la tematiza. Adoptar otro cliente =
+     cambiar la configuración (repo/ruta); su página branded carga sola.
+
+   Este módulo nunca inyecta estilos en el contenido editado ni en el archivo
+   que se guarda.
+   ============================================================================ */
+(function (global) {
+  'use strict';
+
+  function cssVar(name, fallback) {
+    try {
+      var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      // Los valores de string en CSS vienen entre comillas: "Maquetador"
+      v = v.replace(/^["']|["']$/g, '');
+      return v || fallback;
+    } catch (e) { return fallback; }
+  }
+
+  // Aplica nombre del producto y título desde los tokens del marco.
+  function apply() {
+    var name = cssVar('--brand-name', 'Maquetador');
+    var suffix = cssVar('--brand-suffix', 'Siemon');
+    // Rellenar los wordmarks del marco (si existen)
+    Array.prototype.forEach.call(document.querySelectorAll('[data-brand-name]'), function (el) {
+      el.textContent = name;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-brand-suffix]'), function (el) {
+      el.textContent = '· ' + suffix;
+    });
+    if (name) document.title = name + ' · ' + suffix + ' · Editor visual';
+    return { name: name, suffix: suffix };
+  }
+
+  var API = { apply: apply, cssVar: cssVar };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.MaqTheme = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ===== ui/app.js ===== */
+/* ============================================================================
+   app.js — Orquestación del Maquetador Siemon (Fase 1)
+   ----------------------------------------------------------------------------
+   Conecta configuración + GitHub + archivo local + editor + guardado quirúrgico
+   + historial. No contiene lógica de empalme: eso vive en surgical.js/saver.js.
+   ============================================================================ */
+(function () {
+  'use strict';
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  var state = {
+    cfg: null,
+    gh: null,
+    editor: null,
+    dirHandle: null,
+    localBase: null,        // { strip, htmlDir } cuando hay carpeta local resuelta
+    previewBlobs: [],       // blobs de la preview local (para revocar al remontar)
+    sources: { html: null, i18n: null }, // texto ORIGINAL en memoria (fuente de verdad)
+    shas: { html: null, i18n: null },
+    connected: false
+  };
+
+  // Directorio (con / final) de una ruta de archivo; '' si está en la raíz.
+  function dirOf(p) {
+    return p.indexOf('/') >= 0 ? p.slice(0, p.lastIndexOf('/') + 1) : '';
+  }
+  // Ruta de archivo relativa a la carpeta local (quita los segmentos del prefijo).
+  function localRel(repoPath) {
+    var strip = state.localBase ? state.localBase.strip : 0;
+    return repoPath.split('/').filter(Boolean).slice(strip).join('/');
+  }
+
+  /* ----------------------------- Utilidades UI ----------------------------- */
+  function toast(msg, type) {
+    var t = $('#toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || 'info');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.className = 'toast'; }, 4200);
+  }
+  function setStatus(msg) { $('#status-line').textContent = msg || ''; }
+  function show(el) { el.style.display = ''; }
+  function hide(el) { el.style.display = 'none'; }
+
+  function browserSupportsLocal() { return window.LocalFile.supported(); }
+
+  /* ----------------------------- Configuración ----------------------------- */
+  function esMotor(cfg) { return (cfg || state.cfg || {}).canal === 'motor'; }
+
+  function refreshCanalUI() {
+    var canal = $('#cfg-canal').value;
+    $('#gh-fields').style.display = canal === 'motor' ? 'none' : '';
+    var n = $('#gh-notice'); if (n) n.style.display = canal === 'motor' ? 'none' : '';
+    var lb = $('#local-box'); if (lb) lb.style.display = canal === 'motor' ? 'none' : '';
+    $('#cfg-token-label').textContent = canal === 'motor' ? 'Contraseña del Centro de Mando' : 'Token de GitHub (fine-grained)';
+    $('#cfg-token-hint').textContent = canal === 'motor'
+      ? 'La misma con la que entras al CRM. Si abres el maquetador DESDE el Centro de Mando, se rellena sola.'
+      : 'Permiso "Contents: Read and write", limitado solo a este repositorio.';
+  }
+
+  function fillConfigForm(cfg) {
+    $('#cfg-canal').value = cfg.canal || 'motor';
+    $('#cfg-owner').value = cfg.owner || '';
+    $('#cfg-repo').value = cfg.repo || '';
+    $('#cfg-branch').value = cfg.branch || 'main';
+    $('#cfg-token').value = cfg.token || '';
+    $('#cfg-htmlPath').value = cfg.htmlPath || '';
+    $('#cfg-i18nPath').value = cfg.i18nPath || '';
+  }
+  function readConfigForm() {
+    return {
+      canal: $('#cfg-canal').value,
+      motorUrl: 'https://prospeccion.siemondigital.com',
+      sitioUrl: 'https://siemondigital.com',
+      owner: $('#cfg-owner').value.trim(),
+      repo: $('#cfg-repo').value.trim(),
+      branch: $('#cfg-branch').value.trim() || 'main',
+      token: $('#cfg-token').value.trim(),
+      htmlPath: $('#cfg-htmlPath').value.trim(),
+      i18nPath: $('#cfg-i18nPath').value.trim(),
+      commitName: 'Maquetador Siemon',
+      commitEmail: ''
+    };
+  }
+
+  function openConfig() { show($('#config-screen')); hide($('#editor-screen')); }
+  function openEditor() { hide($('#config-screen')); show($('#editor-screen')); }
+
+  /* ------------------------------- Conectar -------------------------------- */
+  async function connect(cfg) {
+    setStatus(cfg.canal === 'motor' ? 'Conectando con el Centro de Mando…' : 'Verificando acceso al repositorio…');
+    state.gh = cfg.canal === 'motor'
+      ? new window.MotorClient.Motor(cfg)
+      : new window.GitHubClient.GitHub(cfg);
+    var info = await state.gh.checkAccess();
+    setStatus('Cargando ' + cfg.htmlPath + ' …');
+    var htmlFile = await state.gh.getFile(cfg.htmlPath, cfg.branch);
+    state.sources.html = htmlFile.text;
+    state.shas.html = htmlFile.sha;
+    state.sources.i18n = null;
+    if (cfg.i18nPath) {
+      try {
+        var jsFile = await state.gh.getFile(cfg.i18nPath, cfg.branch);
+        state.sources.i18n = jsFile.text;
+        state.shas.i18n = jsFile.sha;
+      } catch (e) {
+        if (e.status === 404) { state.sources.i18n = null; }
+        else throw e;
+      }
+    }
+    state.cfg = cfg;
+    state.connected = true;
+    window.Config.save(cfg);
+    // Si hay carpeta local conectada, resolver el mapeo de rutas (permite
+    // conectar la raíz del repo o la subcarpeta del archivo, p. ej. siemon-web).
+    await resolveLocalBase();
+    return info;
+  }
+
+  // Localiza htmlPath dentro de la carpeta local y guarda cuántos segmentos hay
+  // que quitar para mapear rutas del repo a rutas locales.
+  async function resolveLocalBase() {
+    state.localBase = null;
+    if (!state.dirHandle) return;
+    var strip = await window.LocalFile.resolveStrip(state.dirHandle, state.cfg.htmlPath);
+    if (strip < 0) {
+      toast('No encontré ' + state.cfg.htmlPath + ' en la carpeta local; la preview usará GitHub.', 'warn');
+      return;
+    }
+    state.localBase = { strip: strip, htmlDir: dirOf(localRel(state.cfg.htmlPath)) };
+  }
+
+  async function mountPreview() {
+    var iframe = $('#preview');
+    // Revocar blobs de una preview local anterior.
+    window.MaqPreview.revoke(state.previewBlobs);
+    state.previewBlobs = [];
+    state.editor = new window.MqEditor.Editor({
+      iframe: iframe,
+      onChange: onEditorChange,
+      onPickImage: pickImage,
+      onEditLink: editLink,
+      onEditAlt: editAlt,
+      onSelect: paintInspector
+    });
+    // Elegir el canal de assets para una PREVIEW FIEL:
+    //  1) carpeta local conectada → blobs desde el disco (rápido, sin red),
+    //  2) si no, GitHub con el token → blobs por el mismo canal autenticado del HTML.
+    // En ambos casos se inyectan como blobs; NO afecta al guardado.
+    var resolver = null, canal = '';
+    if (state.localBase) { resolver = resolveLocalAsset; canal = 'carpeta local'; }
+    else if (state.gh) { resolver = resolveGitHubAsset; canal = esMotor() ? 'web publicada' : 'GitHub'; }
+
+    if (resolver) {
+      setStatus('Cargando estilos y assets (' + canal + ')…');
+      var pre = await window.MaqPreview.build(state.sources.html, resolver);
+      state.previewBlobs = pre.urls;
+      var preHtml = pre.html;
+      // Canal motor: el video del hero (y posters) se ve directo desde la web publicada
+      // (es publico y pesado: mejor streaming del sitio que blob). No afecta al guardado.
+      if (esMotor()) {
+        var sitio = (state.cfg.sitioUrl || 'https://siemondigital.com').replace(/\/$/, '');
+        preHtml = preHtml.replace(/(<(?:video|source)\b[^>]*?\bsrc=")(?!https?:|blob:|data:|\/\/)([^"]+)(")/gi,
+          function (_m, a, rel, z) { return a + sitio + '/' + rel + z; });
+        preHtml = preHtml.replace(/(\bposter=")(?!https?:|blob:|data:|\/\/)([^"]+)(")/gi,
+          function (_m, a, rel, z) { return a + sitio + '/' + rel + z; });
+      }
+      // Canal motor: base hacia la web publicada como red de seguridad para cualquier
+      // asset que el JS de la pagina cambie en runtime (ej. imagenes por idioma).
+      await state.editor.mount(preHtml, esMotor() ? ((state.cfg.sitioUrl || 'https://siemondigital.com') + '/') : null);
+      setStatus('Listo.');
+    } else {
+      // Último recurso (sin token ni carpeta): base raw (solo repos públicos).
+      var baseHref = computeBaseHref(state.cfg.htmlPath);
+      await state.editor.mount(state.sources.html, baseHref);
+    }
+    onEditorChange(0);
+    var e = $('#insp-empty'), p = $('#insp-panel');
+    if (e) e.style.display = ''; if (p) p.style.display = 'none';
+    _sel = null;
+  }
+
+  // Ruta de un archivo del repo, relativa a la carpeta del HTML (para casar con
+  // las referencias relativas del propio HTML, p. ej. "main.js", "styles.css").
+  function relToHtml(repoPath) {
+    var hd = dirOf(state.cfg.htmlPath);
+    return repoPath.indexOf(hd) === 0 ? repoPath.slice(hd.length) : repoPath;
+  }
+
+  // ¿La referencia relativa apunta al archivo de textos (i18n) que editamos?
+  // En ese caso usamos su TEXTO en memoria (coherente con lo que se guardará).
+  function isI18nRef(rel) {
+    if (!state.cfg.i18nPath) return false;
+    return rel === relToHtml(state.cfg.i18nPath);
+  }
+
+  // Resuelve un asset relativo al HTML desde la CARPETA LOCAL (blobs).
+  async function resolveLocalAsset(rel) {
+    if (isI18nRef(rel) && state.sources.i18n != null) {
+      return { text: state.sources.i18n, mime: 'text/javascript' };
+    }
+    var assetLocalPath = state.localBase.htmlDir + rel;
+    var buf = await window.LocalFile.readArrayBuffer(state.dirHandle, assetLocalPath);
+    if (!buf) return null;
+    return { buffer: buf, mime: window.LocalFile.mimeFor(assetLocalPath) };
+  }
+
+  // Resuelve un asset relativo al HTML desde GITHUB con el token (repos privados).
+  async function resolveGitHubAsset(rel) {
+    if (isI18nRef(rel) && state.sources.i18n != null) {
+      return { text: state.sources.i18n, mime: 'text/javascript' };
+    }
+    var repoPath = dirOf(state.cfg.htmlPath) + rel;
+    try {
+      var buf = await state.gh.getFileRaw(repoPath, state.cfg.branch);
+      return { buffer: buf, mime: window.LocalFile.mimeFor(rel) };
+    } catch (e) {
+      return null; // asset no encontrado: la preview sigue con el resto
+    }
+  }
+
+  // Si editamos el archivo desde GitHub, los assets relativos (assets/img/...) no
+  // existen junto al iframe. Para que la PREVIEW se vea con imágenes, usamos como
+  // base la URL "raw" del repo en la rama actual.
+  function computeBaseHref(htmlPath) {
+    var dir = htmlPath.indexOf('/') >= 0 ? htmlPath.slice(0, htmlPath.lastIndexOf('/') + 1) : '';
+    return 'https://raw.githubusercontent.com/' + state.cfg.owner + '/' + state.cfg.repo +
+           '/' + state.cfg.branch + '/' + dir;
+  }
+
+  function onEditorChange(count) {
+    var dirty = count > 0;
+    $('#publish-btn').disabled = !dirty;
+    $('#undo-btn').disabled = !state.editor || !state.editor.canUndo();
+    $('#redo-btn').disabled = !state.editor || !state.editor.canRedo();
+    $('#dirty-count').textContent = dirty ? (count + (count === 1 ? ' cambio sin publicar' : ' cambios sin publicar')) : 'Sin cambios pendientes';
+    $('#dirty-dot').className = 'dot ' + (dirty ? 'on' : '');
+  }
+
+  /* --------------------------- Cambiar imagen ------------------------------ */
+  // Motor del CRM: mismo origen, así que reutilizamos el token del Centro de Mando.
+  var MQ_MOTOR = (state.cfg && state.cfg.motorUrl) || 'https://prospeccion.siemondigital.com';
+  function mqToken() { return localStorage.getItem('siemon_crm_token') || (state.cfg && state.cfg.token) || ''; }
+
+  function pickImage(el) {
+    return openImagePicker(el).then(function (picked) {
+      if (!picked) return null;
+      if (picked.previewSrc) {           // archivo subido: preview data URL + asset al repo
+        el.setAttribute('src', picked.previewSrc);
+        return { src: picked.src, asset: picked.asset, previewSrc: picked.previewSrc };
+      }
+      // banco o URL: se usa la URL externa directamente (sin subir asset)
+      el.setAttribute('src', picked.src);
+      return { src: picked.src };
+    });
+  }
+
+  // Modal con 3 vías: subir archivo · banco de fotos gratis · pegar URL (p.ej. imagen editada en Contenido).
+  function openImagePicker(el) {
+    return new Promise(function (resolve) {
+      var modal = document.getElementById('imgpick');
+      var done = false;
+      function finish(v) { if (done) return; done = true; cleanup(); resolve(v); }
+      var tabs = modal.querySelectorAll('.ip-tab');
+      var panes = modal.querySelectorAll('.ip-pane');
+      function showTab(t) {
+        tabs.forEach(function (b) { b.classList.toggle('btn-primary', b.getAttribute('data-tab') === t); });
+        panes.forEach(function (p) { p.style.display = p.getAttribute('data-pane') === t ? '' : 'none'; });
+      }
+      var onTab = function () { showTab(this.getAttribute('data-tab')); };
+      tabs.forEach(function (b) { b.addEventListener('click', onTab); });
+      // subir archivo
+      var fileBtn = document.getElementById('ip-file-btn');
+      var onFile = function () {
+        var input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+        input.onchange = function () {
+          var file = input.files && input.files[0]; if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            var dataUrl = reader.result;
+            var targetPath = proposeImagePath(el.getAttribute('src') || '', file.name);
+            var b64 = String(dataUrl).split(',')[1];
+            finish({ src: targetPath, previewSrc: dataUrl, asset: { path: targetPath, base64: b64, name: file.name } });
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      };
+      fileBtn.addEventListener('click', onFile);
+      // banco de fotos
+      var orient = 'landscape';
+      var orientBtns = modal.querySelectorAll('.ip-orient');
+      function paintOrient() { orientBtns.forEach(function (b) { b.classList.toggle('btn-primary', b.getAttribute('data-o') === orient); }); }
+      var onOrient = function () { orient = this.getAttribute('data-o'); paintOrient(); };
+      orientBtns.forEach(function (b) { b.addEventListener('click', onOrient); });
+      paintOrient();
+      var qEl = document.getElementById('ip-q'), grid = document.getElementById('ip-grid'), searchBtn = document.getElementById('ip-search');
+      function buscar() {
+        var q = (qEl.value || '').trim(); if (!q) { toast('Escribe qué foto buscar.', 'warn'); return; }
+        grid.innerHTML = '<div class="help" style="grid-column:1/-1">Buscando…</div>';
+        fetch(MQ_MOTOR + '/blog/fotos', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + mqToken() }, body: JSON.stringify({ query: q, orientation: orient, fuente: 'todos' }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            var fotos = d.fotos || [];
+            if (!fotos.length) { grid.innerHTML = '<div class="help" style="grid-column:1/-1">Sin resultados. Prueba otras palabras (o en inglés).</div>'; return; }
+            grid.innerHTML = '';
+            fotos.forEach(function (f) {
+              var im = document.createElement('img'); im.src = f.thumb; im.title = (f.banco || '') + ' · ' + (f.autor || '');
+              im.style.cssText = 'width:100%;height:72px;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid var(--line)';
+              im.addEventListener('click', function () { finish({ src: f.url }); });
+              grid.appendChild(im);
+            });
+          })
+          .catch(function () { grid.innerHTML = '<div class="help" style="grid-column:1/-1">No pude buscar. Abre primero el Centro de Mando (para tener sesión).</div>'; });
+      }
+      var onSearch = function () { buscar(); };
+      searchBtn.addEventListener('click', onSearch);
+      var onQKey = function (e) { if (e.key === 'Enter') buscar(); };
+      qEl.addEventListener('keydown', onQKey);
+      // pegar URL
+      var urlEl = document.getElementById('ip-url'), urlOk = document.getElementById('ip-url-ok');
+      var onUrl = function () { var u = (urlEl.value || '').trim(); if (!/^https?:\/\//.test(u)) { toast('Pega una URL válida (https://…)', 'warn'); return; } finish({ src: u }); };
+      urlOk.addEventListener('click', onUrl);
+      var onUrlKey = function (e) { if (e.key === 'Enter') onUrl(); };
+      urlEl.addEventListener('keydown', onUrlKey);
+      // cerrar
+      var cancelBtn = document.getElementById('ip-cancel');
+      var onCancel = function () { finish(null); };
+      cancelBtn.addEventListener('click', onCancel);
+      var onBackdrop = function (e) { if (e.target === modal) finish(null); };
+      modal.addEventListener('click', onBackdrop);
+      function cleanup() {
+        modal.style.display = 'none';
+        tabs.forEach(function (b) { b.removeEventListener('click', onTab); });
+        fileBtn.removeEventListener('click', onFile);
+        orientBtns.forEach(function (b) { b.removeEventListener('click', onOrient); });
+        searchBtn.removeEventListener('click', onSearch);
+        qEl.removeEventListener('keydown', onQKey);
+        urlOk.removeEventListener('click', onUrl);
+        urlEl.removeEventListener('keydown', onUrlKey);
+        cancelBtn.removeEventListener('click', onCancel);
+        modal.removeEventListener('click', onBackdrop);
+      }
+      qEl.value = ''; urlEl.value = ''; grid.innerHTML = '';
+      showTab('banco');
+      modal.style.display = 'flex';
+    });
+  }
+  function proposeImagePath(origSrc, fileName) {
+    var clean = origSrc.split('?')[0];
+    var dir = clean.indexOf('/') >= 0 ? clean.slice(0, clean.lastIndexOf('/') + 1) : '';
+    var safe = fileName.replace(/[^\w.\-]/g, '_');
+    // resolver ruta relativa al htmlPath
+    var htmlDir = state.cfg.htmlPath.indexOf('/') >= 0 ? state.cfg.htmlPath.slice(0, state.cfg.htmlPath.lastIndexOf('/') + 1) : '';
+    return htmlDir + dir + safe;
+  }
+
+  /* ------------------------ Texto alternativo (alt) ------------------------ */
+  function editAlt(el, current) {
+    return new Promise(function (resolve) {
+      openModal({
+        title: 'Texto alternativo de la imagen',
+        label: 'Describe la imagen (accesibilidad + SEO)',
+        value: current || '',
+        placeholder: 'ej. Logotipo de Siemon Digital en el menú',
+        onOk: function (v) { resolve(v.trim()); },
+        onCancel: function () { resolve(null); }
+      });
+    });
+  }
+
+  /* --------------------------- Editar enlace ------------------------------- */
+  function editLink(el, current) {
+    return new Promise(function (resolve) {
+      openModal({
+        title: 'Editar enlace',
+        label: 'Dirección (URL) del enlace',
+        value: current || '',
+        placeholder: 'https://…',
+        onOk: function (v) { resolve(v.trim()); },
+        onCancel: function () { resolve(null); }
+      });
+    });
+  }
+
+  /* ------------------------------- Publicar -------------------------------- */
+  async function publish() {
+    if (!state.editor || state.editor.changeCount() === 0) return;
+    var changes = state.editor.getPendingChanges();
+    var assets = state.editor.getPendingAssets();
+
+    setBusy(true, 'Aplicando cambios de forma quirúrgica…');
+    var compiled;
+    try {
+      compiled = window.Saver.compile(
+        { html: state.sources.html, i18n: state.sources.i18n },
+        changes
+      );
+    } catch (e) {
+      setBusy(false);
+      toast('No se guardó: ' + e.message, 'error');
+      return;
+    }
+
+    // Construir la lista de archivos del commit (solo los que cambiaron).
+    var commitFiles = [];
+    if (compiled.html.changed) commitFiles.push({ path: state.cfg.htmlPath, content: compiled.html.text, encoding: 'utf-8' });
+    if (compiled.i18n.changed) commitFiles.push({ path: state.cfg.i18nPath, content: compiled.i18n.text, encoding: 'utf-8' });
+    assets.forEach(function (a) {
+      commitFiles.push({ path: a.path, content: a.base64, encoding: 'base64' });
+    });
+
+    var msg = buildCommitMessage(compiled.summary, assets);
+
+    // 1) Publicar por el canal configurado
+    var canalNombre = esMotor() ? 'tu web (FTP con respaldo)' : 'GitHub';
+    try {
+      setBusy(true, 'Publicando en ' + canalNombre + '…');
+      var sha = await state.gh.commitFiles(commitFiles, msg);
+      toast('Publicado ✓ ' + (esMotor() ? 'ya está en vivo en siemondigital.com' : 'commit ' + String(sha).slice(0, 7)), 'ok');
+    } catch (e) {
+      setBusy(false);
+      toast('Error al publicar: ' + e.message, 'error');
+      return;
+    }
+
+    // 2) Guardar archivo local (si hay carpeta conectada)
+    if (state.dirHandle) {
+      try {
+        setBusy(true, 'Actualizando archivos locales…');
+        if (compiled.html.changed) await window.LocalFile.writeText(state.dirHandle, localRel(state.cfg.htmlPath), compiled.html.text);
+        if (compiled.i18n.changed) await window.LocalFile.writeText(state.dirHandle, localRel(state.cfg.i18nPath), compiled.i18n.text);
+        for (var i = 0; i < assets.length; i++) {
+          var buf = base64ToArrayBuffer(assets[i].base64);
+          await window.LocalFile.writeBinary(state.dirHandle, localRel(assets[i].path), buf);
+        }
+        toast('Publicado y guardado local ✓', 'ok');
+      } catch (e) {
+        toast('Publicado en GitHub, pero falló el guardado local: ' + e.message, 'warn');
+      }
+    }
+
+    // 3) Actualizar fuente de verdad en memoria + limpiar pendientes + historial
+    if (compiled.html.changed) state.sources.html = compiled.html.text;
+    if (compiled.i18n.changed) state.sources.i18n = compiled.i18n.text;
+    state.editor.clearPending();
+    setBusy(false);
+    refreshHistory();
+  }
+
+  function buildCommitMessage(summary, assets) {
+    var parts = summary.slice();
+    assets.forEach(function (a) { parts.push('Sube imagen ' + a.name); });
+    var head = 'Maquetador: ' + (parts.length ? parts.join(', ') : 'edición de contenido');
+    if (head.length > 72) head = head.slice(0, 69) + '…';
+    var when = new Date().toLocaleString('es-CO');
+    return head + '\n\nEditado con el Maquetador Siemon · ' + when;
+  }
+
+  function base64ToArrayBuffer(b64) {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  /* ------------------------------- Historial ------------------------------- */
+  async function refreshHistory() {
+    var list = $('#history-list');
+    list.innerHTML = '<li class="muted">Cargando…</li>';
+    try {
+      var commits = await state.gh.listCommits(state.cfg.htmlPath, 20);
+      if (!commits.length) { list.innerHTML = '<li class="muted">Sin commits todavía.</li>'; return; }
+      list.innerHTML = '';
+      commits.forEach(function (c) {
+        var li = document.createElement('li');
+        li.className = 'commit';
+        var d = new Date(c.date);
+        li.innerHTML =
+          '<div class="commit-msg"></div>' +
+          '<div class="commit-meta"><span class="sha">' + c.sha.slice(0, 7) + '</span> · <span class="date"></span></div>' +
+          '<button class="btn-restore" type="button">Restaurar esta versión</button>';
+        li.querySelector('.commit-msg').textContent = c.message.split('\n')[0];
+        li.querySelector('.date').textContent = d.toLocaleString('es-CO');
+        li.querySelector('.btn-restore').addEventListener('click', function () { restore(c); });
+        list.appendChild(li);
+      });
+    } catch (e) {
+      list.innerHTML = '<li class="muted">No se pudo cargar el historial: ' + e.message + '</li>';
+    }
+  }
+
+  async function restore(commit) {
+    var confirmMsg = '¿Restaurar la versión del ' + new Date(commit.date).toLocaleString('es-CO') +
+      '?\n\n«' + commit.message.split('\n')[0] + '»\n\nSe creará un commit nuevo que vuelve el contenido a ese punto.';
+    if (!window.confirm(confirmMsg)) return;
+    setBusy(true, 'Restaurando versión…');
+    try {
+      var paths = [state.cfg.htmlPath];
+      if (state.cfg.i18nPath) paths.push(state.cfg.i18nPath);
+      var res = await state.gh.restoreVersion(paths, commit.sha, 'Restaurar versión ' + commit.sha.slice(0, 7) + ' (Maquetador Siemon)');
+      // Actualizar fuentes en memoria con lo restaurado
+      if (res.restored[state.cfg.htmlPath] != null) state.sources.html = res.restored[state.cfg.htmlPath];
+      if (state.cfg.i18nPath && res.restored[state.cfg.i18nPath] != null) state.sources.i18n = res.restored[state.cfg.i18nPath];
+      // Guardar local
+      if (state.dirHandle) {
+        if (res.restored[state.cfg.htmlPath] != null) await window.LocalFile.writeText(state.dirHandle, localRel(state.cfg.htmlPath), state.sources.html);
+        if (state.cfg.i18nPath && res.restored[state.cfg.i18nPath] != null) await window.LocalFile.writeText(state.dirHandle, localRel(state.cfg.i18nPath), state.sources.i18n);
+      }
+      // Re-montar preview con el contenido restaurado
+      state.editor.clearPending();
+      await mountPreview();
+      toast('Versión restaurada y publicada ✓', 'ok');
+      refreshHistory();
+    } catch (e) {
+      toast('No se pudo restaurar: ' + e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ------------------------------- Modal/Busy ------------------------------ */
+  function openModal(opts) {
+    var m = $('#modal');
+    $('#modal-title').textContent = opts.title || '';
+    $('#modal-label').textContent = opts.label || '';
+    var inp = $('#modal-input');
+    inp.value = opts.value || '';
+    inp.placeholder = opts.placeholder || '';
+    show(m);
+    inp.focus(); inp.select();
+    function close() { hide(m); $('#modal-ok').onclick = null; $('#modal-cancel').onclick = null; inp.onkeydown = null; }
+    $('#modal-ok').onclick = function () { var v = inp.value; close(); opts.onOk && opts.onOk(v); };
+    $('#modal-cancel').onclick = function () { close(); opts.onCancel && opts.onCancel(); };
+    inp.onkeydown = function (e) { if (e.key === 'Enter') $('#modal-ok').click(); if (e.key === 'Escape') $('#modal-cancel').click(); };
+  }
+
+  function setBusy(on, msg) {
+    var b = $('#busy');
+    if (on) { $('#busy-msg').textContent = msg || 'Trabajando…'; show(b); }
+    else hide(b);
+  }
+
+  /* --------------------------- Panel de edición ---------------------------- */
+  var _sel = null; // {tipo, el, kind, linkEl}
+  function paintInspector(info) {
+    _sel = info;
+    $('#insp-empty').style.display = 'none';
+    $('#insp-panel').style.display = '';
+    $('#insp-text-wrap').style.display = 'none';
+    $('#insp-img-wrap').style.display = 'none';
+    $('#insp-link-wrap').style.display = 'none';
+    var kindLabel = { texto: '// Texto', imagen: '// Imagen', enlace: '// Enlace' };
+    $('#insp-kind').textContent = kindLabel[info.tipo] || '';
+    if (info.tipo === 'texto') {
+      $('#insp-text-wrap').style.display = '';
+      $('#insp-text').value = (info.el.textContent || '').trim();
+    } else if (info.tipo === 'imagen') {
+      $('#insp-img-wrap').style.display = '';
+      $('#insp-img-preview').src = info.el.currentSrc || info.el.src || '';
+      $('#insp-alt').value = info.alt || '';
+      // si la imagen es también enlace, mostrar el campo de enlace
+      if (info.linkEl) {
+        $('#insp-link-wrap').style.display = '';
+        $('#insp-link').value = info.href || '';
+        $('#insp-link').setAttribute('data-for', 'imglink');
+      }
+    } else if (info.tipo === 'enlace') {
+      $('#insp-link-wrap').style.display = '';
+      $('#insp-link').value = info.href || '';
+      $('#insp-link').setAttribute('data-for', 'link');
+    }
+  }
+  function wireInspector() {
+    $('#insp-text-apply').addEventListener('click', function () {
+      if (!_sel || _sel.tipo !== 'texto' || !state.editor) return;
+      state.editor.applyText(_sel.el, _sel.kind, $('#insp-text').value);
+      $('#insp-text-ops').style.display = 'none';
+      toast('Texto actualizado. Publica cuando termines.', 'ok');
+    });
+    $('#insp-text-ia').addEventListener('click', function () {
+      if (!_sel || _sel.tipo !== 'texto') return;
+      var texto = ($('#insp-text').value || '').trim();
+      if (!texto) { toast('No hay texto que mejorar.', 'warn'); return; }
+      var btn = $('#insp-text-ia'), ops = $('#insp-text-ops');
+      btn.disabled = true; btn.textContent = 'Pensando…';
+      var ctx = ''; try { ctx = (_sel.el.tagName || '').toLowerCase(); if (/^h[1-6]$/.test(ctx)) ctx = 'titular'; else if (ctx === 'a' || ctx === 'button') ctx = 'botón'; else ctx = 'texto'; } catch (e) {}
+      fetch(MQ_MOTOR + '/web/mejorar_texto', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + mqToken() }, body: JSON.stringify({ texto: texto, contexto: ctx }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok || !(d.opciones || []).length) { toast('No pude mejorar el texto (revisa tu sesión del CRM).', 'warn'); return; }
+          ops.innerHTML = '<div class="help" style="margin-bottom:6px">Elige una versión (la pone en el cuadro; luego "Aplicar cambio"):</div>';
+          d.opciones.forEach(function (op) {
+            var b = document.createElement('button'); b.className = 'btn btn-ghost'; b.style.cssText = 'width:100%;text-align:left;margin-bottom:6px;white-space:normal;line-height:1.4'; b.textContent = op;
+            b.addEventListener('click', function () { $('#insp-text').value = op; ops.style.display = 'none'; toast('Versión elegida. Pulsa "Aplicar cambio".', 'ok'); });
+            ops.appendChild(b);
+          });
+          ops.style.display = '';
+        })
+        .catch(function () { toast('No pude conectar con el motor.', 'warn'); })
+        .then(function () { btn.disabled = false; btn.textContent = '✨ Mejorar con IA (voz Siemon)'; });
+    });
+    $('#insp-alt-apply').addEventListener('click', function () {
+      if (!_sel || _sel.tipo !== 'imagen' || !state.editor) return;
+      state.editor.applyAltValue(_sel.el, $('#insp-alt').value.trim());
+      toast('Texto alternativo guardado.', 'ok');
+    });
+    $('#insp-img-change').addEventListener('click', function () {
+      if (!_sel || _sel.tipo !== 'imagen' || !state.editor) return;
+      state.editor.changeImage(_sel.el).then(function () {
+        $('#insp-img-preview').src = _sel.el.currentSrc || _sel.el.src || '';
+      });
+    });
+    $('#insp-link-apply').addEventListener('click', function () {
+      if (!_sel || !state.editor) return;
+      var target = _sel.tipo === 'enlace' ? _sel.el : _sel.linkEl;
+      if (!target) return;
+      state.editor.applyLinkValue(target, $('#insp-link').value.trim());
+      toast('Enlace guardado.', 'ok');
+    });
+    // historial colapsable
+    $('#hist-toggle').addEventListener('click', function () {
+      var body = $('#hist-body'), caret = $('#hist-caret');
+      var open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : '';
+      caret.textContent = open ? '▸' : '▾';
+      if (!open) refreshHistory();
+    });
+  }
+
+  /* ------------------------------- Arranque -------------------------------- */
+  function init() {
+    // Marca del MARCO (Siemon) desde los tokens. No toca el contenido editado.
+    if (window.MaqTheme) window.MaqTheme.apply();
+
+    // Aviso si se abrió como archivo (file://) en vez de un servidor local.
+    if (location.protocol === 'file:') {
+      var fw = $('#file-warning');
+      if (fw) {
+        fw.style.display = '';
+        document.body.classList.add('has-file-warning');
+        var fwc = $('#file-warning-close');
+        if (fwc) fwc.addEventListener('click', function () {
+          fw.style.display = 'none';
+          document.body.classList.remove('has-file-warning');
+        });
+      }
+    }
+
+    var cfg = window.Config.load();
+    // Si el maquetador vive dentro del Centro de Mando (mismo origen), toma la
+    // sesión del CRM y preconfigura el canal motor: cero fricción para Andrea.
+    try {
+      var crmTok = localStorage.getItem('siemon_crm_token');
+      if (crmTok && !cfg.token) { cfg.canal = 'motor'; cfg.token = crmTok; }
+    } catch (e) {}
+    fillConfigForm(cfg);
+    refreshCanalUI();
+    $('#cfg-canal').addEventListener('change', refreshCanalUI);
+
+    // Aviso de navegador para guardado local
+    if (!browserSupportsLocal()) {
+      $('#local-warn').textContent = 'Tu navegador no permite guardar el archivo local (usa Chrome o Edge). El commit a GitHub sí funciona.';
+      $('#connect-local-btn').disabled = true;
+    }
+
+    $('#config-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var newCfg = readConfigForm();
+      if (!window.Config.isComplete(newCfg)) { toast('Faltan datos de configuración.', 'warn'); return; }
+      setBusy(true, 'Conectando…');
+      try {
+        await connect(newCfg);
+        openEditor();
+        $('#file-label').textContent = (newCfg.canal === 'motor' ? 'siemondigital.com' : newCfg.owner + '/' + newCfg.repo) +
+          ' · ' + newCfg.htmlPath + (newCfg.i18nPath ? '  (+ ' + newCfg.i18nPath + ')' : '');
+        await mountPreview();
+        toast('Conectado ✓', 'ok');
+      } catch (e2) {
+        toast('No se pudo conectar: ' + e2.message, 'error');
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    $('#connect-local-btn').addEventListener('click', async function () {
+      try {
+        var dir = await window.LocalFile.pickProjectDir();
+        var okp = await window.LocalFile.ensurePermission(dir);
+        if (!okp) { toast('Permiso de escritura denegado.', 'warn'); return; }
+        state.dirHandle = dir;
+        $('#local-status').textContent = 'Carpeta local conectada: ' + dir.name;
+        toast('Carpeta local lista ✓', 'ok');
+        // Si ya estamos editando, rehacer el mapeo y la preview (ahora fiel y local).
+        if (state.connected) {
+          await resolveLocalBase();
+          if (state.localBase) {
+            await mountPreview();
+            toast('Preview ahora desde la carpeta local ✓', 'ok');
+          }
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') toast('No se pudo conectar la carpeta: ' + e.message, 'error');
+      }
+    });
+
+    $('#publish-btn').addEventListener('click', publish);
+    $('#undo-btn').addEventListener('click', function () { state.editor && state.editor.undo(); });
+    $('#redo-btn').addEventListener('click', function () { state.editor && state.editor.redo(); });
+    $('#open-config-btn').addEventListener('click', openConfig);
+    $('#back-to-editor-btn').addEventListener('click', function () { if (state.connected) openEditor(); });
+    $('#history-refresh').addEventListener('click', refreshHistory);
+    wireInspector();
+    $('#clear-cfg-btn').addEventListener('click', function () {
+      if (window.confirm('¿Borrar la configuración guardada (incluido el token) de este navegador?')) {
+        window.Config.clear(); fillConfigForm(window.Config.DEFAULTS); toast('Configuración borrada.', 'info');
+      }
+    });
+
+    // Atajos de teclado: deshacer/rehacer
+    document.addEventListener('keydown', function (e) {
+      if (!state.editor) return;
+      var mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); state.editor.undo(); }
+      else if (mod && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); state.editor.redo(); }
+    });
+
+    openConfig();
+  }
+
+  // Si el arranque falla, mostrarlo de forma VISIBLE (nunca dejar la UI muerta en
+  // silencio: los botones no se enganchan y el formulario recargaría borrando datos).
+  function safeInit() {
+    try { init(); }
+    catch (e) {
+      console.error('Maquetador: error de arranque', e);
+      var bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:200;background:#3a1f24;' +
+        'color:#E9E5DD;font:13px/1.5 system-ui;padding:12px 18px;border-bottom:1px solid #E18A8A';
+      bar.textContent = '⚠️ El maquetador no pudo arrancar: ' + ((e && e.message) || e) +
+        '  ·  Recarga la página; si persiste, reconstruye con "node build.js".';
+      document.body.appendChild(bar);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', safeInit);
+  else safeInit();
+})();
+
+</script>
+</body>
+</html>

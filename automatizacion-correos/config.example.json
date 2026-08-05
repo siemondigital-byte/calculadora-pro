@@ -1,0 +1,42 @@
+{
+  "_nota": "Copia a config.json. Preset para Atlantis Global Realty (inmobiliaria). Las CLAVES (SMTP/IMAP/DKIM) NO van aqui: van en el vault de secretos del motor.",
+
+  "marca": {
+    "nombre": "Atlantis Global Realty",
+    "dominio": "atlantisglobalrealty.com",
+    "voz": {
+      "tono": "Cercana, profesional y confiable; asesora experta que acompana una decision importante (comprar/vender/invertir), sin presion.",
+      "lexico": ["tu proximo hogar", "decision informada", "el momento correcto", "patrimonio", "acompanamiento", "sin presion"],
+      "reglas": "Siempre afirmativo y honesto. Cero em dashes; rangos con 'a'. Nada de urgencia agresiva ('ultima oportunidad') ni promesas de rentabilidad. Transparencia en costos y procesos."
+    },
+    "firma": "Atlantis Global Realty · atlantisglobalrealty.com",
+    "colores": { "primario": "#0E2A47", "acento": "#C8A24B", "texto": "#1B1B1B" }
+  },
+
+  "envio": {
+    "remitente": "Atlantis Global Realty <hola@envios.atlantisglobalrealty.com>",
+    "responder_a": "asesores@atlantisglobalrealty.com",
+    "dominio_envio": "envios.atlantisglobalrealty.com",
+    "smtp": { "host": "(en el vault)", "puerto": 587 },
+    "imap": { "host": "(en el vault)", "puerto": 993 }
+  },
+
+  "entregabilidad": { "tope_diario": 40, "espaciado_min": 3, "warmup": true },
+
+  "tracking": { "pixel": true, "utm": true },
+
+  "negocio": {
+    "icp": ["compradores de vivienda", "vendedores/propietarios", "inversionistas inmobiliarios", "expatriados/reubicacion"],
+    "lead_magnets": ["Guia del comprador primerizo", "Reporte de mercado de la zona", "Checklist para vender tu propiedad al mejor precio"],
+    "secuencias": [
+      { "id": "comprador", "disparador": "descargo la guia del comprador", "premisa": "Aun explora, quiere entender el proceso y la zona sin sentirse presionado.", "pasos": ["Bienvenida + guia", "Como elegir zona y presupuesto", "Errores a evitar al comprar", "Historias/casos", "Invitacion a una llamada sin compromiso"] },
+      { "id": "vendedor", "disparador": "pidio valoracion de su propiedad", "premisa": "Piensa vender; le importa el precio correcto y no equivocarse.", "pasos": ["Valoracion + siguientes pasos", "Que suma y que resta valor", "Como preparar la propiedad", "Tiempos y costos reales", "Agenda una visita de valoracion"] },
+      { "id": "inversionista", "disparador": "pidio el reporte de mercado", "premisa": "Busca oportunidades y datos, no romanticismo.", "pasos": ["Reporte + tesis de la zona", "Metricas que importan (cap rate, plusvalia)", "Oportunidades del mes", "Financiamiento y estructura", "Hablemos de tu portafolio"] },
+      { "id": "post_visita", "disparador": "visito una propiedad", "premisa": "Ya vio algo concreto; hay interes real.", "pasos": ["Gracias + resumen de lo que vio", "Responde dudas comunes", "Opciones similares", "Como avanzar si le gusto"] }
+    ]
+  },
+
+  "n8n": { "url": "https://hooks.atlantisglobalrealty.com", "cron_procesar": true, "cron_sincronizar": true },
+
+  "crm": { "modulo_nurturing": true, "modulo_correo_frio": true, "modulo_enviados_bandeja": true }
+}
