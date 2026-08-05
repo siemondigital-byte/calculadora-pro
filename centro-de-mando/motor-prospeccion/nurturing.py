@@ -210,13 +210,14 @@ def marcar_rebote(data, ws, email):
 
 
 def marcar_respuesta(data, ws, email):
-    """El inscrito respondio de verdad: se detiene su secuencia (estado
-    'respondio') y cuenta en metricas. Devuelve True si estaba activo."""
+    """El inscrito respondio de verdad: su secuencia se detiene AL INSTANTE
+    (estado 'salido', la misma convencion que usa procesar()) y cuenta en
+    metricas. Devuelve True si estaba activo."""
     nur = _slice(data, ws)
     email = (email or "").lower()
     for inscrito in nur["inscritos"]:
         if inscrito.get("email", "").lower() == email and inscrito.get("estado") == "activo":
-            inscrito["estado"] = "respondio"
+            inscrito["estado"] = "salido"
             nur["metricas"]["respuestas"] = int(nur["metricas"].get("respuestas") or 0) + 1
             return True
     return False
