@@ -124,6 +124,24 @@ def sin_pixel(html):
     return PIXEL_RE.sub("", html or "")
 
 
+def senal_js(objeto, tipo, motor_url):
+    """Script para paginas publicadas: al salir, manda la senal con el TIEMPO
+    DE LECTURA real. Si el navegador esta marcado como propio (misma marca del
+    recortador), el beacon va con ?yo=1: ensena la IP y no cuenta."""
+    return (
+        "<script>(function(){var t0=Date.now();var fin=false;"
+        "function s(){if(fin)return;fin=true;try{"
+        "var yo='';try{if(localStorage.getItem('atlantis_yo')==='1'"
+        "||/[?&]yo=1/.test(location.search))yo='?yo=1';}catch(e){}"
+        "var seg=Math.round((Date.now()-t0)/1000);"
+        f"navigator.sendBeacon('{motor_url}/senal/pagina'+yo,"
+        "JSON.stringify({objeto:'" + str(objeto) + "',tipo:'" + str(tipo) + "',"
+        "segundos:seg}));}catch(e){}}"
+        "window.addEventListener('pagehide',s);"
+        "document.addEventListener('visibilitychange',function(){"
+        "if(document.visibilityState==='hidden')s();});})();</script>")
+
+
 def es_rebote(de, asunto):
     """DSN clasico: remitente de demonio de correo o asunto de fallo."""
     de = (de or "").lower()

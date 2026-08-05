@@ -4827,6 +4827,10 @@ def presupuestos_publicar(body: dict = Body(...), authorization: str = Header(No
         proyectos_html=proy_html, secciones_html=secc_html, prototipo_html=proto_html,
         motor=os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com").rstrip("/"),
         token=reg.get("token", ""))
+    html = html.replace("</body>", rastreo.senal_js(
+        reg["folio"], "presupuesto",
+        os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com").rstrip("/"),
+    ) + "</body>")
     r = web_pub.publicar_html(f"p/{reg['folio']}.html", html)
     if not r.get("ok"):
         raise HTTPException(502, "no se pudo publicar: " + str(r.get("error", ""))[:150])
@@ -4998,6 +5002,48 @@ def nurturing_baja(ws: str = "", e: str = "", t: str = ""):
         "Listo</h2><p>No recibiras mas correos de esta serie.</p></div>"
         "</body></html>"
     )
+
+
+# ------------------------------------------- senales de pagina (bloque 2)
+
+@app.post("/senal/pagina")
+async def senal_pagina(request: Request):
+    """PUBLICO (beacon de las paginas publicadas): registra la visita con su
+    TIEMPO DE LECTURA y avisa por push, MAXIMO UN AVISO AL DIA POR OBJETO.
+    Mismas cuatro capas de exclusion del rastreo de correos."""
+    excluir, _capa = rastreo.es_visita_propia(request)
+    if excluir:
+        return {"ok": True}
+    try:
+        cuerpo = json.loads((await request.body()) or b"{}")
+    except Exception:  # noqa: BLE001
+        return {"ok": True}
+    objeto = str(cuerpo.get("objeto") or "")[:120]
+    if not objeto:
+        return {"ok": True}
+    segundos = max(0, min(3600, int(cuerpo.get("segundos") or 0)))
+    ws = cuerpo.get("ws") if cuerpo.get("ws") in WORKSPACES else "atlantis"
+    data = crm_store.leer() or {"workspace": "atlantis"}
+    senales = data.setdefault(ws, {}).setdefault("senalesPagina", [])
+    reg = next((s for s in senales if s.get("objeto") == objeto), None)
+    if not reg:
+        reg = {"objeto": objeto, "tipo": str(cuerpo.get("tipo") or "")[:40],
+               "visitas": 0, "segundos": 0, "ultimoAviso": 0}
+        senales.append(reg)
+    reg["visitas"] = int(reg.get("visitas") or 0) + 1
+    reg["segundos"] = int(reg.get("segundos") or 0) + segundos
+    reg["ultimaVisita"] = int(time.time())
+    # aviso push: solo lecturas reales (8s+) y maximo uno al dia por objeto
+    ahora = int(time.time())
+    if segundos >= 8 and ahora - int(reg.get("ultimoAviso") or 0) >= 86400:
+        reg["ultimoAviso"] = ahora
+        _push_a_todos(data, ws, {
+            "title": "Están leyendo tu página",
+            "body": f"{reg['tipo'] or 'pagina'} · {objeto} · {segundos}s de lectura",
+            "url": "/",
+        })
+    guardar_seguro(data)
+    return {"ok": True}
 
 
 # ------------------------------------------------------- push web (VAPID)

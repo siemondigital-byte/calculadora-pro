@@ -124,6 +124,37 @@ html = ('<p>Hola</p><img src="https://motor.atlantisglobalrealty.com/nurturing/'
 limpio = rastreo.sin_pixel(html)
 check("la copia pierde el pixel", "nurturing/px" not in limpio and "<p>Hola</p>" in limpio)
 
+
+# --- bloque 2: senales de pagina ------------------------------------------
+avisos = []
+motor._webpush_send = lambda sub, payload: avisos.append(payload)
+data = crm_store.leer()
+data["atlantis"]["pushSubs"] = [{"endpoint": "https://push.example/x"}]
+crm_store.guardar(data)
+
+c.post("/senal/pagina", headers=ROBOT, content='{"objeto":"AGR-1","tipo":"presupuesto","segundos":30}')
+sen = (crm_store.leer()["atlantis"].get("senalesPagina") or [])
+check("senal: robot NO cuenta", not sen, str(sen))
+c.post("/senal/pagina", headers=PERSONA, content='{"objeto":"AGR-1","tipo":"presupuesto","segundos":30}')
+sen = crm_store.leer()["atlantis"]["senalesPagina"]
+check("senal: persona cuenta con tiempo de lectura",
+      sen and sen[0]["visitas"] == 1 and sen[0]["segundos"] == 30, str(sen))
+check("senal: aviso push enviado", len(avisos) == 1 and "AGR-1" in avisos[0]["body"], str(avisos))
+c.post("/senal/pagina", headers=PERSONA, content='{"objeto":"AGR-1","tipo":"presupuesto","segundos":45}')
+sen = crm_store.leer()["atlantis"]["senalesPagina"]
+check("senal: segunda visita cuenta pero NO re-avisa (1/dia por objeto)",
+      sen[0]["visitas"] == 2 and len(avisos) == 1, f"{sen[0]['visitas']}/{len(avisos)}")
+c.post("/senal/pagina", headers=PERSONA, content='{"objeto":"AGR-2","tipo":"presupuesto","segundos":12}')
+check("senal: OTRO objeto si avisa (el tope es por objeto)", len(avisos) == 2, str(len(avisos)))
+c.post("/senal/pagina", headers=PERSONA, content='{"objeto":"AGR-3","tipo":"proyecto","segundos":3}')
+check("senal: lectura de 3s no dispara push (rebote)", len(avisos) == 2, str(len(avisos)))
+c.post("/senal/pagina?yo=1", headers=PERSONA, content='{"objeto":"AGR-1","segundos":60}')
+sen = crm_store.leer()["atlantis"]["senalesPagina"]
+check("senal: ?yo=1 no cuenta", sen[0]["visitas"] == 2, str(sen[0]["visitas"]))
+js = rastreo.senal_js("AGR-1", "presupuesto", "https://motor.x")
+check("senal_js: beacon con objeto, tiempo y marca propia",
+      "/senal/pagina" in js and "atlantis_yo" in js and "pagehide" in js)
+
 print()
 if fallos:
     print(f"FALLOS: {fallos}")

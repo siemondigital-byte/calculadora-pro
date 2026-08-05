@@ -285,7 +285,14 @@ def indice_html(proyectos):
 def publicar(proyecto, todos):
     """Publica la landing del proyecto y regenera el indice /proyectos/ con TODOS
     los publicables (asi la landing queda conectada a la pagina principal)."""
-    r = web_pub.publicar_html(f"proyectos/{proyecto['slug']}/index.html", landing_html(proyecto))
+    import os as _os
+
+    import rastreo
+    html = landing_html(proyecto).replace("</body>", rastreo.senal_js(
+        proyecto["slug"], "proyecto",
+        _os.environ.get("MOTOR_URL", "https://motor.atlantisglobalrealty.com").rstrip("/"),
+    ) + "</body>")
+    r = web_pub.publicar_html(f"proyectos/{proyecto['slug']}/index.html", html)
     if not r.get("ok"):
         return r
     publicables = [p for p in todos if p.get("publicar")]
