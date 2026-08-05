@@ -1696,13 +1696,18 @@ function KitRedes({ data, commit, ws }) {
   const enlaces = data[ws]?.enlacesUTM || [];
   const [destino, setDestino] = useState("https://atlantisglobalrealty.com");
   const [campana, setCampana] = useState("organico");
+  // bilingüe: lo publicado en inglés lleva SUS piezas en inglés (la página
+  // abre en EN vía ?lang=en y la campaña queda separada con sufijo -en)
+  const [idioma, setIdioma] = useState("es");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   const kit = enlaces.filter((e) => e.tipo);
   const armado = (red, tipo) => {
-    const dest = KIT_DESTINO[tipo] || destino;
-    return `${dest}${dest.includes("?") ? "&" : "?"}utm_source=${red}&utm_medium=${tipo === "bio" ? "bio" : "social"}&utm_campaign=${tipo === "bio" ? "perfil" : tipo}`;
+    let dest = KIT_DESTINO[tipo] || destino;
+    if (idioma === "en") dest += dest.includes("?") ? "&lang=en" : "?lang=en";
+    const camp = (tipo === "bio" ? "perfil" : tipo) + (idioma === "en" ? "-en" : "");
+    return `${dest}${dest.includes("?") ? "&" : "?"}utm_source=${red}&utm_medium=${tipo === "bio" ? "bio" : "social"}&utm_campaign=${camp}`;
   };
 
   const generarKit = async () => {
@@ -1715,12 +1720,14 @@ function KitRedes({ data, commit, ws }) {
       for (const tipo of KIT_TIPOS) {
         const enlace = armado(r.red, tipo);
         if (enlaces.some((e) => e.enlace === enlace) || nuevos.some((e) => e.enlace === enlace)) continue;
-        const item = { id: uid("utm"), url: destino, fuente: r.red, tipo, enlace,
-          campana: tipo === "bio" ? "perfil" : tipo, url: KIT_DESTINO[tipo] || destino };
+        const sufijo = idioma === "en" ? "-en" : "";
+        const item = { id: uid("utm"), fuente: r.red, tipo, enlace, idioma,
+          campana: (tipo === "bio" ? "perfil" : tipo) + sufijo,
+          url: KIT_DESTINO[tipo] || destino };
         // TODOS recortados: /r/ig (bio) o /r/ig-post, /r/li-carrusel… así el enlace
         // se ve limpio en cualquier red (no todas recortan como LinkedIn) y cuenta clics
         try {
-          const codigo = tipo === "bio" ? r.corto : `${r.corto}-${tipo}`;
+          const codigo = (tipo === "bio" ? r.corto : `${r.corto}-${tipo}`) + sufijo;
           const rr = await motorPost("/acortar", { url: enlace, codigo, workspace: ws });
           item.cortoUrl = rr.corto;
           if (tipo === "bio") cortos[r.red] = rr.corto;
@@ -1755,7 +1762,11 @@ function KitRedes({ data, commit, ws }) {
       <div className="grid gap-2 sm:grid-cols-4">
         <input className="campo sm:col-span-2" value={destino} onChange={(e) => setDestino(e.target.value)}
           placeholder="Destino (https://…)" />
-        <span className="self-center text-xs text-gris">campaña = tipo de contenido (automático)</span>
+        <select className="campo" value={idioma} onChange={(e) => setIdioma(e.target.value)}
+          title="Las piezas en inglés llevan sus enlaces en inglés (?lang=en y campaña -en)">
+          <option value="es">Piezas en español</option>
+          <option value="en">Piezas en inglés</option>
+        </select>
         <button className="boton" disabled={busy} onClick={generarKit}>
           {busy ? "Creando…" : "Generar kit"}
         </button>

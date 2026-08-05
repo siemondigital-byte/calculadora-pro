@@ -1,6 +1,10 @@
 (function(){
   var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-  var lang=store.get('agr-lang')||((navigator.language||'es').slice(0,2)==='en'?'en':'es');
+  // ?lang=en|es manda sobre todo: una pieza publicada en ingles llega con su
+  // enlace en ingles y la pagina abre EN ingles (y la preferencia persiste)
+  var qlang=(location.search.match(/[?&]lang=(en|es)/)||[])[1]||'';
+  var lang=qlang||store.get('agr-lang')||((navigator.language||'es').slice(0,2)==='en'?'en':'es');
+  if(qlang){store.set('agr-lang',qlang);}
   function applyLang(){document.documentElement.lang=lang;
     document.querySelectorAll('.lang-seg button').forEach(function(b){b.classList.toggle('on',b.dataset.lang===lang)});
     var dict=(window.I18N&&window.I18N[lang])||{};
