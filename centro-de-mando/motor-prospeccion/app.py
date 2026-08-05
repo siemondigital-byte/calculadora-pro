@@ -16,7 +16,7 @@ import secrets as stdlib_secrets
 import time
 import uuid
 
-from fastapi import Body, FastAPI, Header, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 import httpx
@@ -28,6 +28,7 @@ import crm_store
 import nurturing
 import publicar as pub
 import rag
+import rastreo
 import secretos
 import web_pub
 
@@ -697,7 +698,8 @@ def _pagina_corta(codigo, destino):
             "<script>try{var yo=false;try{yo=localStorage.getItem('atlantis_yo')==='1'"
             "||/crm\\.atlantisglobalrealty\\.com/.test(document.referrer||'')||/[?&]yo=1/.test(location.search);"
             "if(yo)localStorage.setItem('atlantis_yo','1');}catch(e){}"
-            f"if(!yo){{navigator.sendBeacon('{base_api}/r/click/{codigo}');}}}}catch(e){{}}"
+            # el beacon con ?yo=1 no cuenta: le ensena tu IP al motor (capa 4)
+            f"navigator.sendBeacon('{base_api}/r/click/{codigo}'+(yo?'?yo=1':''));}}catch(e){{}}"
             f"location.replace('{destino}');</script>"
             f"<a href='{destino}'>Continuar</a></body></html>")
 
@@ -766,8 +768,13 @@ def acortar_lista(authorization: str = Header(None)):
 
 @app.post("/r/click/{codigo}")
 @app.get("/r/click/{codigo}")
-def r_click(codigo: str):
-    """PUBLICO: beacon de clic de un enlace corto (lo dispara la pagina de redireccion)."""
+def r_click(codigo: str, request: Request):
+    """PUBLICO: beacon de clic de un enlace corto (lo dispara la pagina de
+    redireccion). Cuatro capas de exclusion en el servidor; ademas el beacon
+    con ?yo=1 solo APRENDE la IP del dueno, nunca cuenta."""
+    excluir, _capa = rastreo.es_visita_propia(request)
+    if excluir:
+        return {"ok": True}
     try:
         data = crm_store.leer() or {}
         for ws in WORKSPACES:
@@ -4392,6 +4399,15 @@ def leer_correos(body: dict = Body(None), authorization: str = Header(None)):
             de = str(correo.get("de", "")).lower()
             if not de or de == b["email"]:
                 continue
+            # REBOTES (DSN): antes de descartar el correo del demonio, el
+            # destinatario fallido queda registrado y sale del nurturing.
+            if rastreo.es_rebote(de, correo.get("asunto")):
+                propios = {x.get("email", "").lower() for x in buzones.listar_interno()}
+                rebotado = rastreo.destinatario_rebotado(correo.get("texto"), propios)
+                if rebotado:
+                    for w in WORKSPACES:
+                        nurturing.marcar_rebote(data, w, rebotado)
+                continue
             # AUTORESPUESTAS: se ignoran por completo (no entran al hilo ni
             # cuentan como respuesta; solo inflarian las tasas). Cabeceras
             # RFC 3834 + remitentes no humanos + asuntos tipicos.
@@ -4431,6 +4447,7 @@ def leer_correos(body: dict = Body(None), authorization: str = Header(None)):
                 hilo["resumen"] = _sin_em_dash(veredicto.get("resumen") or "")
                 if lead:
                     lead["respondio"] = True  # lo saca del nurturing
+                    nurturing.marcar_respuesta(data, ws, de)
                     if veredicto["clasificacion"] == "baja":
                         nur = slice_ws.get("nurturing") or {}
                         if de not in (nur.get("bajas") or []):
@@ -4904,9 +4921,11 @@ def nurturing_procesar(body: dict = Body(None), authorization: str = Header(None
 
 
 @app.get("/nurturing/px/{tid}.gif")
-def nurturing_pixel(tid: str):
-    """Pixel de apertura (publico)."""
-    data = crm_store.leer()
+def nurturing_pixel(tid: str, request: Request):
+    """Pixel de apertura (publico). Solo cuenta PERSONAS: los escaneres de
+    correo y las visitas propias pasan por las cuatro capas de exclusion."""
+    excluir, _capa = rastreo.es_visita_propia(request)
+    data = None if excluir else crm_store.leer()
     if data:
         cambio = False
         for ws in WORKSPACES:
@@ -4921,16 +4940,29 @@ def nurturing_pixel(tid: str):
 
 
 @app.get("/nurturing/r")
-def nurturing_redirect(ws: str = "", t: str = "", u: str = ""):
+def nurturing_redirect(request: Request, ws: str = "", t: str = "", u: str = ""):
     """Redireccion de clics (publico). Cuenta el clic y manda al destino con
-    UTM. El token HMAC (emitido al enviar) evita que sea un open redirect."""
+    UTM. El token HMAC (emitido al enviar) evita que sea un open redirect.
+    Los escaneres de enlaces (SafeLinks y cia.) y las visitas propias
+    REDIRIGEN igual pero no cuentan."""
     ws = ws if ws in WORKSPACES else "cicloderiqueza"
     if not u.startswith(("https://", "http://")):
         raise HTTPException(400, "destino invalido")
     data = crm_store.leer()
-    if not data or not nurturing.marcar_clic(data, ws, t):
+    if not data:
         raise HTTPException(400, "enlace invalido")
-    guardar_seguro(data)
+    excluir, _capa = rastreo.es_visita_propia(request)
+    if excluir:
+        # el token debe existir (anti open redirect), pero el clic no se suma
+        valido = any(t in (i.get("clicTokens") or [])
+                     for w in WORKSPACES
+                     for i in (nurturing._slice(data, w).get("inscritos") or []))
+        if not valido:
+            raise HTTPException(400, "enlace invalido")
+    elif not nurturing.marcar_clic(data, ws, t):
+        raise HTTPException(400, "enlace invalido")
+    else:
+        guardar_seguro(data)
     destino = u
     if "utm_" not in destino:
         sep = "&" if "?" in destino else "?"

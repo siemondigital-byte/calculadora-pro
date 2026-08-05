@@ -158,19 +158,23 @@ def procesar(data, ws, enviar_fn, base_url="", ahora=None):
         cuerpo, tok_clic = _trackear_links(
             correo.get("cuerpo") or "", base_url, ws, email, paso
         )
+        # pixel unico POR ENVIO: si el mismo paso se reenvia, cada envio
+        # tiene su token y su apertura propia (no un token por paso)
+        import rastreo
+        tok_px = rastreo.token_envio()
         pie = (
             f'<p style="font-size:12px;color:#888">Contenido educativo. No es '
             f'asesoria financiera, legal ni tributaria.<br>'
             f'<a href="{base_url}/nurturing/baja?ws={ws}&e={email}&t={token_baja(email)}">'
             f'Darse de baja</a></p>'
-            f'<img src="{base_url}/nurturing/px/{token_pixel(email, paso)}.gif" '
+            f'<img src="{base_url}/nurturing/px/{tok_px}.gif" '
             f'width="1" height="1" alt="">'
         )
         try:
             enviar_fn(email, correo.get("asunto", ""), cuerpo + pie, remitente)
             inscrito["paso"] = paso + 1
             inscrito["ultimoEnvio"] = ahora
-            inscrito.setdefault("pixeles", []).append(token_pixel(email, paso))
+            inscrito.setdefault("pixeles", []).append(tok_px)
             inscrito.setdefault("clicTokens", []).append(tok_clic)
             nur["metricas"]["enviados"] = int(nur["metricas"].get("enviados") or 0) + 1
             resumen["enviados"] += 1
@@ -188,6 +192,32 @@ def marcar_clic(data, ws, tid):
             if tid not in (inscrito.get("clicados") or []):
                 inscrito.setdefault("clicados", []).append(tid)
                 nur["metricas"]["clics"] = int(nur["metricas"].get("clics") or 0) + 1
+            return True
+    return False
+
+
+def marcar_rebote(data, ws, email):
+    """Un DSN llego para este correo: el inscrito sale de la secuencia (estado
+    'rebote') y la metrica queda registrada. Devuelve True si estaba inscrito."""
+    nur = _slice(data, ws)
+    email = (email or "").lower()
+    for inscrito in nur["inscritos"]:
+        if inscrito.get("email", "").lower() == email and inscrito.get("estado") == "activo":
+            inscrito["estado"] = "rebote"
+            nur["metricas"]["rebotes"] = int(nur["metricas"].get("rebotes") or 0) + 1
+            return True
+    return False
+
+
+def marcar_respuesta(data, ws, email):
+    """El inscrito respondio de verdad: se detiene su secuencia (estado
+    'respondio') y cuenta en metricas. Devuelve True si estaba activo."""
+    nur = _slice(data, ws)
+    email = (email or "").lower()
+    for inscrito in nur["inscritos"]:
+        if inscrito.get("email", "").lower() == email and inscrito.get("estado") == "activo":
+            inscrito["estado"] = "respondio"
+            nur["metricas"]["respuestas"] = int(nur["metricas"].get("respuestas") or 0) + 1
             return True
     return False
 

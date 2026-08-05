@@ -10,6 +10,7 @@ import json
 import os
 import smtplib
 import threading
+import time
 from email.header import decode_header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -196,7 +197,8 @@ def leer_bandeja(buzon_email=None, desde_uid=0, max_correos=200):
 
 
 def enviar(para, asunto, cuerpo_html, desde=None):
-    """Envia un correo HTML. Los tests inyectan un reemplazo de esta funcion."""
+    """Envia un correo HTML. Los tests inyectan un reemplazo de esta funcion.
+    Deja copia en Enviados SIN el pixel (abrir tu propia copia no cuenta)."""
     b = _buzon(desde)
     mensaje = MIMEMultipart("alternative")
     mensaje["From"] = b["email"]
@@ -206,4 +208,37 @@ def enviar(para, asunto, cuerpo_html, desde=None):
     with smtplib.SMTP_SSL(b["host"], b["puerto"], timeout=20) as smtp:
         smtp.login(b.get("usuario") or b["email"], b["password"])
         smtp.sendmail(b["email"], [para], mensaje.as_string())
+    _copiar_a_enviados(b, para, asunto, cuerpo_html)
     return True
+
+
+def _copiar_a_enviados(b, para, asunto, cuerpo_html):
+    """Copia en la carpeta de Enviados del buzon, SIN pixel de apertura.
+    Mejor esfuerzo: si el buzon es solo-envio (relay) o el IMAP falla, el
+    envio ya salio y no se rompe."""
+    if b.get("soloEnvio"):
+        return
+    try:
+        import rastreo
+        copia = MIMEMultipart("alternative")
+        copia["From"] = b["email"]
+        copia["To"] = para
+        copia["Subject"] = asunto
+        copia.attach(MIMEText(rastreo.sin_pixel(cuerpo_html), "html", "utf-8"))
+        host = b.get("imapHost") or "imap.hostinger.com"
+        imap = imaplib.IMAP4_SSL(host, int(b.get("imapPuerto") or 993))
+        try:
+            imap.login(b["email"], b["password"])
+            crudo = copia.as_string().encode()
+            fecha = imaplib.Time2Internaldate(time.time())
+            for carpeta in ("INBOX.Sent", "Sent", "Enviados", "INBOX.Enviados"):
+                ok, _ = imap.append(carpeta, "\\Seen", fecha, crudo)
+                if ok == "OK":
+                    break
+        finally:
+            try:
+                imap.logout()
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        pass
